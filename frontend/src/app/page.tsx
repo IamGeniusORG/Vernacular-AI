@@ -9,6 +9,8 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { Playfair_Display } from "next/font/google";
+import { useLanguage } from "@/context/LanguageContext";
+import LanguageToggle from "@/components/LanguageToggle";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -34,6 +36,7 @@ interface GeneratedProduct {
 
 export default function Home() {
   const router = useRouter();
+  const { t } = useLanguage();
   const supabase = createClient();
   const [artisanId, setArtisanId] = useState<string | null>(null);
 
@@ -239,23 +242,24 @@ export default function Home() {
         {/* ── Header ── */}
         <header className="px-6 pt-10 pb-5 flex items-center justify-between border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-20">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Vernacular AI</h1>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{t('header_title')}</h1>
             <p className="text-slate-500 text-xs font-medium mt-0.5">Seva Innovation Challenge</p>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageToggle />
             {artisanId ? (
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setIsProfileOpen(true)}
                   className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center text-neutral-800 hover:bg-stone-300 transition"
-                  title="Profile Settings"
+                  title={t('profile_settings')}
                 >
                   <User size={16} />
                 </button>
               </div>
             ) : (
               <button onClick={() => router.push('/login')} className="px-4 py-1.5 bg-indigo-600 text-white rounded-full text-sm font-semibold hover:bg-indigo-700 transition">
-                Sign In
+                {t('sign_in')}
               </button>
             )}
           </div>
@@ -273,7 +277,7 @@ export default function Home() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">1</div>
-                    <h2 className="text-base font-bold text-slate-800">Product Photos</h2>
+                    <h2 className="text-base font-bold text-slate-800">{t('product_photos')}</h2>
                   </div>
                   <span className="text-xs text-slate-400 font-medium">{images.length}/8</span>
                 </div>
@@ -309,8 +313,8 @@ export default function Home() {
                         <ImagePlus size={30} strokeWidth={1.5} />
                       </div>
                       <div className="text-center">
-                        <p className="font-semibold text-sm">Tap to add photos</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Up to 8 images</p>
+                        <p className="font-semibold text-sm">{t('upload_photos')}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{t('up_to_8')}</p>
                       </div>
                     </div>
                   </label>
@@ -329,7 +333,7 @@ export default function Home() {
               <section>
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">2</div>
-                  <h2 className="text-base font-bold text-slate-800">Voice Description</h2>
+                  <h2 className="text-base font-bold text-slate-800">{t('voice_desc')}</h2>
                 </div>
 
                 {/* Tab toggle */}
@@ -340,7 +344,7 @@ export default function Home() {
                       onClick={() => setAudioMode(mode)}
                       className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors capitalize ${audioMode === mode ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-700"}`}
                     >
-                      {mode === "record" ? "Record Live" : "Upload File"}
+                      {mode === "record" ? t('record_live') : t('upload_file')}
                     </button>
                   ))}
                 </div>
@@ -359,7 +363,7 @@ export default function Home() {
                         {isRecording ? <AudioLines size={34} className="animate-pulse" /> : <Mic size={34} />}
                       </button>
                       <p className={`text-sm font-semibold ${isRecording ? "text-red-600 animate-pulse" : audioBlob ? "text-emerald-700" : "text-slate-500"}`}>
-                        {isRecording ? `Recording… ${recordingTime}s (release to stop)` : audioBlob ? "✓ Voice captured" : "Hold to speak in Bengali"}
+                        {isRecording ? `Recording… ${recordingTime}s` : audioBlob ? `✓ ${t('audio_selected')}` : t('mic_prompt')}
                       </p>
                     </div>
                   ) : (
@@ -369,13 +373,13 @@ export default function Home() {
                         {audioBlob ? (
                           <div className="flex flex-col items-center gap-2">
                             <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600"><CheckCircle size={26} /></div>
-                            <p className="text-emerald-700 font-bold text-sm">Audio selected</p>
+                            <p className="text-emerald-700 font-bold text-sm">{t('audio_selected')}</p>
                             <p className="text-xs text-slate-400 truncate max-w-xs">{(audioBlob as File).name}</p>
                           </div>
                         ) : (
                           <div className="flex flex-col items-center gap-2">
                             <div className="w-14 h-14 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center text-indigo-600"><UploadCloud size={26} /></div>
-                            <p className="font-bold text-slate-700 text-sm">Browse audio file</p>
+                            <p className="font-bold text-slate-700 text-sm">{t('browse_audio')}</p>
                             <p className="text-xs text-slate-400">MP3 · WAV · M4A · WebM</p>
                           </div>
                         )}
@@ -394,7 +398,7 @@ export default function Home() {
                 <h2 className="text-lg font-extrabold text-slate-900">
                   {results.length} Listing{results.length > 1 ? "s" : ""} Generated
                 </h2>
-                <button onClick={reset} className="text-xs text-slate-500 hover:text-red-500 font-semibold transition">Reset</button>
+                <button onClick={reset} className="text-xs text-slate-500 hover:text-red-500 font-semibold transition">{t('reset')}</button>
               </div>
 
               {results.map((product, i) => (
@@ -441,7 +445,7 @@ export default function Home() {
                       {sharingId === product.product_id ? (
                         <><Loader2 className="animate-spin" size={18} /> Opening...</>
                       ) : (
-                        <><Share2 size={18} /> Share to WhatsApp</>
+                        <><Share2 size={18} /> {t('share_whatsapp')}</>
                       )}
                     </button>
                   </div>
@@ -468,9 +472,9 @@ export default function Home() {
               {isLoading ? (
                 <><Loader2 className="animate-spin" size={22} /> {loadingMsg || "Generating..."}</>
               ) : !artisanId ? (
-                <>Sign in to Generate <User size={18} /></>
+                <>{t('sign_in_to_generate')} <User size={18} /></>
               ) : (
-                <>Generate {images.length > 1 ? `${images.length} Listings` : "Catalog"} <Sparkles size={18} /></>
+                <>{t('generate_btn')} <Sparkles size={18} /></>
               )}
             </button>
           </div>
@@ -487,7 +491,7 @@ export default function Home() {
           <div className="absolute inset-0 z-50 bg-[#F9F8F6] flex flex-col animate-in slide-in-from-bottom-full duration-300">
             {/* Modal Header */}
             <div className="px-6 py-5 flex items-center justify-between border-b border-stone-200 bg-white/90 backdrop-blur-md">
-              <h2 className={`text-xl font-semibold text-neutral-900 ${playfair.className}`}>Profile</h2>
+              <h2 className={`text-xl font-semibold text-neutral-900 ${playfair.className}`}>{t('profile_settings')}</h2>
               <button onClick={() => setIsProfileOpen(false)} className="p-2 text-neutral-500 hover:bg-stone-100 rounded-full transition">
                 <X size={20} />
               </button>
@@ -507,7 +511,7 @@ export default function Home() {
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold text-neutral-800 mb-2">Display Name</label>
+                  <label className="block text-sm font-semibold text-neutral-800 mb-2">{t('display_name')}</label>
                   <input 
                     type="text" 
                     value={profileName}
@@ -517,7 +521,7 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-neutral-800 mb-2">Phone Number</label>
+                  <label className="block text-sm font-semibold text-neutral-800 mb-2">{t('phone_label')}</label>
                   <input 
                     type="text" 
                     value={profilePhone}
@@ -528,7 +532,7 @@ export default function Home() {
                 </div>
 
                 <div className="pt-4 pb-2 border-t border-stone-200">
-                  <h4 className={`text-lg font-bold text-neutral-900 mb-4 ${playfair.className}`}>My Store Link</h4>
+                  <h4 className={`text-lg font-bold text-neutral-900 mb-4 ${playfair.className}`}>{t('my_store_link')}</h4>
                   <div className="flex gap-2">
                     <input 
                       type="text" 
@@ -558,7 +562,7 @@ export default function Home() {
                 className="w-full py-4 bg-emerald-600 text-white rounded-xl text-base font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition shadow-md active:scale-[0.98]"
               >
                 {isSavingProfile ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
-                Save Changes
+                {t('save_changes')}
               </button>
               <button 
                 onClick={() => {
@@ -568,7 +572,7 @@ export default function Home() {
                 className="w-full py-4 bg-stone-100 text-red-600 rounded-xl text-base font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-700 transition active:scale-[0.98]"
               >
                 <LogOut size={20} />
-                Sign Out
+                {t('sign_out')}
               </button>
             </div>
           </div>
