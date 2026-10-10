@@ -5,11 +5,13 @@ from typing import List, Optional
 class GeneratedProduct(BaseModel):
     product_id: str
     image_url: str
+    audio_url: Optional[str] = None
     ai_title_en: str
     ai_title_local: str
     ai_desc_en: str
     ai_desc_local: str
     price_inr: Optional[int] = None
+    suggested_price_range: Optional[str] = None
     tags: List[str]
     whatsapp_link: str
 

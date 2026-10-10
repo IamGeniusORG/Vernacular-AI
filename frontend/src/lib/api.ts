@@ -4,11 +4,13 @@ export interface Product {
   id: string;
   artisan_id: string;
   image_url: string;
+  audio_url: string | null;
   ai_title_en: string;
   ai_title_local: string;
   ai_desc_en: string;
   ai_desc_local: string;
   price_inr: number | null;
+  suggested_price_range: string | null;
   tags: string[];
   created_at: string;
 }
@@ -23,7 +25,7 @@ export interface Artisan {
 
 export async function getArtisan(artisanId: string): Promise<Artisan | null> {
   const res = await fetch(`${API_BASE}/api/v1/artisans/${artisanId}`, {
-    next: { revalidate: 60 },
+    cache: 'no-store',
   });
   if (!res.ok) return null;
   const data = await res.json();
@@ -32,7 +34,7 @@ export async function getArtisan(artisanId: string): Promise<Artisan | null> {
 
 export async function getArtisanProducts(artisanId: string): Promise<Product[]> {
   const res = await fetch(`${API_BASE}/api/v1/products/shop/${artisanId}`, {
-    next: { revalidate: 60 }, // ISR: re-fetch at most once per minute
+    cache: 'no-store',
   });
   if (!res.ok) return [];
   const data = await res.json();

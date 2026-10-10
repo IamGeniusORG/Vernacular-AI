@@ -29,18 +29,21 @@ def _build_whatsapp_link(product: dict, product_id: str) -> str:
     return f"https://wa.me/?text={urllib.parse.quote(text)}"
 
 
+from app.services.storage_service import upload_image, save_product, upload_audio
+
 async def _process_single_image(
     image_file: UploadFile,
     audio_bytes: bytes,
     audio_mime: str,
     artisan_id: str,
 ) -> GeneratedProduct:
-    """Upload image to Supabase, call AI, save to DB, return product."""
+    """Upload image and audio to Supabase, call AI, save to DB, return product."""
     image_bytes = await image_file.read()
     image_mime = image_file.content_type or "image/jpeg"
 
-    # 1. Upload image to Supabase Storage CDN
+    # 1. Upload image and audio to Supabase Storage CDN
     image_url = upload_image(image_bytes, image_mime)
+    audio_url = upload_audio(audio_bytes, audio_mime)
 
     # 2. Call Gemini AI with this image + shared audio
     ai_data = await generate_product_listing(
@@ -51,12 +54,14 @@ async def _process_single_image(
     )
 
     # 3. Persist to Supabase DB (products table)
-    saved = save_product(artisan_id, image_url, ai_data)
+    saved = save_product(artisan_id, image_url, audio_url, ai_data)
     product_id = str(saved.get("id", ""))
 
     return GeneratedProduct(
         product_id=product_id,
         image_url=image_url,
+        audio_url=audio_url,
+        suggested_price_range=ai_data.get("suggested_price_range", ""),
         ai_title_en=ai_data.get("ai_title_en", ""),
         ai_title_local=ai_data.get("ai_title_local", ""),
         ai_desc_en=ai_data.get("ai_desc_en", ""),
@@ -111,5 +116,24 @@ async def get_artisan_products(artisan_id: str):
             .execute()
         )
         return {"status": "success", "products": response.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+from pydantic import BaseModel
+
+class PriceUpdate(BaseModel):
+    price_inr: int
+
+@router.patch("/{product_id}/price")
+async def update_product_price(product_id: str, update: PriceUpdate):
+    try:
+        from app.core.supabase_client import supabase
+        response = (
+            supabase.table("products")
+            .update({"price_inr": update.price_inr})
+            .eq("id", product_id)
+            .execute()
+        )
+        return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

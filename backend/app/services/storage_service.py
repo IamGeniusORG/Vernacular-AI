@@ -21,11 +21,31 @@ def upload_image(image_bytes: bytes, mime_type: str) -> str:
     return supabase.storage.from_(bucket).get_public_url(file_name)
 
 
-def save_product(artisan_id: str, image_url: str, ai_data: dict) -> dict:
+def upload_audio(audio_bytes: bytes, mime_type: str) -> str:
+    """Upload raw audio bytes to Supabase Storage. Returns the public URL."""
+    ext = mime_type.split("/")[-1].split(";")[0] # strip parameters like ;codecs=opus
+    if not ext or ext == "webm":
+        ext = "webm"
+    
+    file_name = f"{uuid.uuid4()}.{ext}"
+    bucket = "product-audio"
+
+    supabase.storage.from_(bucket).upload(
+        path=file_name,
+        file=audio_bytes,
+        file_options={"content-type": mime_type, "upsert": "false"}
+    )
+
+    return supabase.storage.from_(bucket).get_public_url(file_name)
+
+
+def save_product(artisan_id: str, image_url: str, audio_url: str, ai_data: dict) -> dict:
     """Insert a generated product into Supabase products table. Returns inserted row."""
     row = {
         "artisan_id": artisan_id,
         "image_url": image_url,
+        "audio_url": audio_url,
+        "suggested_price_range": ai_data.get("suggested_price_range", ""),
         "ai_title_en":    ai_data.get("ai_title_en", ""),
         "ai_title_local": ai_data.get("ai_title_local", ""),
         "ai_desc_en":     ai_data.get("ai_desc_en", ""),

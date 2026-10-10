@@ -62,7 +62,7 @@ export default async function ShopPage({
     getArtisanProducts(artisan_id)
   ]);
 
-  if (!artisan || !products || products.length === 0) {
+  if (!artisan) {
     notFound();
   }
 

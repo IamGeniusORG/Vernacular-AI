@@ -7,6 +7,7 @@ import { Playfair_Display } from "next/font/google";
 import { Phone, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import LanguageToggle from "@/components/LanguageToggle";
+import { useArtisan } from "@/context/ArtisanContext";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -24,6 +25,7 @@ export default function LoginPage() {
   const supabase = createClient();
 
   const { t } = useLanguage();
+  const { refreshProfile, setUserRole } = useArtisan();
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +47,8 @@ export default function LoginPage() {
     }
   };
 
+  const [selectedRole, setSelectedRole] = useState<"customer" | "artisan">("customer");
+
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -53,17 +57,29 @@ export default function LoginPage() {
     const digitsOnly = phone.replace(/\D/g, "");
     const formattedPhone = `+91${digitsOnly.slice(-10)}`;
 
-    const { error } = await supabase.auth.verifyOtp({
+    const { data, error } = await supabase.auth.verifyOtp({
       phone: formattedPhone,
       token: otp,
       type: "sms",
     });
 
-    setIsLoading(false);
     if (error) {
+      setIsLoading(false);
       setErrorMsg(error.message);
-    } else {
-      router.push("/");
+    } else if (data.user) {
+      // Set role in DB and await it
+      await supabase.from('artisans').update({ user_role: selectedRole }).eq('id', data.user.id);
+      
+      // Refresh global state so the context is aware of the new role
+      setUserRole(selectedRole);
+      await refreshProfile();
+
+      setIsLoading(false);
+      if (selectedRole === "artisan") {
+        router.push("/studio");
+      } else {
+        router.push("/");
+      }
     }
   };
 
@@ -87,6 +103,30 @@ export default function LoginPage() {
 
           {step === "PHONE" ? (
             <form onSubmit={handleSendOtp} className="space-y-6">
+              
+              {/* Role Selection */}
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-neutral-800">Who are you?</label>
+                <div className="grid grid-cols-1 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole("customer")}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${selectedRole === "customer" ? "border-indigo-600 bg-indigo-50" : "border-stone-200 bg-white hover:border-stone-300"}`}
+                  >
+                    <div className="font-bold text-neutral-900">I want to shop</div>
+                    <div className="text-xs text-neutral-500 mt-1">Discover authentic handlooms directly from weavers.</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole("artisan")}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${selectedRole === "artisan" ? "border-amber-600 bg-amber-50" : "border-stone-200 bg-white hover:border-stone-300"}`}
+                  >
+                    <div className="font-bold text-neutral-900">I am an artisan</div>
+                    <div className="text-xs text-neutral-500 mt-1">Sell my craft and digitize my catalog with AI.</div>
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-neutral-800 mb-2">
                   {t('phone_label')}

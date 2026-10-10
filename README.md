@@ -6,9 +6,11 @@ Built for the **Seva Innovation Challenge**.
 
 ## 🚀 Features
 
+* **Two-Sided Discovery Marketplace:** A unified platform serving both Artisans and Buyers. A premium Discovery Marketplace (`/`) for shoppers, and a dedicated Artisan Studio (`/studio`) for weavers to digitize their catalogs.
+* **Dual-Role Authentication:** Smart routing logic during OTP login that detects if a user is a Customer or an Artisan, seamlessly directing them to their respective dashboards.
 * **Zero-Typing Catalog Generation:** Artisans upload images and a voice note; Gemini 2.5 Flash Multimodal AI generates professional bilingual titles, descriptions, and tags.
-* **Premium Storefronts:** Beautiful, responsive, mobile-first storefronts designed to elevate the perceived value of handloom products.
-* **Explore-First Authentication:** Passwordless Phone OTP login via Supabase Auth, allowing unauthenticated users to explore the catalog generation tool before signing up.
+* **Premium Storefronts:** Beautiful, responsive, mobile-first storefronts designed to elevate the perceived value of handloom products, complete with quick-access "Home" and "Studio" navigation for owners.
+* **Global Context & Persistent Profiles:** React Global Context seamlessly manages state, ensuring instant reactivity when artisans update their profiles or roles without needing page reloads.
 * **WhatsApp Commerce:** Zero-friction checkout—buyers contact the artisan directly on WhatsApp with a pre-filled, formatted purchase message and link.
 
 ## 🛠 Tech Stack

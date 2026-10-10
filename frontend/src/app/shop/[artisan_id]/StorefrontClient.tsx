@@ -2,8 +2,10 @@
 "use client";
 
 import { useState } from "react";
-import { ShoppingBag, MessageCircle, BadgeCheck } from "lucide-react";
+import { ShoppingBag, MessageCircle, BadgeCheck, Camera } from "lucide-react";
 import { Product, Artisan } from "@/lib/api";
+import { useArtisan } from "@/context/ArtisanContext";
+import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
 
 const playfair = Playfair_Display({ 
@@ -19,6 +21,8 @@ interface Props {
 
 export default function StorefrontClient({ products, artisan }: Props) {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const { artisanId } = useArtisan();
+  const isOwner = artisanId === artisan.id;
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -46,9 +50,14 @@ export default function StorefrontClient({ products, artisan }: Props) {
           <ShoppingBag size={36} strokeWidth={1.5} />
         </div>
         <h1 className={`text-2xl text-neutral-800 ${playfair.className}`}>No products yet</h1>
-        <p className="text-neutral-500 text-sm max-w-xs font-sans">
+        <p className="text-neutral-500 text-sm max-w-xs font-sans mb-4">
           This artisan hasn&apos;t listed any products. Check back soon!
         </p>
+        {isOwner && (
+          <Link href="/studio" className="px-6 py-3 bg-neutral-900 text-white rounded-full text-sm font-semibold flex items-center gap-2 hover:bg-neutral-800 transition shadow-md">
+            <Camera size={18} /> Generate First Catalog
+          </Link>
+        )}
       </div>
     );
   }
@@ -64,14 +73,26 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
       {/* ── Sticky Header ── */}
       <header className="sticky top-0 z-50 bg-[#F9F8F6]/80 backdrop-blur-md border-b border-stone-200 px-4 md:px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className={`text-xl md:text-2xl text-neutral-900 ${playfair.className}`}>
-            {artisan.full_name}&apos;s Loom
-          </h1>
-          <BadgeCheck size={20} className="text-amber-700 mt-1" />
+        <div className="flex items-center gap-3 md:gap-4">
+          <Link href="/" className="p-2 -ml-2 text-neutral-500 hover:text-neutral-900 hover:bg-stone-200/50 rounded-full transition" title="Back to Directory">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </Link>
+          <div className="flex items-center gap-2">
+            <h1 className={`text-xl md:text-2xl text-neutral-900 ${playfair.className}`}>
+              {artisan.full_name}&apos;s Loom
+            </h1>
+            <BadgeCheck size={20} className="text-amber-700 mt-1" />
+          </div>
         </div>
-        <div className="hidden md:flex text-xs text-neutral-500 uppercase tracking-widest font-semibold items-center gap-1.5">
-          Verified Artisan
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex text-xs text-neutral-500 uppercase tracking-widest font-semibold items-center gap-1.5">
+            Verified Artisan
+          </div>
+          {isOwner && (
+            <Link href="/studio" className="px-4 py-2 bg-neutral-900 text-white rounded-full text-xs font-semibold flex items-center gap-2 hover:bg-neutral-800 transition">
+              <Camera size={14} /> Studio
+            </Link>
+          )}
         </div>
       </header>
 
@@ -104,6 +125,21 @@ export default function StorefrontClient({ products, artisan }: Props) {
             <p className="text-neutral-600 text-base md:text-lg leading-relaxed font-light">
               {hero.ai_desc_en}
             </p>
+            
+            {hero.audio_url && (
+              <div className="mt-4 pt-4 border-t border-stone-100">
+                <span className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                  Voice of the Weaver
+                </span>
+                <audio 
+                  controls 
+                  src={hero.audio_url} 
+                  className="w-full max-w-sm h-10 rounded-full bg-stone-100 [&::-webkit-media-controls-panel]:bg-stone-100 [&::-webkit-media-controls-play-button]:bg-stone-200"
+                >
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            )}
             
             {/* Deliberately omitted "Buy on WhatsApp" button per editorial requirements */}
           </div>
@@ -159,6 +195,17 @@ export default function StorefrontClient({ products, artisan }: Props) {
                     </span>
                   ))}
                 </div>
+
+                {product.audio_url && (
+                  <div className="mt-2 w-full">
+                    <audio 
+                      controls 
+                      src={product.audio_url} 
+                      className="w-full h-8 rounded-full bg-stone-50 [&::-webkit-media-controls-panel]:bg-stone-50"
+                    >
+                    </audio>
+                  </div>
+                )}
 
                 <button
                   onClick={() => handleBuy(product)}
