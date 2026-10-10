@@ -17,3 +17,11 @@ Thumbs.db
 
 # Documents
 Required Documents/
+
+# Local internal docs
+memory.md
+phases.md
+rules.md
+frontend/AGENTS.md
+frontend/CLAUDE.md
+frontend/README.md
