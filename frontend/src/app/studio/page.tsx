@@ -1,12 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Mic, CheckCircle, Share2, Loader2, Sparkles,
-  ImagePlus, AudioLines, UploadCloud, AlertCircle, X, Plus, LogOut, User, Copy, Download
+  ImagePlus, AudioLines, UploadCloud, AlertCircle, X, Plus, LogOut, User, Copy, Download, ShoppingBag
 } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { Playfair_Display } from "next/font/google";
 import { useLanguage } from "@/context/LanguageContext";
@@ -42,11 +41,10 @@ export default function Home() {
   const router = useRouter();
   const { t } = useLanguage();
   const { artisanId, profileName, profilePhone, userRole, saveProfile, logout, isLoading: authLoading } = useArtisan();
-  const supabase = createClient();
 
   useEffect(() => {
     if (!authLoading && artisanId && userRole === "customer") {
-      router.push("/");
+      router.push("/shop");
     }
   }, [authLoading, artisanId, userRole, router]);
 
@@ -606,17 +604,19 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div className="pt-4 pb-2 border-t border-stone-200">
-                      <h4 className={`text-lg font-bold text-neutral-900 mb-4 ${playfair.className}`}>Shop QR Code</h4>
-                      <div className="flex flex-col items-center p-6 bg-white border border-stone-200 rounded-2xl shadow-sm">
-                        <QRCodeCanvas 
-                          id="shop-qr-code" 
-                          value={`${typeof window !== 'undefined' ? window.location.origin : ''}/shop/${artisanId}`} 
-                          size={180} 
-                          bgColor={"#ffffff"}
-                          fgColor={"#171717"}
-                          level={"H"}
-                        />
+                    <div className="pt-4 pb-6 border-t border-stone-200">
+                      <h4 className={`text-base font-bold text-neutral-900 mb-3 text-center ${playfair.className}`}>Shop QR Code</h4>
+                      <div className="flex flex-col items-center p-3.5 bg-white border border-stone-200 rounded-2xl shadow-sm max-w-[210px] mx-auto">
+                        <div className="w-32 h-32 flex items-center justify-center bg-white rounded-xl">
+                          <QRCodeCanvas 
+                            id="shop-qr-code" 
+                            value={`${typeof window !== 'undefined' ? window.location.origin : ''}/shop/${artisanId}`} 
+                            size={120} 
+                            bgColor={"#ffffff"}
+                            fgColor={"#171717"}
+                            level={"H"}
+                          />
+                        </div>
                         <button 
                           onClick={() => {
                             const canvas = document.getElementById("shop-qr-code") as HTMLCanvasElement;
@@ -629,9 +629,9 @@ export default function Home() {
                             downloadLink.click();
                             document.body.removeChild(downloadLink);
                           }}
-                          className="mt-6 w-full py-3 bg-stone-100 text-neutral-900 border border-stone-300 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-stone-200 transition"
+                          className="mt-3 w-full py-2 bg-stone-100 text-neutral-900 border border-stone-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-stone-200 transition"
                         >
-                          <Download size={18} /> Download QR for Shop
+                          <Download size={14} /> Download QR
                         </button>
                       </div>
                     </div>
@@ -641,23 +641,38 @@ export default function Home() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-6 bg-white border-t border-stone-200 flex flex-col gap-3 pb-8">
+            <div className="px-6 pt-5 pb-9 sm:pb-8 bg-white border-t border-stone-200 flex flex-col gap-3 w-full">
+              {/* Primary Action: Save Changes */}
               <button 
                 onClick={handleSaveProfile}
                 disabled={isSavingProfile}
-                className="w-full py-4 bg-emerald-600 text-white rounded-xl text-base font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition shadow-md active:scale-[0.98]"
+                className="w-full h-11 bg-neutral-900 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-neutral-800 transition shadow-sm active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isSavingProfile ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
+                {isSavingProfile ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle size={18} />}
                 {t('save_changes')}
               </button>
+
+              {/* Secondary Action: Browse Marketplace */}
+              <button 
+                onClick={() => {
+                  setIsProfileOpen(false);
+                  router.push("/shop");
+                }}
+                className="w-full h-11 bg-white text-neutral-800 border border-stone-300 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-stone-50 hover:border-stone-400 transition active:scale-[0.99]"
+              >
+                <ShoppingBag size={18} className="text-neutral-600" />
+                Browse Marketplace
+              </button>
+
+              {/* Destructive / Tertiary Action: Sign Out */}
               <button 
                 onClick={() => {
                   setIsProfileOpen(false);
                   handleSignOut();
                 }}
-                className="w-full py-4 bg-stone-100 text-red-600 rounded-xl text-base font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-700 transition active:scale-[0.98]"
+                className="w-full h-11 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-red-100/80 hover:text-red-700 transition active:scale-[0.99]"
               >
-                <LogOut size={20} />
+                <LogOut size={18} />
                 {t('sign_out')}
               </button>
             </div>

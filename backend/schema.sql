@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS artisans (
     phone_number  TEXT UNIQUE NOT NULL,
     full_name     TEXT NOT NULL,
     district      TEXT,
+    user_role     TEXT DEFAULT 'customer',
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 

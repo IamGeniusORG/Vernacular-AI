@@ -10,12 +10,15 @@
 CREATE OR REPLACE FUNCTION public.handle_new_artisan_signup() 
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.artisans (id, phone_number, full_name)
+  INSERT INTO public.artisans (id, phone_number, full_name, user_role)
   VALUES (
     new.id, 
-    COALESCE(new.phone, 'Unknown Phone'), 
-    'New Artisan' -- Default name until they update their profile
-  );
+    COALESCE(new.phone, SUBSTRING(COALESCE(new.email, new.id::text), 1, 15)), 
+    COALESCE(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', 'New Artisan'),
+    COALESCE(new.raw_user_meta_data->>'user_role', 'customer')
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    full_name = COALESCE(EXCLUDED.full_name, public.artisans.full_name);
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

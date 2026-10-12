@@ -45,3 +45,16 @@ async def get_artisan(artisan_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/{artisan_id}")
+async def update_artisan(artisan_id: str, payload: dict):
+    """Update artisan profile fields (user_role, full_name, district)."""
+    try:
+        allowed = {k: v for k, v in payload.items() if k in ["full_name", "user_role", "district"] and v is not None}
+        if not allowed:
+            return {"status": "no_changes"}
+        result = supabase.table("artisans").update(allowed).eq("id", artisan_id).execute()
+        return {"status": "success", "artisan": result.data[0] if result.data else None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

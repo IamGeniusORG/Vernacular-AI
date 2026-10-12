@@ -73,15 +73,19 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
       {/* ── Sticky Header ── */}
       <header className="sticky top-0 z-50 bg-[#F9F8F6]/80 backdrop-blur-md border-b border-stone-200 px-4 md:px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3 md:gap-4">
-          <Link href="/" className="p-2 -ml-2 text-neutral-500 hover:text-neutral-900 hover:bg-stone-200/50 rounded-full transition" title="Back to Directory">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        <div className="flex items-center gap-1 sm:gap-3 min-w-0">
+          <Link 
+            href="/shop" 
+            className="flex items-center justify-center py-3 px-2 -ml-2 text-neutral-600 hover:text-neutral-900 active:bg-stone-200/50 rounded-full transition shrink-0 touch-manipulation" 
+            title="Back to Directory"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </Link>
-          <div className="flex items-center gap-2">
-            <h1 className={`text-xl md:text-2xl text-neutral-900 ${playfair.className}`}>
+          <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
+            <h1 className={`text-lg sm:text-xl md:text-2xl text-neutral-900 truncate ${playfair.className}`}>
               {artisan.full_name}&apos;s Loom
             </h1>
-            <BadgeCheck size={20} className="text-amber-700 mt-1" />
+            <BadgeCheck size={18} className="text-amber-700 shrink-0 mt-0.5" />
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -115,7 +119,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
               <span className="block tracking-widest text-xs font-semibold text-amber-700 uppercase mb-4">
                 ✦ Masterpiece Showcase
               </span>
-              <h2 className={`text-neutral-900 text-4xl md:text-5xl leading-[1.2] ${playfair.className}`}>
+              <h2 className={`text-neutral-900 text-3xl sm:text-4xl md:text-5xl leading-normal md:leading-relaxed ${playfair.className}`}>
                 {hero.ai_title_local}
               </h2>
             </div>
@@ -180,7 +184,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
               {/* Details */}
               <div className="flex flex-col flex-grow space-y-3 px-1">
                 <div className="flex-grow">
-                  <h4 className={`text-neutral-900 text-lg mb-1 leading-tight ${playfair.className}`}>
+                  <h4 className={`text-neutral-900 text-base sm:text-lg mb-1 leading-normal sm:leading-relaxed ${playfair.className}`}>
                     {product.ai_title_local}
                   </h4>
                   <p className="text-neutral-500 text-sm font-light leading-snug line-clamp-2">
