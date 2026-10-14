@@ -9,9 +9,11 @@ export interface Product {
   ai_title_local: string;
   ai_desc_en: string;
   ai_desc_local: string;
-  price_inr: number | null;
-  suggested_price_range: string | null;
+  price_inr?: number | null;
+  price?: number | null;
+  suggested_price_range?: string | null;
   tags: string[];
+  in_stock?: boolean | null;
   created_at: string;
 }
 
@@ -20,7 +22,11 @@ export interface Artisan {
   phone_number: string;
   full_name: string;
   district: string;
+  whatsapp_number?: string | null;
+  upi_id?: string | null;
+  user_role?: string | null;
   created_at: string;
+  products?: Product[];
 }
 
 export async function getArtisan(artisanId: string): Promise<Artisan | null> {

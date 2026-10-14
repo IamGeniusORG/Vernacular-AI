@@ -25,10 +25,34 @@ async def register_artisan(phone_number: str, full_name: str, district: str = ""
 
 @router.get("/")
 async def list_artisans():
-    """Fetch all artisans for the public directory."""
+    """Fetch all artisans with their products for the public directory (excluding customers)."""
     try:
-        result = supabase.table("artisans").select("*").order("created_at", desc=True).execute()
-        return {"status": "success", "artisans": result.data}
+        artisans_res = (
+            supabase.table("artisans")
+            .select("*")
+            .neq("user_role", "customer")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        products_res = (
+            supabase.table("products")
+            .select("*")
+            .order("created_at", desc=True)
+            .execute()
+        )
+
+        products_by_artisan = {}
+        for p in products_res.data or []:
+            products_by_artisan.setdefault(p.get("artisan_id"), []).append(p)
+
+        artisans = []
+        for a in artisans_res.data or []:
+            if a.get("user_role") == "customer":
+                continue
+            a["products"] = products_by_artisan.get(a["id"], [])
+            artisans.append(a)
+
+        return {"status": "success", "artisans": artisans}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -49,9 +73,12 @@ async def get_artisan(artisan_id: str):
 
 @router.patch("/{artisan_id}")
 async def update_artisan(artisan_id: str, payload: dict):
-    """Update artisan profile fields (user_role, full_name, district)."""
+    """Update artisan profile fields (user_role, full_name, district, whatsapp_number, upi_id)."""
     try:
-        allowed = {k: v for k, v in payload.items() if k in ["full_name", "user_role", "district"] and v is not None}
+        allowed = {
+            k: v for k, v in payload.items()
+            if k in ["full_name", "user_role", "district", "whatsapp_number", "upi_id"] and v is not None
+        }
         if not allowed:
             return {"status": "no_changes"}
         result = supabase.table("artisans").update(allowed).eq("id", artisan_id).execute()

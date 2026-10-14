@@ -1,16 +1,19 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Mic, CheckCircle, Share2, Loader2, Sparkles,
-  ImagePlus, AudioLines, UploadCloud, AlertCircle, X, Plus, LogOut, User, Copy, Download, ShoppingBag
+  ImagePlus, AudioLines, UploadCloud, AlertCircle, X, Plus, LogOut, User, Copy, Download, ShoppingBag,
+  Trash2, RefreshCw
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Playfair_Display } from "next/font/google";
 import { useLanguage } from "@/context/LanguageContext";
 import LanguageToggle from "@/components/LanguageToggle";
 import { QRCodeCanvas } from "qrcode.react";
+import { createClient } from "@/utils/supabase/client";
+import { Product } from "@/lib/api";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -40,7 +43,8 @@ import { useArtisan } from "@/context/ArtisanContext";
 export default function Home() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { artisanId, profileName, profilePhone, userRole, saveProfile, logout, isLoading: authLoading } = useArtisan();
+  const { artisanId, profileName, profilePhone, whatsappNumber, upiId, userRole, saveProfile, logout, isLoading: authLoading } = useArtisan();
+  const supabase = createClient();
 
   useEffect(() => {
     if (!authLoading && artisanId && userRole === "customer") {
@@ -50,21 +54,33 @@ export default function Home() {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
-  // Local state for the input field in the modal
+  // Local state for the input fields in the modal
   const [localName, setLocalName] = useState("");
+  const [localWhatsapp, setLocalWhatsapp] = useState("");
+  const [localUpi, setLocalUpi] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Sync modal input when opened
+  // Studio Navigation Tabs
+  const [activeTab, setActiveTab] = useState<"craft" | "catalog">("craft");
+  const [inventory, setInventory] = useState<Product[]>([]);
+  const [isLoadingInventory, setIsLoadingInventory] = useState(false);
+  const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
+  const [isUpdatingPrice, setIsUpdatingPrice] = useState<Record<string, boolean>>({});
+  const [isTogglingStock, setIsTogglingStock] = useState<Record<string, boolean>>({});
+
+  // Sync modal inputs when opened
   useEffect(() => {
     if (isProfileOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocalName(profileName);
+      setLocalName(profileName || "");
+      setLocalWhatsapp(whatsappNumber || profilePhone || "");
+      setLocalUpi(upiId || "");
     }
-  }, [isProfileOpen, profileName]);
+  }, [isProfileOpen, profileName, whatsappNumber, profilePhone, upiId]);
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
-    const success = await saveProfile(localName);
+    const success = await saveProfile(localName, localWhatsapp, localUpi);
     setIsSavingProfile(false);
     if (success) {
       showToast("Profile updated");
@@ -73,6 +89,97 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await logout();
+  };
+
+  const fetchInventory = useCallback(async () => {
+    if (!artisanId) return;
+    setIsLoadingInventory(true);
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("artisan_id", artisanId)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        setInventory(data);
+        const drafts: Record<string, string> = {};
+        data.forEach((p: Product) => {
+          drafts[p.id] = String(p.price ?? p.price_inr ?? "");
+        });
+        setPriceDrafts(drafts);
+      }
+    } catch (err) {
+      console.error("Failed to fetch inventory:", err);
+    } finally {
+      setIsLoadingInventory(false);
+    }
+  }, [artisanId, supabase]);
+
+  useEffect(() => {
+    if (activeTab === "catalog" && artisanId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchInventory();
+    }
+  }, [activeTab, artisanId, fetchInventory]);
+
+  const handleUpdatePrice = async (productId: string) => {
+    const val = parseInt(priceDrafts[productId] || "0", 10);
+    if (isNaN(val) || val <= 0) return;
+    setIsUpdatingPrice((prev) => ({ ...prev, [productId]: true }));
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ price: val, price_inr: val })
+        .eq("id", productId);
+      if (!error) {
+        setInventory((prev) =>
+          prev.map((p) => (p.id === productId ? { ...p, price: val, price_inr: val } : p))
+        );
+        showToast(t("price_updated"));
+      }
+    } catch (err) {
+      console.error("Failed to update price:", err);
+    } finally {
+      setIsUpdatingPrice((prev) => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleToggleStock = async (product: Product) => {
+    const newStock = product.in_stock === false;
+    setIsTogglingStock((prev) => ({ ...prev, [product.id]: true }));
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ in_stock: newStock })
+        .eq("id", product.id);
+      if (!error) {
+        setInventory((prev) =>
+          prev.map((p) => (p.id === product.id ? { ...p, in_stock: newStock } : p))
+        );
+        showToast(newStock ? t("in_stock") : t("sold_out"));
+      }
+    } catch (err) {
+      console.error("Failed to toggle stock:", err);
+    } finally {
+      setIsTogglingStock((prev) => ({ ...prev, [product.id]: false }));
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!window.confirm(t("delete_confirm"))) return;
+    try {
+      const { error } = await supabase
+        .from("products")
+        .delete()
+        .eq("id", productId);
+      if (!error) {
+        setInventory((prev) => prev.filter((p) => p.id !== productId));
+        showToast("Product deleted");
+      }
+    } catch (err) {
+      console.error("Failed to delete product:", err);
+    }
   };
   // Images — multiple
   const [images, setImages] = useState<File[]>([]);
@@ -275,9 +382,175 @@ export default function Home() {
           </div>
         </header>
 
+        {/* ── Segmented Navigation Control ── */}
+        <div className="px-5 pt-3 pb-2 bg-white border-b border-slate-100 z-10 shrink-0">
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            <button
+              onClick={() => setActiveTab("craft")}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === "craft"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Sparkles size={14} className={activeTab === "craft" ? "text-amber-500" : ""} />
+              {t('tab_add_craft')}
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("catalog");
+                fetchInventory();
+              }}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === "catalog"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <ShoppingBag size={14} className={activeTab === "catalog" ? "text-indigo-600" : ""} />
+              {t('tab_my_catalog')}
+            </button>
+          </div>
+        </div>
+
         {/* ── Scrollable Body ── */}
         <div className="flex-1 overflow-y-auto px-5 py-5 pb-36">
-          {!results ? (
+          {activeTab === "catalog" ? (
+            /* ════════════════════ INVENTORY / MY CATALOG VIEW ════════════════════ */
+            <div className="space-y-4 pb-12">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900">
+                    {t('tab_my_catalog')}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {inventory.length} {inventory.length === 1 ? "Creation" : t('creations_count')} listed
+                  </p>
+                </div>
+                <button
+                  onClick={fetchInventory}
+                  disabled={isLoadingInventory}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100 transition active:scale-95"
+                >
+                  <RefreshCw size={12} className={isLoadingInventory ? "animate-spin" : ""} />
+                  Refresh
+                </button>
+              </div>
+
+              {isLoadingInventory ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
+                  <Loader2 className="animate-spin text-slate-400" size={28} />
+                  <p className="text-xs font-medium">Loading catalog...</p>
+                </div>
+              ) : inventory.length === 0 ? (
+                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-8 text-center flex flex-col items-center gap-3 mt-4">
+                  <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-slate-500">
+                    <ShoppingBag size={22} />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-700">{t('no_products_artisan')}</p>
+                  <button
+                    onClick={() => setActiveTab("craft")}
+                    className="mt-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Sparkles size={14} className="text-amber-400" />
+                    {t('tab_add_craft')}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {inventory.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-sm hover:shadow-md transition flex flex-col gap-3"
+                    >
+                      {/* Top row: Image + Info + Delete */}
+                      <div className="flex gap-3 items-start">
+                        <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-slate-100 bg-slate-100">
+                          <img
+                            src={item.image_url}
+                            alt={item.ai_title_en}
+                            className="w-full h-full object-cover object-top"
+                          />
+                          {item.in_stock === false && (
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-wider">
+                              {t('sold_out')}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-slate-900 text-sm leading-snug truncate">
+                            {item.ai_title_local || item.ai_title_en}
+                          </h3>
+                          <p className="text-xs text-slate-500 truncate mt-0.5">
+                            {item.ai_title_en}
+                          </p>
+                          {item.suggested_price_range && (
+                            <span className="inline-block mt-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded-md font-medium truncate max-w-full">
+                              {item.suggested_price_range}
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteProduct(item.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                          title={t('delete_product')}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+
+                      {/* Bottom row: Inline Price Editor & Stock Toggle */}
+                      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            value={priceDrafts[item.id] ?? ""}
+                            onChange={(e) =>
+                              setPriceDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))
+                            }
+                            placeholder="Price"
+                            className="w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                          />
+                          <button
+                            onClick={() => handleUpdatePrice(item.id)}
+                            disabled={isUpdatingPrice[item.id]}
+                            className="px-2.5 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition active:scale-95 disabled:opacity-60"
+                          >
+                            {isUpdatingPrice[item.id] ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              "Save"
+                            )}
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => handleToggleStock(item)}
+                          disabled={isTogglingStock[item.id]}
+                          className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1 active:scale-95 ${
+                            item.in_stock === false
+                              ? "bg-stone-100 text-stone-600 border border-stone-300 hover:bg-stone-200"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                          }`}
+                        >
+                          {isTogglingStock[item.id] ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : item.in_stock === false ? (
+                            <>● {t('sold_out')}</>
+                          ) : (
+                            <>✓ {t('in_stock')}</>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : !results ? (
 
             /* ════════════════════ UPLOAD VIEW ════════════════════ */
             <div className="space-y-7">
@@ -506,7 +779,7 @@ export default function Home() {
         </div>
 
         {/* ── Floating CTA (upload view only) ── */}
-        {!results && (
+        {!results && activeTab === "craft" && (
           <div className="absolute bottom-0 left-0 right-0 px-5 pb-6 pt-10 bg-gradient-to-t from-white via-white to-transparent flex flex-col gap-3 z-10">
             {errorMsg && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-start gap-2.5">
@@ -571,14 +844,27 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-neutral-800 mb-2">{t('phone_label')}</label>
+                  <label className="block text-sm font-semibold text-neutral-800 mb-2">{t('whatsapp_number_label')}</label>
+                  <input 
+                    type="tel" 
+                    value={localWhatsapp}
+                    onChange={(e) => setLocalWhatsapp(e.target.value)}
+                    placeholder={t('whatsapp_number_placeholder')}
+                    className="w-full px-4 py-3.5 bg-white border border-stone-200 rounded-xl text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-800 transition shadow-sm text-sm"
+                  />
+                  <p className="text-xs text-neutral-400 mt-1.5 ml-1">Orders and buyer inquiries on your storefront will be sent here.</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-neutral-800 mb-2">{t('upi_id_label')}</label>
                   <input 
                     type="text" 
-                    value={profilePhone}
-                    disabled
-                    className="w-full px-4 py-3.5 bg-stone-100 border border-stone-200 rounded-xl text-neutral-500 cursor-not-allowed shadow-inner"
+                    value={localUpi}
+                    onChange={(e) => setLocalUpi(e.target.value)}
+                    placeholder={t('upi_id_placeholder')}
+                    className="w-full px-4 py-3.5 bg-white border border-stone-200 rounded-xl text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-800 transition shadow-sm text-sm"
                   />
-                  <p className="text-xs text-neutral-400 mt-2 ml-1">Phone number cannot be changed currently.</p>
+                  <p className="text-xs text-neutral-400 mt-1.5 ml-1">Receive direct zero-commission UPI payments from customers.</p>
                 </div>
 
                 {userRole === "artisan" && (

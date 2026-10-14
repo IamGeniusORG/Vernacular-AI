@@ -9,10 +9,14 @@ interface ArtisanContextType {
   artisanId: string | null;
   profileName: string;
   profilePhone: string;
+  whatsappNumber: string;
+  upiId: string;
   userRole: string;
   setProfileName: (name: string) => void;
+  setWhatsappNumber: (num: string) => void;
+  setUpiId: (id: string) => void;
   setUserRole: (role: string) => void;
-  saveProfile: (newName: string) => Promise<boolean>;
+  saveProfile: (newName: string, newWhatsapp?: string, newUpi?: string) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   isLoading: boolean;
@@ -24,6 +28,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
   const [artisanId, setArtisanId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [upiId, setUpiId] = useState("");
   const [userRole, setUserRole] = useState("customer");
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
@@ -33,7 +39,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await supabase
         .from("artisans")
-        .select("full_name, phone_number, user_role")
+        .select("full_name, phone_number, user_role, whatsapp_number, upi_id")
         .eq("id", userId)
         .maybeSingle();
 
@@ -73,6 +79,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         if (profile && mounted) {
           setProfileName(profile.full_name || "New Artisan");
           setProfilePhone(profile.phone_number || "");
+          setWhatsappNumber(profile.whatsapp_number || "");
+          setUpiId(profile.upi_id || "");
           setUserRole(profile.user_role || "customer");
         }
       }
@@ -91,6 +99,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         if (profile && mounted) {
           setProfileName(profile.full_name || "New Artisan");
           setProfilePhone(profile.phone_number || "");
+          setWhatsappNumber(profile.whatsapp_number || "");
+          setUpiId(profile.upi_id || "");
           setUserRole(profile.user_role || "customer");
         }
       } else {
@@ -98,6 +108,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
           setArtisanId(null);
           setProfileName("");
           setProfilePhone("");
+          setWhatsappNumber("");
+          setUpiId("");
           setUserRole("customer");
         }
       }
@@ -109,15 +121,21 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, fetchProfileData]);
 
-  const saveProfile = async (newName: string) => {
+  const saveProfile = async (newName: string, newWhatsapp?: string, newUpi?: string) => {
     if (!artisanId) return false;
+
+    const payload: { full_name: string; whatsapp_number?: string; upi_id?: string } = {
+      full_name: newName,
+    };
+    if (newWhatsapp !== undefined) payload.whatsapp_number = newWhatsapp;
+    if (newUpi !== undefined) payload.upi_id = newUpi;
 
     // 1. Update via Backend API (service_role)
     try {
       await fetch(`${API_BASE}/api/v1/artisans/${artisanId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name: newName }),
+        body: JSON.stringify(payload),
       });
     } catch (err) {
       console.warn("Backend saveProfile error:", err);
@@ -127,13 +145,15 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     try {
       await supabase
         .from("artisans")
-        .update({ full_name: newName })
+        .update(payload)
         .eq("id", artisanId);
     } catch (err) {
       console.warn("Supabase saveProfile error:", err);
     }
 
     setProfileName(newName);
+    if (newWhatsapp !== undefined) setWhatsappNumber(newWhatsapp);
+    if (newUpi !== undefined) setUpiId(newUpi);
     return true;
   };
 
@@ -142,6 +162,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     setArtisanId(null);
     setProfileName("");
     setProfilePhone("");
+    setWhatsappNumber("");
+    setUpiId("");
     setUserRole("customer");
   };
 
@@ -155,6 +177,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       if (profile) {
         setProfileName(profile.full_name || "New Artisan");
         setProfilePhone(profile.phone_number || "");
+        setWhatsappNumber(profile.whatsapp_number || "");
+        setUpiId(profile.upi_id || "");
         setUserRole(profile.user_role || "customer");
       }
     }
@@ -166,8 +190,12 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         artisanId,
         profileName,
         profilePhone,
+        whatsappNumber,
+        upiId,
         userRole,
         setProfileName,
+        setWhatsappNumber,
+        setUpiId,
         setUserRole,
         saveProfile,
         logout,

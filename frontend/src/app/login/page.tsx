@@ -16,14 +16,14 @@ const playfair = Playfair_Display({
 
 function LoginContent() {
   const searchParams = useSearchParams();
-  const paramError = searchParams.get("error");
+  const paramError = searchParams.get("error_description") || searchParams.get("error");
   const derivedError =
     paramError === "auth_callback_failed" || paramError === "auth_failed"
       ? "Authentication failed or was cancelled. Please try again."
       : paramError === "session_missing"
       ? "Session expired or missing. Please sign in again."
       : paramError
-      ? "An error occurred during sign in. Please try again."
+      ? decodeURIComponent(paramError)
       : "";
 
   const [selectedRole, setSelectedRole] = useState<"customer" | "artisan">("customer");
@@ -45,7 +45,10 @@ function LoginContent() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?role=${selectedRole}`,
+          redirectTo: `${window.location.origin}/auth/sync`,
+          queryParams: {
+            prompt: "select_account",
+          },
         },
       });
 

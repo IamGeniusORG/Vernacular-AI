@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useArtisan } from "@/context/ArtisanContext";
 import { Playfair_Display } from "next/font/google";
 import { Loader2, Sparkles } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -25,85 +26,125 @@ function AuthSyncContent() {
 
     async function syncProfile() {
       try {
-        // 1. Get authenticated user
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+        // 1. Check if the URL has an error_description or error from Supabase/Google
+        const errorDesc = searchParams.get("error_description") || searchParams.get("error");
+        if (errorDesc) {
+          console.error("OAuth error received from provider:", errorDesc);
+          router.push(`/login?error=${encodeURIComponent(errorDesc)}`);
+          return;
+        }
 
-        if (userError || !user) {
-          console.error("No active user session found:", userError);
+        // 2. Check if the URL has a ?code= parameter and exchange code for session if needed
+        const code = searchParams.get("code");
+        if (code) {
+          try {
+            const { data: sessionCheck } = await supabase.auth.getSession();
+            if (!sessionCheck?.session) {
+              await supabase.auth.exchangeCodeForSession(code);
+            }
+          } catch (codeErr) {
+            console.warn("exchangeCodeForSession notice (may already be exchanged):", codeErr);
+          }
+        }
+
+        // 3. Retry getting session/user with 500ms delays before declaring authentication failed
+        let user: User | null = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user) {
+            user = userData.user;
+            break;
+          }
+
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session?.user) {
+            user = sessionData.session.user;
+            break;
+          }
+
+          // Delay 500ms before retrying
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          if (!mounted) return;
+        }
+
+        if (!user) {
+          console.error("No active user session found after retry attempts");
           router.push("/login?error=session_missing");
           return;
         }
 
-        // 2. Read intended role from URL query param first, then localStorage
-        const paramRole = searchParams.get("role");
+        // 4. Read intended role from localStorage (or fallback to URL param), defaulting to 'customer'
         const storedRole =
           typeof window !== "undefined"
             ? localStorage.getItem("intended_role")
             : null;
-
-        const targetRole =
-          paramRole === "artisan" || storedRole === "artisan"
+        const paramRole = searchParams.get("role");
+        const intendedRole =
+          storedRole === "artisan" || paramRole === "artisan"
             ? "artisan"
             : "customer";
 
         const googleName =
           user.user_metadata?.full_name ||
           user.user_metadata?.name ||
-          (user.email ? user.email.split("@")[0] : "New Artisan");
+          (user.email ? user.email.split("@")[0] : "New User");
 
         if (mounted) {
           setSyncStatus(
-            targetRole === "artisan"
+            intendedRole === "artisan"
               ? "Setting up your Artisan Studio..."
               : "Preparing Discovery Marketplace..."
           );
         }
 
-        // 3. Update profile via Backend API (bypasses RLS with service_role)
-        const updatePayload: { user_role: string; full_name?: string } = {
-          user_role: targetRole,
-        };
-        if (googleName && googleName !== "New Artisan") {
-          updatePayload.full_name = googleName;
+        // 5. Use .upsert() so the profile row is guaranteed to exist
+        try {
+          const { error: upsertErr } = await supabase
+            .from("artisans")
+            .upsert(
+              {
+                id: user.id,
+                full_name: googleName,
+                user_role: intendedRole,
+              },
+              { onConflict: "id" }
+            );
+
+          if (upsertErr) {
+            console.error("Supabase upsert profile error:", upsertErr);
+          }
+        } catch (dbErr) {
+          console.error("Supabase client upsert error:", dbErr);
         }
 
+        // Also sync via backend API with service_role key to bypass RLS
         try {
           const apiBase =
             process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
           await fetch(`${apiBase}/api/v1/artisans/${user.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(updatePayload),
+            body: JSON.stringify({
+              user_role: intendedRole,
+              full_name: googleName,
+            }),
           });
         } catch (apiErr) {
-          console.error("Backend artisan sync error:", apiErr);
+          console.warn("Backend artisan sync notice:", apiErr);
         }
 
-        // Also execute client-side update
-        try {
-          await supabase
-            .from("artisans")
-            .update(updatePayload)
-            .eq("id", user.id);
-        } catch (dbErr) {
-          console.error("Supabase client update error:", dbErr);
-        }
-
-        // 4. Update global context
-        setUserRole(targetRole);
+        // 6. Update global context
+        setUserRole(intendedRole);
         await refreshProfile();
 
-        // 5. Clear localStorage intended_role
+        // 7. Clear localStorage intended_role
         if (typeof window !== "undefined") {
           localStorage.removeItem("intended_role");
         }
 
-        // 6. Redirect to the appropriate destination
+        // 8. Redirect 'artisan' to /studio and 'customer' to /shop
         if (mounted) {
-          if (targetRole === "artisan") {
+          if (intendedRole === "artisan") {
             router.push("/studio");
           } else {
             router.push("/shop");

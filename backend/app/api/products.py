@@ -2,13 +2,19 @@ import asyncio
 import urllib.parse
 import uuid
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException
+from pydantic import BaseModel
 from typing import List
 
+from app.core.supabase_client import supabase
 from app.services.ai_service import generate_product_listing
-from app.services.storage_service import upload_image, save_product
+from app.services.storage_service import upload_image, save_product, upload_audio
 from app.schemas.product import BatchProductResponse, GeneratedProduct
 
 router = APIRouter()
+
+
+class PriceUpdate(BaseModel):
+    price_inr: int
 
 
 def _build_whatsapp_link(product: dict, product_id: str) -> str:
@@ -28,8 +34,6 @@ def _build_whatsapp_link(product: dict, product_id: str) -> str:
     ])
     return f"https://wa.me/?text={urllib.parse.quote(text)}"
 
-
-from app.services.storage_service import upload_image, save_product, upload_audio
 
 async def _process_single_image(
     image_file: UploadFile,
@@ -107,7 +111,6 @@ async def generate_listing(
 async def get_artisan_products(artisan_id: str):
     """Fetch all products for a given artisan (used by the public storefront)."""
     try:
-        from app.core.supabase_client import supabase
         response = (
             supabase.table("products")
             .select("*")
@@ -119,15 +122,10 @@ async def get_artisan_products(artisan_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-from pydantic import BaseModel
-
-class PriceUpdate(BaseModel):
-    price_inr: int
 
 @router.patch("/{product_id}/price")
 async def update_product_price(product_id: str, update: PriceUpdate):
     try:
-        from app.core.supabase_client import supabase
         response = (
             supabase.table("products")
             .update({"price_inr": update.price_inr})
