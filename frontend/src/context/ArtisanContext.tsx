@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -11,16 +12,31 @@ interface ArtisanContextType {
   profilePhone: string;
   whatsappNumber: string;
   upiId: string;
+  paypalEmail: string;
   userRole: string;
   setProfileName: (name: string) => void;
   setWhatsappNumber: (num: string) => void;
   setUpiId: (id: string) => void;
+  setPaypalEmail: (email: string) => void;
   setUserRole: (role: string) => void;
-  saveProfile: (newName: string, newWhatsapp?: string, newUpi?: string) => Promise<boolean>;
+  saveProfile: (newName: string, newWhatsapp?: string, newUpi?: string, newPaypalEmail?: string) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   isLoading: boolean;
 }
+
+const cleanPhone = (val?: string | null): string => {
+  if (!val) return "";
+  const s = val.trim();
+  if (
+    s.toLowerCase().includes("unknown") ||
+    s.toLowerCase() === "null" ||
+    s.toLowerCase() === "undefined"
+  ) {
+    return "";
+  }
+  return s;
+};
 
 const ArtisanContext = createContext<ArtisanContextType | undefined>(undefined);
 
@@ -30,6 +46,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
   const [profilePhone, setProfilePhone] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [upiId, setUpiId] = useState("");
+  const [paypalEmail, setPaypalEmail] = useState("");
   const [userRole, setUserRole] = useState("customer");
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
@@ -39,7 +56,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await supabase
         .from("artisans")
-        .select("full_name, phone_number, user_role, whatsapp_number, upi_id")
+        .select("full_name, phone_number, user_role, whatsapp_number, upi_id, paypal_email")
         .eq("id", userId)
         .maybeSingle();
 
@@ -78,9 +95,10 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
 
         if (profile && mounted) {
           setProfileName(profile.full_name || "New Artisan");
-          setProfilePhone(profile.phone_number || "");
-          setWhatsappNumber(profile.whatsapp_number || "");
+          setProfilePhone(cleanPhone(profile.phone_number));
+          setWhatsappNumber(cleanPhone(profile.whatsapp_number));
           setUpiId(profile.upi_id || "");
+          setPaypalEmail(profile.paypal_email || "");
           setUserRole(profile.user_role || "customer");
         }
       }
@@ -91,16 +109,17 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event: unknown, session: Session | null) => {
       if (session?.user) {
         if (mounted) setArtisanId(session.user.id);
         const profile = await fetchProfileData(session.user.id);
 
         if (profile && mounted) {
           setProfileName(profile.full_name || "New Artisan");
-          setProfilePhone(profile.phone_number || "");
-          setWhatsappNumber(profile.whatsapp_number || "");
+          setProfilePhone(cleanPhone(profile.phone_number));
+          setWhatsappNumber(cleanPhone(profile.whatsapp_number));
           setUpiId(profile.upi_id || "");
+          setPaypalEmail(profile.paypal_email || "");
           setUserRole(profile.user_role || "customer");
         }
       } else {
@@ -110,6 +129,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
           setProfilePhone("");
           setWhatsappNumber("");
           setUpiId("");
+          setPaypalEmail("");
           setUserRole("customer");
         }
       }
@@ -121,14 +141,25 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, fetchProfileData]);
 
-  const saveProfile = async (newName: string, newWhatsapp?: string, newUpi?: string) => {
+  const saveProfile = async (
+    newName: string,
+    newWhatsapp?: string,
+    newUpi?: string,
+    newPaypalEmail?: string
+  ) => {
     if (!artisanId) return false;
 
-    const payload: { full_name: string; whatsapp_number?: string; upi_id?: string } = {
-      full_name: newName,
+    const payload: {
+      full_name: string;
+      whatsapp_number?: string;
+      upi_id?: string;
+      paypal_email?: string;
+    } = {
+      full_name: newName.trim(),
     };
-    if (newWhatsapp !== undefined) payload.whatsapp_number = newWhatsapp;
-    if (newUpi !== undefined) payload.upi_id = newUpi;
+    if (newWhatsapp !== undefined) payload.whatsapp_number = cleanPhone(newWhatsapp);
+    if (newUpi !== undefined) payload.upi_id = newUpi.trim();
+    if (newPaypalEmail !== undefined) payload.paypal_email = newPaypalEmail.trim();
 
     // 1. Update via Backend API (service_role)
     try {
@@ -151,9 +182,10 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       console.warn("Supabase saveProfile error:", err);
     }
 
-    setProfileName(newName);
-    if (newWhatsapp !== undefined) setWhatsappNumber(newWhatsapp);
-    if (newUpi !== undefined) setUpiId(newUpi);
+    setProfileName(newName.trim());
+    if (newWhatsapp !== undefined) setWhatsappNumber(cleanPhone(newWhatsapp));
+    if (newUpi !== undefined) setUpiId(newUpi.trim());
+    if (newPaypalEmail !== undefined) setPaypalEmail(newPaypalEmail.trim());
     return true;
   };
 
@@ -164,6 +196,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     setProfilePhone("");
     setWhatsappNumber("");
     setUpiId("");
+    setPaypalEmail("");
     setUserRole("customer");
   };
 
@@ -176,9 +209,10 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       const profile = await fetchProfileData(session.user.id);
       if (profile) {
         setProfileName(profile.full_name || "New Artisan");
-        setProfilePhone(profile.phone_number || "");
-        setWhatsappNumber(profile.whatsapp_number || "");
+        setProfilePhone(cleanPhone(profile.phone_number));
+        setWhatsappNumber(cleanPhone(profile.whatsapp_number));
         setUpiId(profile.upi_id || "");
+        setPaypalEmail(profile.paypal_email || "");
         setUserRole(profile.user_role || "customer");
       }
     }
@@ -192,10 +226,12 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         profilePhone,
         whatsappNumber,
         upiId,
+        paypalEmail,
         userRole,
         setProfileName,
         setWhatsappNumber,
         setUpiId,
+        setPaypalEmail,
         setUserRole,
         saveProfile,
         logout,

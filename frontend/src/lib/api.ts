@@ -11,7 +11,10 @@ export interface Product {
   ai_desc_local: string;
   price_inr?: number | null;
   price?: number | null;
+  price_usd?: number | null;
   suggested_price_range?: string | null;
+  suggested_usd_price?: number | null;
+  export_description?: string | null;
   tags: string[];
   in_stock?: boolean | null;
   created_at: string;
@@ -24,6 +27,7 @@ export interface Artisan {
   district: string;
   whatsapp_number?: string | null;
   upi_id?: string | null;
+  paypal_email?: string | null;
   user_role?: string | null;
   created_at: string;
   products?: Product[];

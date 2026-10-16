@@ -40,6 +40,8 @@ next-env.d.ts
 __pycache__/
 *.pyc
 venv/
+.venv/
+*.log
 
 # Env & Secrets
 .env

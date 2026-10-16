@@ -13,6 +13,9 @@ SYSTEM_PROMPT = (
     "based on the context of the audio. "
     "Also, estimate a 'Fair Market Price Range' based on the detected weave/fabric "
     "(e.g., Khadi, Jamdani, Taant) and the quality described. "
+    "In addition to the local INR price, estimate a premium International USD Price (suggested_usd_price, e.g. 45.00) "
+    "for this handloom item targeting US/EU boutique markets. "
+    "Also generate a short export_description strictly in English emphasizing the heritage craft, artisanal authenticity, and weaving technique. "
     "Output ONLY a strict JSON object with these keys: "
     "'ai_title_en' (English title), "
     "'ai_title_local' (Bengali title), "
@@ -20,6 +23,8 @@ SYSTEM_PROMPT = (
     "'ai_desc_local' (Bengali description), "
     "'price_inr' (integer, null if not mentioned), "
     "'suggested_price_range' (e.g., '₹1500 - ₹2500'), "
+    "'suggested_usd_price' (numeric float/integer, e.g., 45.00), "
+    "'export_description' (English description emphasizing artisanal heritage for global buyers), "
     "and 'tags' (array of 3-4 strings like 'Taant', 'Cotton'). "
     "No markdown."
 )

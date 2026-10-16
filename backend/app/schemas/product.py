@@ -12,6 +12,9 @@ class GeneratedProduct(BaseModel):
     ai_desc_local: str
     price_inr: Optional[int] = None
     suggested_price_range: Optional[str] = None
+    price_usd: Optional[float] = None
+    suggested_usd_price: Optional[float] = None
+    export_description: Optional[str] = None
     tags: List[str]
     whatsapp_link: str
 

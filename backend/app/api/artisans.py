@@ -75,9 +75,10 @@ async def get_artisan(artisan_id: str):
 async def update_artisan(artisan_id: str, payload: dict):
     """Update artisan profile fields (user_role, full_name, district, whatsapp_number, upi_id)."""
     try:
+        allowed_keys = ["full_name", "user_role", "district", "whatsapp_number", "upi_id", "paypal_email"]
         allowed = {
-            k: v for k, v in payload.items()
-            if k in ["full_name", "user_role", "district", "whatsapp_number", "upi_id"] and v is not None
+            k: ("" if v is None else v) for k, v in payload.items()
+            if k in allowed_keys
         }
         if not allowed:
             return {"status": "no_changes"}

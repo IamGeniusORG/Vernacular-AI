@@ -4,6 +4,7 @@ import { Artisan, Product } from "@/lib/api";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 // ─── API Helper ──────────────────────────────────────────────────────────────
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";

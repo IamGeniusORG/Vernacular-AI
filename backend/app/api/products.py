@@ -3,7 +3,7 @@ import urllib.parse
 import uuid
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 from app.core.supabase_client import supabase
 from app.services.ai_service import generate_product_listing
@@ -14,7 +14,10 @@ router = APIRouter()
 
 
 class PriceUpdate(BaseModel):
-    price_inr: int
+    price_inr: Optional[int] = None
+    price: Optional[int] = None
+    price_usd: Optional[float] = None
+    suggested_usd_price: Optional[float] = None
 
 
 def _build_whatsapp_link(product: dict, product_id: str) -> str:
@@ -40,14 +43,14 @@ async def _process_single_image(
     audio_bytes: bytes,
     audio_mime: str,
     artisan_id: str,
+    audio_url: str,
 ) -> GeneratedProduct:
-    """Upload image and audio to Supabase, call AI, save to DB, return product."""
+    """Upload image to Supabase, call AI, save to DB, return product."""
     image_bytes = await image_file.read()
     image_mime = image_file.content_type or "image/jpeg"
 
-    # 1. Upload image and audio to Supabase Storage CDN
+    # 1. Upload image to Supabase Storage CDN
     image_url = upload_image(image_bytes, image_mime)
-    audio_url = upload_audio(audio_bytes, audio_mime)
 
     # 2. Call Gemini AI with this image + shared audio
     ai_data = await generate_product_listing(
@@ -60,17 +63,23 @@ async def _process_single_image(
     # 3. Persist to Supabase DB (products table)
     saved = save_product(artisan_id, image_url, audio_url, ai_data)
     product_id = str(saved.get("id", ""))
+    effective_price = saved.get("price") or saved.get("price_inr") or ai_data.get("price_inr")
+    effective_usd = saved.get("price_usd") or ai_data.get("suggested_usd_price")
+    export_desc = saved.get("export_description") or ai_data.get("export_description", "")
 
     return GeneratedProduct(
         product_id=product_id,
         image_url=image_url,
         audio_url=audio_url,
         suggested_price_range=ai_data.get("suggested_price_range", ""),
+        suggested_usd_price=effective_usd,
+        price_usd=effective_usd,
+        export_description=export_desc,
         ai_title_en=ai_data.get("ai_title_en", ""),
         ai_title_local=ai_data.get("ai_title_local", ""),
         ai_desc_en=ai_data.get("ai_desc_en", ""),
         ai_desc_local=ai_data.get("ai_desc_local", ""),
-        price_inr=ai_data.get("price_inr"),
+        price_inr=effective_price,
         tags=ai_data.get("tags", []),
         whatsapp_link=_build_whatsapp_link(ai_data, product_id),
     )
@@ -90,9 +99,12 @@ async def generate_listing(
         audio_bytes = await audio.read()
         audio_mime = audio.content_type or "audio/webm"
 
+        # Upload audio to product-audio bucket once
+        audio_url = upload_audio(audio_bytes, audio_mime)
+
         # Process all images concurrently
         tasks = [
-            _process_single_image(img, audio_bytes, audio_mime, str(artisan_id))
+            _process_single_image(img, audio_bytes, audio_mime, str(artisan_id), audio_url)
             for img in images
         ]
         products = await asyncio.gather(*tasks)
@@ -126,12 +138,21 @@ async def get_artisan_products(artisan_id: str):
 @router.patch("/{product_id}/price")
 async def update_product_price(product_id: str, update: PriceUpdate):
     try:
-        response = (
-            supabase.table("products")
-            .update({"price_inr": update.price_inr})
-            .eq("id", product_id)
-            .execute()
-        )
-        return {"status": "success"}
+        val = update.price if update.price is not None else update.price_inr
+        patch_data = {}
+        if val is not None:
+            patch_data["price_inr"] = val
+            patch_data["price"] = val
+        if update.price_usd is not None:
+            patch_data["price_usd"] = update.price_usd
+            patch_data["suggested_usd_price"] = update.price_usd
+
+        if not patch_data:
+            raise HTTPException(status_code=400, detail="Price or price_usd is required")
+
+        supabase.table("products").update(patch_data).eq("id", product_id).execute()
+        return {"status": "success", "updated": patch_data}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
-  Mic, CheckCircle, Share2, Loader2, Sparkles,
+  Mic, CheckCircle, Check, Share2, Loader2, Sparkles,
   ImagePlus, AudioLines, UploadCloud, AlertCircle, X, Plus, LogOut, User, Copy, Download, ShoppingBag,
   Trash2, RefreshCw
 } from "lucide-react";
@@ -12,8 +12,20 @@ import { Playfair_Display } from "next/font/google";
 import { useLanguage } from "@/context/LanguageContext";
 import LanguageToggle from "@/components/LanguageToggle";
 import { QRCodeCanvas } from "qrcode.react";
+import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
 import { Product } from "@/lib/api";
+import { useArtisan } from "@/context/ArtisanContext";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+function parseNumericSuggestedPrice(range?: string | null): number {
+  if (!range) return 1500;
+  const match = range.match(/\d[\d,]*/);
+  if (!match) return 1500;
+  const val = parseInt(match[0].replace(/,/g, ""), 10);
+  return isNaN(val) || val <= 0 ? 1500 : val;
+}
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -31,19 +43,20 @@ interface GeneratedProduct {
   ai_desc_en: string;
   ai_desc_local: string;
   price_inr: number | null;
+  price_usd?: number | null;
   suggested_price_range: string | null;
+  suggested_usd_price?: number | null;
+  export_description?: string | null;
   tags: string[];
   whatsapp_link: string;
 }
-
-import { useArtisan } from "@/context/ArtisanContext";
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Home() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { artisanId, profileName, profilePhone, whatsappNumber, upiId, userRole, saveProfile, logout, isLoading: authLoading } = useArtisan();
+  const { artisanId, profileName, profilePhone, whatsappNumber, upiId, paypalEmail, userRole, saveProfile, logout, isLoading: authLoading } = useArtisan();
   const supabase = createClient();
 
   useEffect(() => {
@@ -58,32 +71,120 @@ export default function Home() {
   const [localName, setLocalName] = useState("");
   const [localWhatsapp, setLocalWhatsapp] = useState("");
   const [localUpi, setLocalUpi] = useState("");
+  const [localPaypal, setLocalPaypal] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Studio Navigation Tabs
+  // Studio Navigation Tabs & Catalog State
   const [activeTab, setActiveTab] = useState<"craft" | "catalog">("craft");
-  const [inventory, setInventory] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const inventory = products;
+  const setInventory = setProducts;
   const [isLoadingInventory, setIsLoadingInventory] = useState(false);
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [isUpdatingPrice, setIsUpdatingPrice] = useState<Record<string, boolean>>({});
   const [isTogglingStock, setIsTogglingStock] = useState<Record<string, boolean>>({});
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
+
+  // Sync user state from Supabase Auth & ArtisanContext
+  useEffect(() => {
+    let isMounted = true;
+    async function loadUser() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && isMounted) {
+          setUser({ id: session.user.id, email: session.user.email });
+        } else if (artisanId && isMounted) {
+          setUser({ id: artisanId });
+        }
+      } catch (e) {
+        console.warn("Failed to get session user:", e);
+      }
+    }
+    loadUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: unknown, session: Session | null) => {
+      if (session?.user && isMounted) {
+        setUser({ id: session.user.id, email: session.user.email });
+      } else if (!session && isMounted) {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [artisanId, supabase]);
+
+  useEffect(() => {
+    if (artisanId && (!user || user.id !== artisanId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setUser({ id: artisanId });
+    }
+  }, [artisanId, user]);
+
+  // Generated results price override states
+  const [customPrices, setCustomPrices] = useState<Record<string, string>>({});
+  const [isSavingProductPrice, setIsSavingProductPrice] = useState<Record<string, boolean>>({});
+  const [savedProductPrice, setSavedProductPrice] = useState<Record<string, boolean>>({});
+  const [isPublishingAll, setIsPublishingAll] = useState(false);
 
   // Sync modal inputs when opened
   useEffect(() => {
     if (isProfileOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalName(profileName || "");
-      setLocalWhatsapp(whatsappNumber || profilePhone || "");
+      const rawW = whatsappNumber || profilePhone || "";
+      const safeWhatsapp = rawW.toLowerCase().includes("unknown") ? "" : rawW;
+      setLocalWhatsapp(safeWhatsapp);
       setLocalUpi(upiId || "");
+      setLocalPaypal(paypalEmail || "");
     }
-  }, [isProfileOpen, profileName, whatsappNumber, profilePhone, upiId]);
+  }, [isProfileOpen, profileName, whatsappNumber, profilePhone, upiId, paypalEmail]);
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
-    const success = await saveProfile(localName, localWhatsapp, localUpi);
-    setIsSavingProfile(false);
-    if (success) {
-      showToast("Profile updated");
+    try {
+      const targetId = user?.id || artisanId;
+      const cleanW = localWhatsapp.trim();
+      const safeWhatsapp = cleanW.toLowerCase().includes("unknown") ? "" : cleanW;
+
+      if (targetId) {
+        const payload: {
+          full_name: string;
+          whatsapp_number?: string;
+          upi_id?: string;
+          paypal_email?: string;
+        } = {
+          full_name: localName.trim(),
+          whatsapp_number: safeWhatsapp,
+          upi_id: localUpi.trim(),
+          paypal_email: localPaypal.trim(),
+        };
+
+        const { error } = await supabase
+          .from("artisans")
+          .update(payload)
+          .eq("id", targetId);
+
+        if (error) {
+          console.warn("Direct Supabase update error:", error);
+        }
+      }
+
+      const success = await saveProfile(localName.trim(), safeWhatsapp, localUpi.trim(), localPaypal.trim());
+      if (success) {
+        router.refresh();
+        showToast("Profile updated");
+        setIsProfileOpen(false);
+      }
+    } catch (err) {
+      console.error("Error saving profile:", err);
+      showToast("Failed to save profile");
+    } finally {
+      setIsSavingProfile(false); // CRITICAL FIX
     }
   };
 
@@ -91,37 +192,168 @@ export default function Home() {
     await logout();
   };
 
-  const fetchInventory = useCallback(async () => {
-    if (!artisanId) return;
+  const fetchMyCatalog = useCallback(async () => {
+    const targetUserId = user?.id || artisanId;
+    if (!targetUserId) {
+      setIsLoadingInventory(false);
+      return;
+    }
+
     setIsLoadingInventory(true);
     try {
+      // 1. Direct Supabase query strictly matching the logged-in artisan
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .eq("artisan_id", artisanId)
+        .eq("artisan_id", targetUserId)
         .order("created_at", { ascending: false });
 
-      if (!error && data) {
-        setInventory(data);
+      if (error) {
+        console.error("Catalog Fetch Error:", error);
+      }
+
+      // If Supabase returned rows, populate the catalog state
+      if (!error && data && data.length > 0) {
+        setProducts(data);
         const drafts: Record<string, string> = {};
         data.forEach((p: Product) => {
           drafts[p.id] = String(p.price ?? p.price_inr ?? "");
         });
         setPriceDrafts(drafts);
+      } else {
+        // 2. Service-role backed API fallback (ensures catalog loads even if RLS blocks anon SELECT)
+        const fallbackRes = await fetch(`${API_BASE}/api/v1/products/shop/${targetUserId}`, {
+          cache: "no-store",
+        });
+        if (fallbackRes.ok) {
+          const json = await fallbackRes.json();
+          const prods = json.products || [];
+          setProducts(prods);
+          const drafts: Record<string, string> = {};
+          prods.forEach((p: Product) => {
+            drafts[p.id] = String(p.price ?? p.price_inr ?? "");
+          });
+          setPriceDrafts(drafts);
+        } else {
+          setProducts(data || []);
+        }
       }
     } catch (err) {
-      console.error("Failed to fetch inventory:", err);
+      console.error("Failed to load catalog:", err);
+      try {
+        const fallbackRes = await fetch(`${API_BASE}/api/v1/products/shop/${targetUserId}`, {
+          cache: "no-store",
+        });
+        if (fallbackRes.ok) {
+          const json = await fallbackRes.json();
+          const prods = json.products || [];
+          setProducts(prods);
+        }
+      } catch (fallbackErr) {
+        console.error("Fallback error:", fallbackErr);
+      }
     } finally {
-      setIsLoadingInventory(false);
+      setIsLoadingInventory(false); // CRITICAL FIX
     }
-  }, [artisanId, supabase]);
+  }, [user?.id, artisanId, supabase]);
 
+  const fetchInventory = fetchMyCatalog;
+
+  // STRICT GUARD: Re-run the effect the moment user.id or artisanId populates
   useEffect(() => {
-    if (activeTab === "catalog" && artisanId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchInventory();
+    if (!user?.id && !artisanId) return;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchMyCatalog();
+  }, [user?.id, artisanId, fetchMyCatalog]);
+
+  // Save single generated product price override
+  const handleSaveProductPrice = async (product: GeneratedProduct) => {
+    setIsSavingProductPrice((prev) => ({ ...prev, [product.product_id]: true }));
+    try {
+      const rawVal = customPrices[product.product_id]?.trim();
+      let finalPrice = rawVal ? parseInt(rawVal, 10) : null;
+      if (!finalPrice || isNaN(finalPrice) || finalPrice <= 0) {
+        finalPrice = parseNumericSuggestedPrice(product.suggested_price_range);
+      }
+
+      const finalUsd = product.price_usd || product.suggested_usd_price || Math.round(Math.max(25, finalPrice / 75));
+
+      // 1. Fire Supabase UPDATE query on both price, price_inr, and price_usd
+      const { error: dbErr } = await supabase
+        .from("products")
+        .update({ price: finalPrice, price_inr: finalPrice, price_usd: finalUsd })
+        .eq("id", product.product_id);
+
+      // 2. Also patch backend API to guarantee sync
+      try {
+        await fetch(`/api/v1/products/${product.product_id}/price`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ price: finalPrice, price_inr: finalPrice, price_usd: finalUsd }),
+        });
+      } catch (e) {
+        console.warn("Backend price patch notice:", e);
+      }
+
+      if (!dbErr) {
+        setSavedProductPrice((prev) => ({ ...prev, [product.product_id]: true }));
+        router.refresh();
+        showToast(`Price updated to ₹${finalPrice} ($${finalUsd})`);
+        fetchInventory();
+      }
+    } catch (err) {
+      console.error("Failed to update product price:", err);
+    } finally {
+      setIsSavingProductPrice((prev) => ({ ...prev, [product.product_id]: false }));
     }
-  }, [activeTab, artisanId, fetchInventory]);
+  };
+
+  // Confirm and Publish All generated products to Loom / My Catalog
+  const handleSaveAndPublishAll = async () => {
+    if (!results || results.length === 0) return;
+    setIsPublishingAll(true);
+    try {
+      for (const product of results) {
+        const rawVal = customPrices[product.product_id]?.trim();
+        let finalPrice = rawVal ? parseInt(rawVal, 10) : null;
+        if (!finalPrice || isNaN(finalPrice) || finalPrice <= 0) {
+          finalPrice = parseNumericSuggestedPrice(product.suggested_price_range);
+        }
+        const finalUsd = product.price_usd || product.suggested_usd_price || Math.round(Math.max(25, finalPrice / 75));
+
+        // Direct Supabase UPDATE
+        await supabase
+          .from("products")
+          .update({ price: finalPrice, price_inr: finalPrice, price_usd: finalUsd, in_stock: true })
+          .eq("id", product.product_id);
+
+        try {
+          await fetch(`/api/v1/products/${product.product_id}/price`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ price: finalPrice, price_inr: finalPrice, price_usd: finalUsd }),
+          });
+        } catch {
+          // ignore fallback notice
+        }
+      }
+
+      showToast("Creations published to My Catalog!");
+      await fetchInventory();
+      router.refresh();
+      setResults(null);
+      setImages([]);
+      setImagePreviews([]);
+      setAudioBlob(null);
+      setActiveTab("catalog");
+    } catch (err) {
+      console.error("Failed to publish catalog:", err);
+      showToast("Error publishing catalog");
+    } finally {
+      setIsPublishingAll(false);
+    }
+  };
 
   const handleUpdatePrice = async (productId: string) => {
     const val = parseInt(priceDrafts[productId] || "0", 10);
@@ -136,6 +368,7 @@ export default function Home() {
         setInventory((prev) =>
           prev.map((p) => (p.id === productId ? { ...p, price: val, price_inr: val } : p))
         );
+        router.refresh();
         showToast(t("price_updated"));
       }
     } catch (err) {
@@ -157,6 +390,7 @@ export default function Home() {
         setInventory((prev) =>
           prev.map((p) => (p.id === product.id ? { ...p, in_stock: newStock } : p))
         );
+        router.refresh();
         showToast(newStock ? t("in_stock") : t("sold_out"));
       }
     } catch (err) {
@@ -166,19 +400,39 @@ export default function Home() {
     }
   };
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (!window.confirm(t("delete_confirm"))) return;
+  // Triggered when clicking the trash icon
+  const initiateDelete = (productId: string) => {
+    setProductToDelete(productId);
+  };
+
+  // Triggered when clicking "Delete" inside the custom modal
+  const confirmDelete = async () => {
+    if (!productToDelete) return;
+    setIsDeleting(true);
+
     try {
       const { error } = await supabase
         .from("products")
         .delete()
-        .eq("id", productId);
-      if (!error) {
-        setInventory((prev) => prev.filter((p) => p.id !== productId));
-        showToast("Product deleted");
-      }
-    } catch (err) {
-      console.error("Failed to delete product:", err);
+        .eq("id", productToDelete);
+
+      if (error) throw error;
+
+      // Remove from UI state
+      setProducts((prev) => prev.filter((p) => p.id !== productToDelete));
+      setPriceDrafts((prev) => {
+        const next = { ...prev };
+        delete next[productToDelete];
+        return next;
+      });
+      router.refresh(); // Forces Next.js to fetch fresh data for all routes in the background
+      showToast("Product deleted successfully");
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      showToast("Failed to delete product");
+    } finally {
+      setIsDeleting(false);
+      setProductToDelete(null); // Close the modal
     }
   };
   // Images — multiple
@@ -267,20 +521,40 @@ export default function Home() {
     setErrorMsg(null);
     setLoadingMsg(`Uploading ${images.length} image${images.length > 1 ? "s" : ""} & running AI...`);
 
-    const formData = new FormData();
-    if (!artisanId) {
+    let currentArtisanId = artisanId;
+    if (!currentArtisanId) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        currentArtisanId = user?.id || null;
+      } catch (err) {
+        console.warn("Auth check in generate:", err);
+      }
+    }
+
+    if (!currentArtisanId) {
       router.push("/login");
       return;
     }
-    formData.append("artisan_id", artisanId);
+
+    const formData = new FormData();
+    formData.append("artisan_id", currentArtisanId);
     images.forEach((img) => formData.append("images", img));
-    formData.append("audio", audioBlob, (audioBlob as File).name || "recording.webm");
+    const audioMime = audioBlob.type || "audio/webm";
+    const audioFilename = (audioBlob as File).name || (audioMime.includes("mp4") ? "recording.mp4" : "recording.webm");
+    formData.append("audio", audioBlob, audioFilename);
 
     try {
       const res = await fetch("/api/v1/products/generate", { method: "POST", body: formData });
       const data = await res.json();
       if (data.status === "success") {
         setResults(data.products);
+        const initialPrices: Record<string, string> = {};
+        data.products.forEach((p: GeneratedProduct) => {
+          const fallback = p.price_inr || parseNumericSuggestedPrice(p.suggested_price_range);
+          initialPrices[p.product_id] = String(fallback);
+        });
+        setCustomPrices(initialPrices);
+        fetchInventory();
       } else {
         setErrorMsg(data.detail || "Generation failed on the server.");
       }
@@ -437,7 +711,7 @@ export default function Home() {
                 </button>
               </div>
 
-              {isLoadingInventory ? (
+              {isLoadingInventory && inventory.length === 0 ? (
                 <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
                   <Loader2 className="animate-spin text-slate-400" size={28} />
                   <p className="text-xs font-medium">Loading catalog...</p>
@@ -493,7 +767,7 @@ export default function Home() {
                         </div>
 
                         <button
-                          onClick={() => handleDeleteProduct(item.id)}
+                          onClick={() => initiateDelete(item.id)}
                           className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
                           title={t('delete_product')}
                         >
@@ -730,33 +1004,51 @@ export default function Home() {
                     )}
 
                     <div className="pt-2">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Final Selling Price (₹)</label>
-                      <input 
-                        type="number" 
-                        defaultValue={product.price_inr || ""}
-                        onBlur={async (e) => {
-                          const val = parseInt(e.target.value);
-                          if (isNaN(val)) return;
-                          
-                          // update local state
-                          const newResults = [...results];
-                          newResults[i].price_inr = val;
-                          setResults(newResults);
-                          
-                          // update DB
-                          try {
-                            await fetch(`/api/v1/products/${product.product_id}/price`, {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ price_inr: val })
-                            });
-                          } catch (err) {
-                            console.error("Failed to update price", err);
-                          }
-                        }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="e.g. 2500"
-                      />
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700">Final Selling Price (₹)</label>
+                        {savedProductPrice[product.product_id] && (
+                          <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+                            <Check size={12} /> Saved
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-sm">₹</span>
+                          <input 
+                            type="number" 
+                            value={customPrices[product.product_id] ?? (product.price_inr || "")}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCustomPrices((prev) => ({ ...prev, [product.product_id]: val }));
+                              setSavedProductPrice((prev) => ({ ...prev, [product.product_id]: false }));
+                            }}
+                            onBlur={() => handleSaveProductPrice(product)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                            placeholder="e.g. 2500"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveProductPrice(product)}
+                          disabled={isSavingProductPrice[product.product_id]}
+                          className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm disabled:opacity-50 shrink-0"
+                        >
+                          {isSavingProductPrice[product.product_id] ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : savedProductPrice[product.product_id] ? (
+                            <>
+                              <Check size={13} className="text-emerald-400" />
+                              <span>Saved</span>
+                            </>
+                          ) : (
+                            <span>Save</span>
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Suggested: {product.suggested_price_range || "₹1500 - ₹2500"} (blank defaults to suggestion or 1500)
+                      </p>
                     </div>
 
                     {/* Share button */}
@@ -774,6 +1066,40 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+
+              {/* Master Action Banner: Publish All to My Catalog */}
+              <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveAndPublishAll}
+                  disabled={isPublishingAll}
+                  className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-60"
+                >
+                  {isPublishingAll ? (
+                    <>
+                      <Loader2 className="animate-spin" size={18} />
+                      <span>Saving & Publishing to Loom...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={18} />
+                      <span>Confirm & Publish All to My Catalog</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResults(null);
+                    setImages([]);
+                    setImagePreviews([]);
+                    setAudioBlob(null);
+                  }}
+                  className="py-4 px-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold text-sm transition"
+                >
+                  Create More
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -849,7 +1175,7 @@ export default function Home() {
                     type="tel" 
                     value={localWhatsapp}
                     onChange={(e) => setLocalWhatsapp(e.target.value)}
-                    placeholder={t('whatsapp_number_placeholder')}
+                    placeholder="+91 98765 43210"
                     className="w-full px-4 py-3.5 bg-white border border-stone-200 rounded-xl text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-800 transition shadow-sm text-sm"
                   />
                   <p className="text-xs text-neutral-400 mt-1.5 ml-1">Orders and buyer inquiries on your storefront will be sent here.</p>
@@ -865,6 +1191,20 @@ export default function Home() {
                     className="w-full px-4 py-3.5 bg-white border border-stone-200 rounded-xl text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-800 transition shadow-sm text-sm"
                   />
                   <p className="text-xs text-neutral-400 mt-1.5 ml-1">Receive direct zero-commission UPI payments from customers.</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-neutral-800 mb-2">
+                    PayPal Email (For International Sales)
+                  </label>
+                  <input 
+                    type="email" 
+                    value={localPaypal}
+                    onChange={(e) => setLocalPaypal(e.target.value)}
+                    placeholder="e.g. artisan-seller@sandbox.paypal.com"
+                    className="w-full px-4 py-3.5 bg-white border border-stone-200 rounded-xl text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-800 transition shadow-sm text-sm"
+                  />
+                  <p className="text-xs text-neutral-400 mt-1.5 ml-1">Receive international USD export orders directly via PayPal Sandbox.</p>
                 </div>
 
                 {userRole === "artisan" && (
@@ -961,6 +1301,38 @@ export default function Home() {
                 <LogOut size={18} />
                 {t('sign_out')}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Delete Confirmation Modal */}
+        {productToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl animate-in zoom-in-95 duration-200 border border-stone-200">
+              <h3 className={`text-lg font-serif font-bold text-stone-900 mb-2 ${playfair.className}`}>Delete Creation</h3>
+              <p className="text-sm text-stone-600 mb-6 font-light">
+                Are you sure you want to remove this item from your catalog? This action cannot be undone.
+              </p>
+              
+              <div className="flex items-center justify-end gap-3">
+                <button 
+                  onClick={() => setProductToDelete(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-sm font-medium text-stone-600 bg-stone-100 rounded-lg hover:bg-stone-200 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isDeleting ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  ) : null}
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
             </div>
           </div>
         )}

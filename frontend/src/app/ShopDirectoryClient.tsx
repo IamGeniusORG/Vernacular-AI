@@ -8,6 +8,7 @@ import { Playfair_Display } from "next/font/google";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { Artisan } from "@/lib/api";
+import Marquee from "@/components/Marquee";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -161,6 +162,9 @@ type SpeechRecognitionCtor = new () => ISpeechRecognition;
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] font-sans">
+      {/* ── Top Announcement Marquee ── */}
+      <Marquee />
+
       {/* ── Global Header ── */}
       <header className="px-4 md:px-8 py-3.5 md:py-5 flex items-center justify-between gap-3 sticky top-0 z-20 bg-[#F9F8F6]/90 backdrop-blur-md border-b border-stone-200">
         <div className="flex-1 min-w-0">
