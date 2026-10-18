@@ -84,11 +84,6 @@ function AuthSyncContent() {
             ? "artisan"
             : "customer";
 
-        const googleName =
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          (user.email ? user.email.split("@")[0] : "New User");
-
         if (mounted) {
           setSyncStatus(
             intendedRole === "artisan"
@@ -97,27 +92,21 @@ function AuthSyncContent() {
           );
         }
 
-        // 5. Use .upsert() so the profile row is guaranteed to exist
+        // 5. Update only the user_role so custom profile names are preserved
         try {
-          const { error: upsertErr } = await supabase
+          const { error: updateErr } = await supabase
             .from("artisans")
-            .upsert(
-              {
-                id: user.id,
-                full_name: googleName,
-                user_role: intendedRole,
-              },
-              { onConflict: "id" }
-            );
+            .update({ user_role: intendedRole })
+            .eq("id", user.id);
 
-          if (upsertErr) {
-            console.error("Supabase upsert profile error:", upsertErr);
+          if (updateErr) {
+            console.error("Failed to sync user role:", updateErr);
           }
         } catch (dbErr) {
-          console.error("Supabase client upsert error:", dbErr);
+          console.error("Supabase client update error:", dbErr);
         }
 
-        // Also sync via backend API with service_role key to bypass RLS
+        // Also sync user_role via backend API with service_role key to bypass RLS
         try {
           const apiBase =
             process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -126,7 +115,6 @@ function AuthSyncContent() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               user_role: intendedRole,
-              full_name: googleName,
             }),
           });
         } catch (apiErr) {
