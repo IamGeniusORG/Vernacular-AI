@@ -287,7 +287,7 @@ export default function Home() {
 
       // 2. Also patch backend API to guarantee sync
       try {
-        await fetch(`/api/v1/products/${product.product_id}/price`, {
+        await fetch(`${API_BASE}/api/v1/products/${product.product_id}/price`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ price: finalPrice, price_inr: finalPrice, price_usd: finalUsd }),
@@ -329,7 +329,7 @@ export default function Home() {
           .eq("id", product.product_id);
 
         try {
-          await fetch(`/api/v1/products/${product.product_id}/price`, {
+          await fetch(`${API_BASE}/api/v1/products/${product.product_id}/price`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ price: finalPrice, price_inr: finalPrice, price_usd: finalUsd }),
@@ -544,7 +544,7 @@ export default function Home() {
     formData.append("audio", audioBlob, audioFilename);
 
     try {
-      const res = await fetch("/api/v1/products/generate", { method: "POST", body: formData });
+      const res = await fetch(`${API_BASE}/api/v1/products/generate`, { method: "POST", body: formData });
       const data = await res.json();
       if (data.status === "success") {
         setResults(data.products);

@@ -9,22 +9,20 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# CORS — allow local dev + Vercel production deployments
+# CORS — allow all origins so Vercel preview/production domains and local dev are never blocked
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
-app.include_router(artisans_router, prefix="/api/v1/artisans", tags=["Artisans"])
-
+# Keep-Alive & Health Check endpoints (placed at top for fast ping responses)
+@app.get("/health")
 @app.get("/api/v1/health")
 async def health_check():
     return {"status": "healthy", "version": "2.0.0"}
+
+app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
+app.include_router(artisans_router, prefix="/api/v1/artisans", tags=["Artisans"])
