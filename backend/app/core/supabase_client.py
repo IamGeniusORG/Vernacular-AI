@@ -1,8 +1,17 @@
+from typing import Optional
 from supabase import create_client, Client
 from app.core.config import settings
 
-def get_supabase() -> Client:
+def get_supabase() -> Optional[Client]:
+    url = settings.SUPABASE_URL
     key = settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_SERVICE_ROLE_KEY
-    return create_client(settings.SUPABASE_URL, key)
+    if not url or not key:
+        url = "https://placeholder.supabase.co"
+        key = "placeholder-key"
+    try:
+        return create_client(url, key)
+    except Exception as e:
+        print(f"Notice: Supabase client initialization deferred ({e})")
+        return None
 
-supabase: Client = get_supabase()
+supabase: Optional[Client] = get_supabase()
