@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { getArtisanProducts, getArtisan } from "@/lib/api";
+import Link from "next/link";
+import { getArtisanProducts, getArtisan, type Product, type Artisan } from "@/lib/api";
 import StorefrontClient from "./StorefrontClient";
 
 export const dynamic = "force-dynamic";
@@ -57,16 +57,55 @@ export default async function ShopPage({
   const { artisan_id } = await params;
   
   if (!uuidRegex.test(artisan_id)) {
-    notFound();
+    return (
+      <div className="min-h-screen bg-[#F9F8F6] flex items-center justify-center p-6 text-neutral-800">
+        <div className="bg-white border border-stone-200 p-8 rounded-3xl max-w-md text-center shadow-lg">
+          <h2 className="text-xl font-bold text-neutral-900 mb-2">Invalid Artisan ID</h2>
+          <p className="text-sm text-neutral-600 mb-6">The ID &quot;{artisan_id}&quot; is not a valid format.</p>
+          <Link href="/shop" className="inline-block px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition">
+            Return to Marketplace
+          </Link>
+        </div>
+      </div>
+    );
   }
 
-  const [artisan, products] = await Promise.all([
-    getArtisan(artisan_id),
-    getArtisanProducts(artisan_id)
-  ]);
+  let artisan: Artisan | null = null;
+  let products: Product[] = [];
+  let fetchError: Error | null = null;
+
+  try {
+    const results = await Promise.all([
+      getArtisan(artisan_id),
+      getArtisanProducts(artisan_id)
+    ]);
+    artisan = results[0];
+    products = results[1];
+  } catch (err: unknown) {
+    fetchError = err instanceof Error ? err : new Error(String(err));
+  }
 
   if (!artisan) {
-    notFound();
+    return (
+      <div className="min-h-screen bg-[#F9F8F6] flex items-center justify-center p-6 text-neutral-800">
+        <div className="bg-white border border-stone-200 p-8 rounded-3xl max-w-md text-center shadow-lg">
+          <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-700 flex items-center justify-center mx-auto mb-4 font-bold text-lg">
+            !
+          </div>
+          <h2 className="text-xl font-bold text-neutral-900 mb-2">Artisan Not Found</h2>
+          <div className="text-sm text-neutral-600 mb-6">
+            {fetchError ? (
+              <span>Error loading artisan: {fetchError.message || "Unknown error"}</span>
+            ) : (
+              <span>Could not load the catalog for artisan ID: <code className="text-xs bg-stone-100 p-1 rounded">{artisan_id}</code></span>
+            )}
+          </div>
+          <Link href="/shop" className="inline-block px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition">
+            Return to Marketplace
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return <StorefrontClient products={products} artisan={artisan} />;

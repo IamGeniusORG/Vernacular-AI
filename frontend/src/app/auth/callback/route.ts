@@ -19,7 +19,10 @@ export async function GET(request: Request) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!exchangeError) {
-      const targetUrl = role ? `${origin}/auth/sync?role=${encodeURIComponent(role)}` : `${origin}/auth/sync`;
+      const forwardedHost = request.headers.get("x-forwarded-host");
+      const isLocalEnv = process.env.NODE_ENV === "development";
+      const redirectBase = isLocalEnv ? origin : (forwardedHost ? `https://${forwardedHost}` : origin);
+      const targetUrl = role ? `${redirectBase}/auth/sync?role=${encodeURIComponent(role)}` : `${redirectBase}/auth/sync`;
       return NextResponse.redirect(targetUrl);
     }
 
