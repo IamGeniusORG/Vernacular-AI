@@ -279,11 +279,19 @@ export default function Home() {
 
       const finalUsd = product.price_usd || product.suggested_usd_price || Math.round(Math.max(25, finalPrice / 75));
 
-      // 1. Fire Supabase UPDATE query on both price, price_inr, and price_usd
-      const { error: dbErr } = await supabase
+      // 1. Fire Supabase UPDATE query on price (with safe fallback if price_usd column isn't migrated)
+      let { error: dbErr } = await supabase
         .from("products")
         .update({ price: finalPrice, price_inr: finalPrice, price_usd: finalUsd })
         .eq("id", product.product_id);
+
+      if (dbErr && (dbErr.code === "PGRST204" || dbErr.message?.includes("price_usd"))) {
+        const retry = await supabase
+          .from("products")
+          .update({ price: finalPrice, price_inr: finalPrice })
+          .eq("id", product.product_id);
+        dbErr = retry.error;
+      }
 
       // 2. Also patch backend API to guarantee sync
       try {
@@ -322,11 +330,18 @@ export default function Home() {
         }
         const finalUsd = product.price_usd || product.suggested_usd_price || Math.round(Math.max(25, finalPrice / 75));
 
-        // Direct Supabase UPDATE
-        await supabase
+        // Direct Supabase UPDATE with fallback
+        const updateRes = await supabase
           .from("products")
           .update({ price: finalPrice, price_inr: finalPrice, price_usd: finalUsd, in_stock: true })
           .eq("id", product.product_id);
+
+        if (updateRes.error && (updateRes.error.code === "PGRST204" || updateRes.error.message?.includes("price_usd"))) {
+          await supabase
+            .from("products")
+            .update({ price: finalPrice, price_inr: finalPrice, in_stock: true })
+            .eq("id", product.product_id);
+        }
 
         try {
           await fetch(`${API_BASE}/api/v1/products/${product.product_id}/price`, {

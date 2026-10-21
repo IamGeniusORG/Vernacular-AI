@@ -150,7 +150,16 @@ async def update_product_price(product_id: str, update: PriceUpdate):
         if not patch_data:
             raise HTTPException(status_code=400, detail="Price or price_usd is required")
 
-        supabase.table("products").update(patch_data).eq("id", product_id).execute()
+        try:
+            supabase.table("products").update(patch_data).eq("id", product_id).execute()
+        except Exception as e:
+            if "PGRST204" in str(e) or "price_usd" in str(e) or "schema cache" in str(e):
+                patch_data.pop("price_usd", None)
+                patch_data.pop("suggested_usd_price", None)
+                if patch_data:
+                    supabase.table("products").update(patch_data).eq("id", product_id).execute()
+            else:
+                raise e
         return {"status": "success", "updated": patch_data}
     except HTTPException:
         raise

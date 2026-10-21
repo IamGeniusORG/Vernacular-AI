@@ -108,6 +108,21 @@ def save_product(artisan_id: str, image_url: str, audio_url: str, ai_data: dict)
         "in_stock":       True,
         "tags":           ai_data.get("tags", []),
     }
-    response = supabase.table("products").insert(row).execute()
-    return response.data[0] if response.data else row
+    try:
+        response = supabase.table("products").insert(row).execute()
+        return response.data[0] if response.data else row
+    except Exception as e:
+        err_msg = str(e)
+        if "PGRST204" in err_msg or "export_description" in err_msg or "schema cache" in err_msg:
+            # Safe fallback if export_description / price_usd column hasn't been added to remote DB yet
+            safe_row = row.copy()
+            for col in ["export_description", "suggested_usd_price", "price_usd"]:
+                safe_row.pop(col, None)
+            response = supabase.table("products").insert(safe_row).execute()
+            saved = response.data[0] if response.data else safe_row
+            saved["export_description"] = export_desc
+            saved["suggested_usd_price"] = final_usd
+            saved["price_usd"] = final_usd
+            return saved
+        raise e
 
