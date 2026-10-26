@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { X, CheckCircle, Loader2, LogOut, Copy, Camera, UploadCloud, ImageIcon } from "lucide-react";
 import { useArtisan } from "@/context/ArtisanContext";
 import { QRCodeCanvas } from "qrcode.react";
-import ArtisanAvatar from "@/components/ArtisanAvatar";
+import UniversalAvatar from "@/components/UniversalAvatar";
 import { uploadArtisanAsset } from "@/lib/uploadAsset";
+import { revalidateArtisanProfile } from "@/app/actions/revalidate";
 
 interface ProfileDrawerProps {
   isOpen: boolean;
@@ -109,6 +110,9 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
         localAvatarUrl.trim(),
         localBannerUrl.trim()
       );
+      if (artisanId) {
+        await revalidateArtisanProfile(artisanId);
+      }
       router.refresh();
       onClose();
     } catch (error) {
@@ -170,7 +174,7 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
           {/* Avatar and Name Display */}
           <div className="flex flex-col items-center">
             <div className="relative group cursor-pointer mb-2" onClick={() => avatarInputRef.current?.click()}>
-              <ArtisanAvatar
+              <UniversalAvatar
                 name={localName}
                 avatarUrl={localAvatarUrl}
                 size="xl"

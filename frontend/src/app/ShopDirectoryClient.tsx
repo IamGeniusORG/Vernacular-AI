@@ -3,13 +3,15 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, MapPin, Sparkles, Mic, MicOff } from "lucide-react";
+import { Search, MapPin, Mic, MicOff } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { Artisan } from "@/lib/api";
 import Marquee from "@/components/Marquee";
-import ArtisanAvatar from "@/components/ArtisanAvatar";
+import UniversalAvatar from "@/components/UniversalAvatar";
+import UserDropdown from "@/components/UserDropdown";
+import LanguageToggle from "@/components/LanguageToggle";
 import { createClient } from "@/utils/supabase/client";
 
 const playfair = Playfair_Display({
@@ -28,7 +30,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCraft, setSelectedCraft] = useState("All");
   const [isListening, setIsListening] = useState(false);
-  const { artisanId, profileName, avatarUrl, userRole, logout, isLoading, refreshProfile } = useArtisan();
+  const { artisanId, refreshProfile } = useArtisan();
   const { activeLanguage, t } = useLanguage();
 
   // Active listener for Supabase Auth state changes to guarantee instant UI reactivity
@@ -190,28 +192,9 @@ type SpeechRecognitionCtor = new () => ISpeechRecognition;
             Vernacular AI
           </Link>
         </div>
-        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-          {isLoading ? (
-            <div className="w-8 h-8 rounded-full bg-stone-200/70 animate-pulse" />
-          ) : artisanId ? (
-            <div className="flex items-center gap-2 sm:gap-3">
-              {userRole === "artisan" && (
-                <Link
-                  href="/studio"
-                  className="px-3 py-1.5 sm:px-4 sm:py-2 bg-neutral-900 text-white rounded-full text-xs sm:text-sm font-semibold hover:bg-neutral-800 transition flex items-center gap-1.5 shrink-0"
-                >
-                  <Sparkles size={13} className="shrink-0 text-amber-300" />
-                  <span>Studio</span>
-                </Link>
-              )}
-              <ArtisanAvatar name={profileName} avatarUrl={avatarUrl} size="sm" showBorder />
-              <button onClick={logout} className="text-xs sm:text-sm font-medium text-neutral-500 hover:text-neutral-900">Logout</button>
-            </div>
-          ) : (
-            <Link href="/login" className="px-3.5 py-1.5 sm:px-5 sm:py-2 bg-indigo-600 text-white rounded-full text-xs sm:text-sm font-semibold hover:bg-indigo-700 transition shadow-md shrink-0">
-              Sign In
-            </Link>
-          )}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <LanguageToggle />
+          <UserDropdown />
         </div>
       </header>
 
@@ -357,9 +340,8 @@ type SpeechRecognitionCtor = new () => ISpeechRecognition;
                   <div className="relative px-6 pb-6 pt-12 text-center">
                     {/* Avatar */}
                     <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-10">
-                      <ArtisanAvatar
-                        name={artisan.full_name}
-                        avatarUrl={artisan.avatar_url}
+                      <UniversalAvatar
+                        user={artisan}
                         size="xl"
                         className="border-4 border-white shadow-md ring-0"
                       />

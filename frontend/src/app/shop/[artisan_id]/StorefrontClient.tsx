@@ -7,11 +7,15 @@ import { Product, Artisan } from "@/lib/api";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
+import Image from "next/image";
 import { Playfair_Display } from "next/font/google";
 import { QRCodeCanvas } from "qrcode.react";
 import Marquee from "@/components/Marquee";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-import ArtisanAvatar from "@/components/ArtisanAvatar";
+import UniversalAvatar from "@/components/UniversalAvatar";
+import UserDropdown from "@/components/UserDropdown";
+import LanguageToggle from "@/components/LanguageToggle";
+import { usePreferences } from "@/context/PreferencesContext";
 
 const playfair = Playfair_Display({ 
   subsets: ["latin"], 
@@ -30,7 +34,11 @@ export default function StorefrontClient({ products, artisan }: Props) {
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [shuffledProducts, setShuffledProducts] = useState<Product[]>(products);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [destination, setDestination] = useState<"domestic" | "international">("domestic");
+  const { currency, setCurrency } = usePreferences();
+  const destination: "domestic" | "international" = currency === "USD" ? "international" : "domestic";
+  const setDestination = (dest: "domestic" | "international") => {
+    setCurrency(dest === "international" ? "USD" : "INR");
+  };
   const [paypalSuccessOrder, setPaypalSuccessOrder] = useState<{
     orderId: string;
     productTitle: string;
@@ -159,7 +167,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
             </Link>
             <div className="h-5 w-px bg-stone-300 hidden sm:block shrink-0"></div>
             <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <ArtisanAvatar name={artisan.full_name} avatarUrl={artisan.avatar_url} size="sm" showBorder />
+              <UniversalAvatar user={artisan} size="sm" showBorder />
               <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
                 <h1 className={`text-base sm:text-lg md:text-xl text-neutral-900 truncate ${playfair.className}`}>
                   {artisan.full_name}&apos;s Loom
@@ -168,15 +176,17 @@ export default function StorefrontClient({ products, artisan }: Props) {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex text-xs text-neutral-500 uppercase tracking-widest font-semibold items-center gap-1.5">
-              Verified Artisan
-            </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageToggle />
             {isOwner && (
-              <Link href="/studio" className="px-4 py-2 bg-neutral-900 text-white rounded-full text-xs font-semibold flex items-center gap-2 hover:bg-neutral-800 transition">
-                <Camera size={14} /> Studio
+              <Link
+                href="/studio"
+                className="hidden sm:inline-flex px-3.5 py-1.5 bg-neutral-900 text-white rounded-full text-xs font-semibold items-center gap-1.5 hover:bg-neutral-800 transition shadow-sm"
+              >
+                <Camera size={13} /> <span>Studio</span>
               </Link>
             )}
+            <UserDropdown />
           </div>
         </header>
 
@@ -196,26 +206,31 @@ export default function StorefrontClient({ products, artisan }: Props) {
         {/* ── Artisan Profile Banner Header ── */}
         <div className="max-w-7xl mx-auto px-4 md:px-8 pt-4 pb-2">
           <div className="relative rounded-3xl overflow-hidden border border-stone-200/90 shadow-sm bg-white">
-            {/* Banner Background */}
-            <div className="h-36 sm:h-48 md:h-56 w-full relative bg-stone-100 overflow-hidden">
-              {artisan.banner_url || products[0]?.image_url ? (
-                <img
-                  src={artisan.banner_url || products[0]?.image_url}
-                  alt={`${artisan.full_name} banner`}
-                  className="w-full h-full object-cover object-center"
-                />
+            {/* Banner Background (Default clean slate-50/white if no custom banner uploaded) */}
+            <div className="h-36 sm:h-48 md:h-56 w-full relative bg-slate-50 border-b border-stone-200/60 overflow-hidden">
+              {artisan.banner_url ? (
+                <>
+                  <Image
+                    src={artisan.banner_url}
+                    alt={`${artisan.full_name} cover photo`}
+                    fill
+                    priority
+                    sizes="100vw"
+                    className="object-cover object-center"
+                    unoptimized={artisan.banner_url.startsWith("http")}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                </>
               ) : (
-                <div className="w-full h-full bg-gradient-to-r from-stone-200 via-stone-300 to-stone-200 opacity-70"></div>
+                <div className="w-full h-full bg-slate-50" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
             </div>
 
             {/* Profile Bar below banner */}
             <div className="px-5 sm:px-8 pb-5 pt-3 sm:pt-4 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 relative">
               <div className="flex items-end gap-3 sm:gap-4 -mt-14 sm:-mt-16 z-10">
-                <ArtisanAvatar
-                  name={artisan.full_name}
-                  avatarUrl={artisan.avatar_url}
+                <UniversalAvatar
+                  user={artisan}
                   size="xl"
                   className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-white shadow-lg ring-0"
                 />
@@ -267,7 +282,10 @@ export default function StorefrontClient({ products, artisan }: Props) {
             <div className="inline-flex bg-stone-100 p-1 rounded-xl shadow-inner border border-stone-200/80 w-full sm:w-auto">
               <button
                 type="button"
-                onClick={() => setDestination("domestic")}
+                onClick={() => {
+                  setDestination("domestic");
+                  setCurrency("INR");
+                }}
                 className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   destination === "domestic"
                     ? "bg-white text-neutral-900 shadow-sm"
@@ -279,7 +297,10 @@ export default function StorefrontClient({ products, artisan }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => setDestination("international")}
+                onClick={() => {
+                  setDestination("international");
+                  setCurrency("USD");
+                }}
                 className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   destination === "international"
                     ? "bg-stone-900 text-white shadow-sm"

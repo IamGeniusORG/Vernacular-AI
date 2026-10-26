@@ -99,12 +99,21 @@ function AuthSyncContent() {
         try {
           const { data: existingArtisan } = await supabase
             .from("artisans")
-            .select("avatar_url")
+            .select("avatar_url, preferred_currency, preferred_language")
             .eq("id", user.id)
             .maybeSingle();
 
           if (googleAvatar && (!existingArtisan || !existingArtisan.avatar_url)) {
             updatePayload.avatar_url = googleAvatar;
+          }
+
+          if (typeof window !== "undefined" && existingArtisan) {
+            if (existingArtisan.preferred_currency) {
+              localStorage.setItem("user_preferred_currency", existingArtisan.preferred_currency);
+            }
+            if (existingArtisan.preferred_language) {
+              localStorage.setItem("user_preferred_language", existingArtisan.preferred_language);
+            }
           }
 
           const { error: updateErr } = await supabase

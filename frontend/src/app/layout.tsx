@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 import { LanguageProvider } from "@/context/LanguageContext";
+import { PreferencesProvider } from "@/context/PreferencesContext";
 import { ArtisanProvider } from "@/context/ArtisanContext";
 
 export const metadata: Metadata = {
@@ -37,9 +38,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <LanguageProvider>
-          <ArtisanProvider>
-            {children}
-          </ArtisanProvider>
+          <PreferencesProvider>
+            <ArtisanProvider>
+              {children}
+            </ArtisanProvider>
+          </PreferencesProvider>
         </LanguageProvider>
       </body>
     </html>

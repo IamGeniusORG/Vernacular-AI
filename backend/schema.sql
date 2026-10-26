@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS artisans (
     paypal_email  TEXT,
     avatar_url    TEXT,
     banner_url    TEXT,
+    preferred_currency TEXT DEFAULT 'INR',
+    preferred_language TEXT DEFAULT 'en',
     user_role     TEXT DEFAULT 'customer',
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
@@ -48,6 +50,8 @@ ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS upi_id TEXT;
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS banner_url TEXT;
+ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS preferred_currency TEXT DEFAULT 'INR';
+ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS preferred_language TEXT DEFAULT 'en';
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price_usd NUMERIC;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS suggested_usd_price NUMERIC;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS export_description TEXT;

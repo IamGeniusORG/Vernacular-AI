@@ -16,8 +16,10 @@ import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
 import { Product } from "@/lib/api";
 import { useArtisan } from "@/context/ArtisanContext";
-import ArtisanAvatar from "@/components/ArtisanAvatar";
+import UniversalAvatar from "@/components/UniversalAvatar";
+import UserDropdown from "@/components/UserDropdown";
 import { uploadArtisanAsset } from "@/lib/uploadAsset";
+import { revalidateArtisanProfile } from "@/app/actions/revalidate";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -67,6 +69,8 @@ export default function Home() {
     paypalEmail,
     avatarUrl,
     bannerUrl,
+    setAvatarUrl,
+    setBannerUrl,
     userRole,
     saveProfile,
     logout,
@@ -217,11 +221,36 @@ export default function Home() {
         if (assetType === "avatar") {
           setBrandingAvatarUrl(res.url);
           setModalAvatarUrl(res.url);
+          setAvatarUrl(res.url);
         } else {
           setBrandingBannerUrl(res.url);
           setModalBannerUrl(res.url);
+          setBannerUrl(res.url);
         }
-        showToast(`${assetType === "avatar" ? "Profile photo" : "Cover banner"} uploaded!`);
+
+        // Direct DB update so the asset is immediately saved to the artisan record
+        const updateField = assetType === "avatar" ? { avatar_url: res.url } : { banner_url: res.url };
+        try {
+          await supabase.from("artisans").update(updateField).eq("id", targetId);
+        } catch (dbErr) {
+          console.warn("Direct Supabase asset update notice:", dbErr);
+        }
+
+        try {
+          await fetch(`${API_BASE}/api/v1/artisans/${targetId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updateField),
+          });
+        } catch (apiErr) {
+          console.warn("Backend API asset save notice:", apiErr);
+        }
+
+        // Trigger Next.js cache revalidation for shop and public profile
+        await revalidateArtisanProfile(targetId);
+        router.refresh();
+
+        showToast(`${assetType === "avatar" ? "Profile photo" : "Cover photo"} uploaded & saved!`);
       } else {
         showToast(res.error || `Failed to upload ${assetType}`);
       }
@@ -282,6 +311,7 @@ export default function Home() {
         modalBannerUrl.trim()
       );
       if (success) {
+        await revalidateArtisanProfile(targetId);
         router.refresh();
         showToast("Profile updated");
         setIsProfileOpen(false);
@@ -337,6 +367,7 @@ export default function Home() {
       );
 
       if (success) {
+        await revalidateArtisanProfile(targetId);
         router.refresh();
         showToast("Branding & Profile saved!");
       } else {
@@ -815,21 +846,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             <LanguageToggle />
-            {artisanId ? (
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setIsProfileOpen(true)}
-                  className="rounded-full ring-2 ring-stone-200 hover:ring-stone-400 transition"
-                  title={t('profile_settings')}
-                >
-                  <ArtisanAvatar name={profileName} avatarUrl={avatarUrl} size="sm" />
-                </button>
-              </div>
-            ) : (
-              <button onClick={() => router.push('/login')} className="px-4 py-1.5 bg-indigo-600 text-white rounded-full text-sm font-semibold hover:bg-indigo-700 transition">
-                {t('sign_in')}
-              </button>
-            )}
+            <UserDropdown onOpenProfileDrawer={() => setIsProfileOpen(true)} />
           </div>
         </header>
 
@@ -1060,7 +1077,7 @@ export default function Home() {
                   {/* Card Body */}
                   <div className="relative px-4 pb-4 pt-9 text-center">
                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-10">
-                      <ArtisanAvatar
+                      <UniversalAvatar
                         name={brandingName || profileName || "Artisan"}
                         avatarUrl={brandingAvatarUrl}
                         size="lg"
@@ -1127,7 +1144,7 @@ export default function Home() {
                         : "border-slate-200 hover:border-slate-400 bg-slate-50/50"
                     }`}
                   >
-                    <ArtisanAvatar
+                    <UniversalAvatar
                       name={brandingName || profileName}
                       avatarUrl={brandingAvatarUrl}
                       size="lg"
@@ -1630,7 +1647,7 @@ export default function Home() {
                   className="relative group cursor-pointer mb-2"
                   onClick={() => modalAvatarInputRef.current?.click()}
                 >
-                  <ArtisanAvatar
+                  <UniversalAvatar
                     name={localName}
                     avatarUrl={modalAvatarUrl || avatarUrl}
                     size="2xl"

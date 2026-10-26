@@ -74,7 +74,7 @@ async def get_artisan(artisan_id: str):
 
 @router.patch("/{artisan_id}")
 async def update_artisan(artisan_id: str, payload: dict):
-    """Update artisan profile fields (user_role, full_name, district, whatsapp_number, upi_id, paypal_email, avatar_url, banner_url)."""
+    """Update artisan or buyer profile fields (user_role, full_name, district, whatsapp_number, upi_id, paypal_email, avatar_url, banner_url, preferred_currency, preferred_language)."""
     try:
         allowed_keys = [
             "full_name",
@@ -85,6 +85,8 @@ async def update_artisan(artisan_id: str, payload: dict):
             "paypal_email",
             "avatar_url",
             "banner_url",
+            "preferred_currency",
+            "preferred_language",
         ]
         allowed = {
             k: ("" if v is None else v) for k, v in payload.items()
@@ -92,8 +94,30 @@ async def update_artisan(artisan_id: str, payload: dict):
         }
         if not allowed:
             return {"status": "no_changes"}
-        result = supabase.table("artisans").update(allowed).eq("id", artisan_id).execute()
-        return {"status": "success", "artisan": result.data[0] if result.data else None}
+
+        # 1. Always sync to auth.users metadata via Supabase Admin (bulletproof persistence)
+        try:
+            supabase.auth.admin.update_user_by_id(artisan_id, {"user_metadata": allowed})
+        except Exception as auth_err:
+            print(f"Notice: Supabase admin auth user metadata sync skipped: {auth_err}")
+
+        # 2. Update database row with defensive fallback for pending SQL migrations
+        try:
+            result = supabase.table("artisans").update(allowed).eq("id", artisan_id).execute()
+            return {"status": "success", "artisan": result.data[0] if result.data else None}
+        except Exception as db_err:
+            err_str = str(db_err)
+            if "PGRST204" in err_str or "preferred_currency" in err_str or "preferred_language" in err_str or "avatar_url" in err_str:
+                # Strip newly added columns if table cache hasn't refreshed
+                safe_payload = {
+                    k: v for k, v in allowed.items()
+                    if k not in ["preferred_currency", "preferred_language", "avatar_url", "banner_url"]
+                }
+                if safe_payload:
+                    result = supabase.table("artisans").update(safe_payload).eq("id", artisan_id).execute()
+                    return {"status": "success", "artisan": result.data[0] if result.data else None}
+                return {"status": "success", "notice": "stored_in_auth_metadata"}
+            raise db_err
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
