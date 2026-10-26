@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+import uuid
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from app.core.supabase_client import supabase
 
 router = APIRouter()
@@ -73,9 +74,18 @@ async def get_artisan(artisan_id: str):
 
 @router.patch("/{artisan_id}")
 async def update_artisan(artisan_id: str, payload: dict):
-    """Update artisan profile fields (user_role, full_name, district, whatsapp_number, upi_id)."""
+    """Update artisan profile fields (user_role, full_name, district, whatsapp_number, upi_id, paypal_email, avatar_url, banner_url)."""
     try:
-        allowed_keys = ["full_name", "user_role", "district", "whatsapp_number", "upi_id", "paypal_email"]
+        allowed_keys = [
+            "full_name",
+            "user_role",
+            "district",
+            "whatsapp_number",
+            "upi_id",
+            "paypal_email",
+            "avatar_url",
+            "banner_url",
+        ]
         allowed = {
             k: ("" if v is None else v) for k, v in payload.items()
             if k in allowed_keys
@@ -84,5 +94,44 @@ async def update_artisan(artisan_id: str, payload: dict):
             return {"status": "no_changes"}
         result = supabase.table("artisans").update(allowed).eq("id", artisan_id).execute()
         return {"status": "success", "artisan": result.data[0] if result.data else None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{artisan_id}/upload-asset")
+async def upload_artisan_asset(
+    artisan_id: str,
+    file: UploadFile = File(...),
+    asset_type: str = Form("avatar")
+):
+    """Upload an artisan profile avatar or cover banner image to the artisan-assets bucket."""
+    try:
+        content = await file.read()
+        mime_type = file.content_type or "image/jpeg"
+        ext = mime_type.split("/")[-1].lower()
+        if ext == "jpeg":
+            ext = "jpg"
+        elif not ext or ext == "*":
+            ext = "jpg"
+
+        file_name = f"{artisan_id}/{asset_type}_{uuid.uuid4().hex[:8]}.{ext}"
+        bucket = "artisan-assets"
+
+        supabase.storage.from_(bucket).upload(
+            path=file_name,
+            file=content,
+            file_options={"content-type": mime_type, "upsert": "true"}
+        )
+
+        public_url = supabase.storage.from_(bucket).get_public_url(file_name)
+
+        # Update artisan record if column exists
+        col = "avatar_url" if asset_type == "avatar" else "banner_url"
+        try:
+            supabase.table("artisans").update({col: public_url}).eq("id", artisan_id).execute()
+        except Exception as db_err:
+            print(f"Notice: database update for {col} deferred: {db_err}")
+
+        return {"status": "success", "url": public_url, "asset_type": asset_type}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

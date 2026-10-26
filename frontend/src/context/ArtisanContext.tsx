@@ -13,13 +13,24 @@ interface ArtisanContextType {
   whatsappNumber: string;
   upiId: string;
   paypalEmail: string;
+  avatarUrl: string;
+  bannerUrl: string;
   userRole: string;
   setProfileName: (name: string) => void;
   setWhatsappNumber: (num: string) => void;
   setUpiId: (id: string) => void;
   setPaypalEmail: (email: string) => void;
+  setAvatarUrl: (url: string) => void;
+  setBannerUrl: (url: string) => void;
   setUserRole: (role: string) => void;
-  saveProfile: (newName: string, newWhatsapp?: string, newUpi?: string, newPaypalEmail?: string) => Promise<boolean>;
+  saveProfile: (
+    newName: string,
+    newWhatsapp?: string,
+    newUpi?: string,
+    newPaypalEmail?: string,
+    newAvatarUrl?: string,
+    newBannerUrl?: string
+  ) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   isLoading: boolean;
@@ -47,6 +58,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [upiId, setUpiId] = useState("");
   const [paypalEmail, setPaypalEmail] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
   const [userRole, setUserRole] = useState("customer");
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
@@ -56,7 +69,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await supabase
         .from("artisans")
-        .select("full_name, phone_number, user_role, whatsapp_number, upi_id, paypal_email")
+        .select("full_name, phone_number, user_role, whatsapp_number, upi_id, paypal_email, avatar_url, banner_url")
         .eq("id", userId)
         .maybeSingle();
 
@@ -99,6 +112,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
           setWhatsappNumber(cleanPhone(profile.whatsapp_number));
           setUpiId(profile.upi_id || "");
           setPaypalEmail(profile.paypal_email || "");
+          setAvatarUrl(profile.avatar_url || "");
+          setBannerUrl(profile.banner_url || "");
           setUserRole(profile.user_role || "customer");
         }
       }
@@ -120,6 +135,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
           setWhatsappNumber(cleanPhone(profile.whatsapp_number));
           setUpiId(profile.upi_id || "");
           setPaypalEmail(profile.paypal_email || "");
+          setAvatarUrl(profile.avatar_url || "");
+          setBannerUrl(profile.banner_url || "");
           setUserRole(profile.user_role || "customer");
         }
       } else {
@@ -130,6 +147,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
           setWhatsappNumber("");
           setUpiId("");
           setPaypalEmail("");
+          setAvatarUrl("");
+          setBannerUrl("");
           setUserRole("customer");
         }
       }
@@ -145,7 +164,9 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     newName: string,
     newWhatsapp?: string,
     newUpi?: string,
-    newPaypalEmail?: string
+    newPaypalEmail?: string,
+    newAvatarUrl?: string,
+    newBannerUrl?: string
   ) => {
     if (!artisanId) return false;
 
@@ -154,12 +175,16 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       whatsapp_number?: string;
       upi_id?: string;
       paypal_email?: string;
+      avatar_url?: string;
+      banner_url?: string;
     } = {
       full_name: newName.trim(),
     };
     if (newWhatsapp !== undefined) payload.whatsapp_number = cleanPhone(newWhatsapp);
     if (newUpi !== undefined) payload.upi_id = newUpi.trim();
     if (newPaypalEmail !== undefined) payload.paypal_email = newPaypalEmail.trim();
+    if (newAvatarUrl !== undefined) payload.avatar_url = newAvatarUrl.trim();
+    if (newBannerUrl !== undefined) payload.banner_url = newBannerUrl.trim();
 
     // 1. Update via Backend API (service_role)
     try {
@@ -172,12 +197,19 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       console.warn("Backend saveProfile error:", err);
     }
 
-    // 2. Update via Supabase client
+    // 2. Update via Supabase client (with defensive fallback if columns not yet migrated)
     try {
-      await supabase
+      const { error: dbErr } = await supabase
         .from("artisans")
         .update(payload)
         .eq("id", artisanId);
+
+      if (dbErr && (dbErr.code === "PGRST204" || dbErr.message?.includes("avatar_url") || dbErr.message?.includes("banner_url"))) {
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.avatar_url;
+        delete fallbackPayload.banner_url;
+        await supabase.from("artisans").update(fallbackPayload).eq("id", artisanId);
+      }
     } catch (err) {
       console.warn("Supabase saveProfile error:", err);
     }
@@ -186,6 +218,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     if (newWhatsapp !== undefined) setWhatsappNumber(cleanPhone(newWhatsapp));
     if (newUpi !== undefined) setUpiId(newUpi.trim());
     if (newPaypalEmail !== undefined) setPaypalEmail(newPaypalEmail.trim());
+    if (newAvatarUrl !== undefined) setAvatarUrl(newAvatarUrl.trim());
+    if (newBannerUrl !== undefined) setBannerUrl(newBannerUrl.trim());
     return true;
   };
 
@@ -197,6 +231,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     setWhatsappNumber("");
     setUpiId("");
     setPaypalEmail("");
+    setAvatarUrl("");
+    setBannerUrl("");
     setUserRole("customer");
   };
 
@@ -213,6 +249,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         setWhatsappNumber(cleanPhone(profile.whatsapp_number));
         setUpiId(profile.upi_id || "");
         setPaypalEmail(profile.paypal_email || "");
+        setAvatarUrl(profile.avatar_url || "");
+        setBannerUrl(profile.banner_url || "");
         setUserRole(profile.user_role || "customer");
       }
     }
@@ -227,11 +265,15 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         whatsappNumber,
         upiId,
         paypalEmail,
+        avatarUrl,
+        bannerUrl,
         userRole,
         setProfileName,
         setWhatsappNumber,
         setUpiId,
         setPaypalEmail,
+        setAvatarUrl,
+        setBannerUrl,
         setUserRole,
         saveProfile,
         logout,

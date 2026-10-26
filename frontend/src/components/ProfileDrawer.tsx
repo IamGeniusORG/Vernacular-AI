@@ -1,10 +1,13 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { X, CheckCircle, Loader2, LogOut, Copy } from "lucide-react";
+import { X, CheckCircle, Loader2, LogOut, Copy, Camera, UploadCloud, ImageIcon } from "lucide-react";
 import { useArtisan } from "@/context/ArtisanContext";
 import { QRCodeCanvas } from "qrcode.react";
+import ArtisanAvatar from "@/components/ArtisanAvatar";
+import { uploadArtisanAsset } from "@/lib/uploadAsset";
 
 interface ProfileDrawerProps {
   isOpen: boolean;
@@ -31,6 +34,8 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
     whatsappNumber,
     upiId,
     paypalEmail,
+    avatarUrl,
+    bannerUrl,
     userRole,
     saveProfile,
     logout,
@@ -40,21 +45,76 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
   const [localWhatsapp, setLocalWhatsapp] = useState(getSafePhone(whatsappNumber, profilePhone));
   const [localUpi, setLocalUpi] = useState(upiId || "");
   const [localPaypal, setLocalPaypal] = useState(paypalEmail || "");
+  const [localAvatarUrl, setLocalAvatarUrl] = useState(avatarUrl || "");
+  const [localBannerUrl, setLocalBannerUrl] = useState(bannerUrl || "");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !artisanId) return;
+
+    setUploadError(null);
+    setIsUploadingAvatar(true);
+    try {
+      const res = await uploadArtisanAsset(artisanId, file, "avatar");
+      if (res.success && res.url) {
+        setLocalAvatarUrl(res.url);
+      } else {
+        setUploadError(res.error || "Failed to upload avatar");
+      }
+    } catch {
+      setUploadError("Avatar upload failed");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleBannerFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !artisanId) return;
+
+    setUploadError(null);
+    setIsUploadingBanner(true);
+    try {
+      const res = await uploadArtisanAsset(artisanId, file, "banner");
+      if (res.success && res.url) {
+        setLocalBannerUrl(res.url);
+      } else {
+        setUploadError(res.error || "Failed to upload banner");
+      }
+    } catch {
+      setUploadError("Cover banner upload failed");
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
       const cleanW = localWhatsapp.trim();
       const whatsappToSave = cleanW.toLowerCase().includes("unknown") ? "" : cleanW;
-      await saveProfile(localName.trim(), whatsappToSave, localUpi.trim(), localPaypal.trim());
+      await saveProfile(
+        localName.trim(),
+        whatsappToSave,
+        localUpi.trim(),
+        localPaypal.trim(),
+        localAvatarUrl.trim(),
+        localBannerUrl.trim()
+      );
       router.refresh();
       onClose();
     } catch (error) {
       console.error("Error saving profile:", error);
     } finally {
-      setIsSaving(false); // CRITICAL FIX
+      setIsSaving(false);
     }
   };
 
@@ -85,13 +145,95 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
 
         {/* Body */}
         <div className="p-6 space-y-6 flex-1">
+          {/* Hidden File Inputs */}
+          <input
+            type="file"
+            ref={avatarInputRef}
+            onChange={handleAvatarFile}
+            accept="image/*"
+            className="hidden"
+          />
+          <input
+            type="file"
+            ref={bannerInputRef}
+            onChange={handleBannerFile}
+            accept="image/*"
+            className="hidden"
+          />
+
+          {uploadError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
+              {uploadError}
+            </div>
+          )}
+
           {/* Avatar and Name Display */}
           <div className="flex flex-col items-center">
-            <div className="w-20 h-20 rounded-full bg-stone-900 text-stone-50 flex items-center justify-center text-2xl font-serif shadow-md border-4 border-stone-100 mb-2">
-              {localName ? localName.charAt(0).toUpperCase() : "A"}
+            <div className="relative group cursor-pointer mb-2" onClick={() => avatarInputRef.current?.click()}>
+              <ArtisanAvatar
+                name={localName}
+                avatarUrl={localAvatarUrl}
+                size="xl"
+                className="w-20 h-20 border-4 border-white shadow-md ring-0"
+              />
+              <div className="absolute inset-0 rounded-full bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {isUploadingAvatar ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Camera size={18} />
+                )}
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 underline flex items-center gap-1 mb-1"
+            >
+              {isUploadingAvatar ? "Uploading avatar..." : "Change profile photo"}
+            </button>
             <h3 className="text-xl font-bold text-neutral-900">{localName || "Artisan"}</h3>
             <span className="text-xs text-amber-700 font-semibold tracking-wider uppercase mt-0.5">Verified Weaver</span>
+          </div>
+
+          {/* Cover Banner Uploader Card */}
+          <div className="bg-white p-3.5 border border-stone-200 rounded-2xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-700">
+                Storefront Cover Banner
+              </span>
+              <button
+                type="button"
+                onClick={() => bannerInputRef.current?.click()}
+                className="text-xs font-semibold text-amber-800 hover:text-amber-900 flex items-center gap-1"
+              >
+                {isUploadingBanner ? <Loader2 size={12} className="animate-spin" /> : <UploadCloud size={12} />}
+                <span>{localBannerUrl ? "Replace" : "Upload"}</span>
+              </button>
+            </div>
+
+            <div
+              onClick={() => bannerInputRef.current?.click()}
+              className="h-24 w-full rounded-xl overflow-hidden bg-stone-100 border border-dashed border-stone-300 relative cursor-pointer hover:opacity-90 transition flex items-center justify-center group"
+            >
+              {localBannerUrl ? (
+                <img
+                  src={localBannerUrl}
+                  alt="Store banner preview"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-1 text-neutral-400 group-hover:text-neutral-600">
+                  <ImageIcon size={20} />
+                  <span className="text-[11px] font-medium">Click to upload 16:9 banner</span>
+                </div>
+              )}
+              {isUploadingBanner && (
+                <div className="absolute inset-0 bg-black/50 text-white flex items-center justify-center gap-2 text-xs">
+                  <Loader2 size={16} className="animate-spin" /> Uploading banner...
+                </div>
+              )}
+            </div>
+            <p className="text-[10px] text-neutral-400 mt-1.5">Displayed at the top of your public storefront (max 2MB)</p>
           </div>
 
           {/* Form Fields */}

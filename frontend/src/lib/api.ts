@@ -28,6 +28,8 @@ export interface Artisan {
   whatsapp_number?: string | null;
   upi_id?: string | null;
   paypal_email?: string | null;
+  avatar_url?: string | null;
+  banner_url?: string | null;
   user_role?: string | null;
   created_at: string;
   products?: Product[];

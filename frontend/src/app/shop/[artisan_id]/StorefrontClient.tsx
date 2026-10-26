@@ -11,6 +11,7 @@ import { Playfair_Display } from "next/font/google";
 import { QRCodeCanvas } from "qrcode.react";
 import Marquee from "@/components/Marquee";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import ArtisanAvatar from "@/components/ArtisanAvatar";
 
 const playfair = Playfair_Display({ 
   subsets: ["latin"], 
@@ -157,11 +158,14 @@ export default function StorefrontClient({ products, artisan }: Props) {
               <span className="inline sm:hidden">Marketplace</span>
             </Link>
             <div className="h-5 w-px bg-stone-300 hidden sm:block shrink-0"></div>
-            <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
-              <h1 className={`text-base sm:text-lg md:text-xl text-neutral-900 truncate ${playfair.className}`}>
-                {artisan.full_name}&apos;s Loom
-              </h1>
-              <BadgeCheck size={18} className="text-amber-700 shrink-0 mt-0.5" />
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <ArtisanAvatar name={artisan.full_name} avatarUrl={artisan.avatar_url} size="sm" showBorder />
+              <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
+                <h1 className={`text-base sm:text-lg md:text-xl text-neutral-900 truncate ${playfair.className}`}>
+                  {artisan.full_name}&apos;s Loom
+                </h1>
+                <BadgeCheck size={18} className="text-amber-700 shrink-0 mt-0.5" />
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -187,6 +191,58 @@ export default function StorefrontClient({ products, artisan }: Props) {
             <span className="text-stone-300">/</span>
             <span className="text-neutral-800 font-bold">{artisan.full_name}</span>
           </Link>
+        </div>
+
+        {/* ── Artisan Profile Banner Header ── */}
+        <div className="max-w-7xl mx-auto px-4 md:px-8 pt-4 pb-2">
+          <div className="relative rounded-3xl overflow-hidden border border-stone-200/90 shadow-sm bg-white">
+            {/* Banner Background */}
+            <div className="h-36 sm:h-48 md:h-56 w-full relative bg-stone-100 overflow-hidden">
+              {artisan.banner_url || products[0]?.image_url ? (
+                <img
+                  src={artisan.banner_url || products[0]?.image_url}
+                  alt={`${artisan.full_name} banner`}
+                  className="w-full h-full object-cover object-center"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-r from-stone-200 via-stone-300 to-stone-200 opacity-70"></div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+            </div>
+
+            {/* Profile Bar below banner */}
+            <div className="px-5 sm:px-8 pb-5 pt-3 sm:pt-4 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 relative">
+              <div className="flex items-end gap-3 sm:gap-4 -mt-14 sm:-mt-16 z-10">
+                <ArtisanAvatar
+                  name={artisan.full_name}
+                  avatarUrl={artisan.avatar_url}
+                  size="xl"
+                  className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-white shadow-lg ring-0"
+                />
+                <div className="pb-1">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className={`text-xl sm:text-2xl md:text-3xl font-bold text-neutral-900 ${playfair.className}`}>
+                      {artisan.full_name}
+                    </h2>
+                    <BadgeCheck size={20} className="text-amber-600 shrink-0" />
+                  </div>
+                  <p className="text-xs sm:text-sm text-neutral-500 font-medium">
+                    {artisan.district || "West Bengal, India"} • {products.length} {products.length === 1 ? "Creation" : "Creations"}
+                  </p>
+                </div>
+              </div>
+
+              {isOwner && (
+                <Link
+                  href="/studio"
+                  className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-neutral-800 rounded-full text-xs font-semibold flex items-center gap-1.5 transition border border-stone-200 shadow-sm"
+                >
+                  <Camera size={13} />
+                  <span>Customize Profile & Branding</span>
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── Shipping Destination & Global Export Toggle ── */}

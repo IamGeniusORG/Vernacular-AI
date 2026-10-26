@@ -92,30 +92,41 @@ function AuthSyncContent() {
           );
         }
 
-        // 5. Update only the user_role so custom profile names are preserved
+        // 5. Update user_role, and save Google profile picture if avatar_url is not set yet
+        const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+        const updatePayload: Record<string, string> = { user_role: intendedRole };
+
         try {
+          const { data: existingArtisan } = await supabase
+            .from("artisans")
+            .select("avatar_url")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          if (googleAvatar && (!existingArtisan || !existingArtisan.avatar_url)) {
+            updatePayload.avatar_url = googleAvatar;
+          }
+
           const { error: updateErr } = await supabase
             .from("artisans")
-            .update({ user_role: intendedRole })
+            .update(updatePayload)
             .eq("id", user.id);
 
           if (updateErr) {
-            console.error("Failed to sync user role:", updateErr);
+            console.error("Failed to sync user role/avatar:", updateErr);
           }
         } catch (dbErr) {
           console.error("Supabase client update error:", dbErr);
         }
 
-        // Also sync user_role via backend API with service_role key to bypass RLS
+        // Also sync via backend API with service_role key to bypass RLS
         try {
           const apiBase =
             process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
           await fetch(`${apiBase}/api/v1/artisans/${user.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              user_role: intendedRole,
-            }),
+            body: JSON.stringify(updatePayload),
           });
         } catch (apiErr) {
           console.warn("Backend artisan sync notice:", apiErr);

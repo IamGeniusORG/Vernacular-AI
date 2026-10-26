@@ -10,15 +10,17 @@
 CREATE OR REPLACE FUNCTION public.handle_new_artisan_signup() 
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.artisans (id, phone_number, full_name, user_role)
+  INSERT INTO public.artisans (id, phone_number, full_name, user_role, avatar_url)
   VALUES (
     new.id, 
     new.phone, 
     COALESCE(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', 'New User'),
-    COALESCE(new.raw_user_meta_data->>'user_role', 'customer')
+    COALESCE(new.raw_user_meta_data->>'user_role', 'customer'),
+    COALESCE(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'picture', NULL)
   )
   ON CONFLICT (id) DO UPDATE SET
-    full_name = COALESCE(EXCLUDED.full_name, public.artisans.full_name);
+    full_name = COALESCE(public.artisans.full_name, EXCLUDED.full_name),
+    avatar_url = COALESCE(public.artisans.avatar_url, EXCLUDED.avatar_url);
   RETURN new;
 EXCEPTION WHEN OTHERS THEN
   -- Never block auth user creation on profile trigger failure

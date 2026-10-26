@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS artisans (
     whatsapp_number TEXT,
     upi_id        TEXT,
     paypal_email  TEXT,
+    avatar_url    TEXT,
+    banner_url    TEXT,
     user_role     TEXT DEFAULT 'customer',
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
@@ -44,12 +46,34 @@ CREATE TABLE IF NOT EXISTS products (
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS paypal_email TEXT;
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS upi_id TEXT;
+ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS banner_url TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price_usd NUMERIC;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS suggested_usd_price NUMERIC;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS export_description TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price INTEGER;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS audio_url TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS in_stock BOOLEAN DEFAULT TRUE;
+
+-- Storage Buckets & Policies for artisan assets
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('artisan-assets', 'artisan-assets', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Public Read Artisan Assets" ON storage.objects;
+CREATE POLICY "Public Read Artisan Assets" 
+ON storage.objects FOR SELECT 
+USING (bucket_id = 'artisan-assets');
+
+DROP POLICY IF EXISTS "Artisans can upload assets" ON storage.objects;
+CREATE POLICY "Artisans can upload assets" 
+ON storage.objects FOR INSERT 
+WITH CHECK (bucket_id = 'artisan-assets');
+
+DROP POLICY IF EXISTS "Artisans can update assets" ON storage.objects;
+CREATE POLICY "Artisans can update assets" 
+ON storage.objects FOR UPDATE 
+USING (bucket_id = 'artisan-assets');
 
 -- Index for fast artisan lookups
 CREATE INDEX IF NOT EXISTS idx_products_artisan_id ON products(artisan_id);

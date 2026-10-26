@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Mic, CheckCircle, Check, Share2, Loader2, Sparkles,
   ImagePlus, AudioLines, UploadCloud, AlertCircle, X, Plus, LogOut, User, Copy, Download, ShoppingBag,
-  Trash2, RefreshCw
+  Trash2, RefreshCw, Camera, ExternalLink, ImageIcon
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Playfair_Display } from "next/font/google";
@@ -16,6 +16,8 @@ import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
 import { Product } from "@/lib/api";
 import { useArtisan } from "@/context/ArtisanContext";
+import ArtisanAvatar from "@/components/ArtisanAvatar";
+import { uploadArtisanAsset } from "@/lib/uploadAsset";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -56,7 +58,20 @@ interface GeneratedProduct {
 export default function Home() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { artisanId, profileName, profilePhone, whatsappNumber, upiId, paypalEmail, userRole, saveProfile, logout, isLoading: authLoading } = useArtisan();
+  const {
+    artisanId,
+    profileName,
+    profilePhone,
+    whatsappNumber,
+    upiId,
+    paypalEmail,
+    avatarUrl,
+    bannerUrl,
+    userRole,
+    saveProfile,
+    logout,
+    isLoading: authLoading
+  } = useArtisan();
   const supabase = createClient();
 
   useEffect(() => {
@@ -72,10 +87,16 @@ export default function Home() {
   const [localWhatsapp, setLocalWhatsapp] = useState("");
   const [localUpi, setLocalUpi] = useState("");
   const [localPaypal, setLocalPaypal] = useState("");
+  const [modalAvatarUrl, setModalAvatarUrl] = useState("");
+  const [modalBannerUrl, setModalBannerUrl] = useState("");
+  const [isUploadingModalAvatar, setIsUploadingModalAvatar] = useState(false);
+  const [isUploadingModalBanner, setIsUploadingModalBanner] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const modalAvatarInputRef = useRef<HTMLInputElement>(null);
+  const modalBannerInputRef = useRef<HTMLInputElement>(null);
 
-  // Studio Navigation Tabs & Catalog State
-  const [activeTab, setActiveTab] = useState<"craft" | "catalog">("craft");
+  // Studio Navigation Tabs: "craft" | "catalog" | "branding"
+  const [activeTab, setActiveTab] = useState<"craft" | "catalog" | "branding">("craft");
   const [products, setProducts] = useState<Product[]>([]);
   const inventory = products;
   const setInventory = setProducts;
@@ -86,6 +107,33 @@ export default function Home() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
+
+  // Profile & Branding Dedicated Tab State
+  const [brandingName, setBrandingName] = useState("");
+  const [brandingWhatsapp, setBrandingWhatsapp] = useState("");
+  const [brandingUpi, setBrandingUpi] = useState("");
+  const [brandingPaypal, setBrandingPaypal] = useState("");
+  const [brandingAvatarUrl, setBrandingAvatarUrl] = useState("");
+  const [brandingBannerUrl, setBrandingBannerUrl] = useState("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
+  const [isDraggingBanner, setIsDraggingBanner] = useState(false);
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
+  const brandingAvatarInputRef = useRef<HTMLInputElement>(null);
+  const brandingBannerInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync branding state when artisan context loads
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (profileName) setBrandingName(profileName);
+    const rawW = whatsappNumber || profilePhone || "";
+    setBrandingWhatsapp(rawW.toLowerCase().includes("unknown") ? "" : rawW);
+    if (upiId) setBrandingUpi(upiId);
+    if (paypalEmail) setBrandingPaypal(paypalEmail);
+    if (avatarUrl) setBrandingAvatarUrl(avatarUrl);
+    if (bannerUrl) setBrandingBannerUrl(bannerUrl);
+  }, [profileName, whatsappNumber, profilePhone, upiId, paypalEmail, avatarUrl, bannerUrl]);
 
   // Sync user state from Supabase Auth & ArtisanContext
   useEffect(() => {
@@ -141,8 +189,55 @@ export default function Home() {
       setLocalWhatsapp(safeWhatsapp);
       setLocalUpi(upiId || "");
       setLocalPaypal(paypalEmail || "");
+      setModalAvatarUrl(avatarUrl || "");
+      setModalBannerUrl(bannerUrl || "");
     }
-  }, [isProfileOpen, profileName, whatsappNumber, profilePhone, upiId, paypalEmail]);
+  }, [isProfileOpen, profileName, whatsappNumber, profilePhone, upiId, paypalEmail, avatarUrl, bannerUrl]);
+
+  // Asset upload helper supporting both modal and branding tab
+  const handleUploadAsset = async (
+    file: File,
+    assetType: "avatar" | "banner",
+    isModal = false
+  ) => {
+    const targetId = user?.id || artisanId;
+    if (!file || !targetId) return;
+
+    if (isModal) {
+      if (assetType === "avatar") setIsUploadingModalAvatar(true);
+      else setIsUploadingModalBanner(true);
+    } else {
+      if (assetType === "avatar") setIsUploadingAvatar(true);
+      else setIsUploadingBanner(true);
+    }
+
+    try {
+      const res = await uploadArtisanAsset(targetId, file, assetType);
+      if (res.success && res.url) {
+        if (assetType === "avatar") {
+          setBrandingAvatarUrl(res.url);
+          setModalAvatarUrl(res.url);
+        } else {
+          setBrandingBannerUrl(res.url);
+          setModalBannerUrl(res.url);
+        }
+        showToast(`${assetType === "avatar" ? "Profile photo" : "Cover banner"} uploaded!`);
+      } else {
+        showToast(res.error || `Failed to upload ${assetType}`);
+      }
+    } catch (err) {
+      console.error("Asset upload error:", err);
+      showToast(`Error uploading ${assetType}`);
+    } finally {
+      if (isModal) {
+        if (assetType === "avatar") setIsUploadingModalAvatar(false);
+        else setIsUploadingModalBanner(false);
+      } else {
+        if (assetType === "avatar") setIsUploadingAvatar(false);
+        else setIsUploadingBanner(false);
+      }
+    }
+  };
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
@@ -157,11 +252,15 @@ export default function Home() {
           whatsapp_number?: string;
           upi_id?: string;
           paypal_email?: string;
+          avatar_url?: string;
+          banner_url?: string;
         } = {
           full_name: localName.trim(),
           whatsapp_number: safeWhatsapp,
           upi_id: localUpi.trim(),
           paypal_email: localPaypal.trim(),
+          avatar_url: modalAvatarUrl.trim(),
+          banner_url: modalBannerUrl.trim(),
         };
 
         const { error } = await supabase
@@ -174,7 +273,14 @@ export default function Home() {
         }
       }
 
-      const success = await saveProfile(localName.trim(), safeWhatsapp, localUpi.trim(), localPaypal.trim());
+      const success = await saveProfile(
+        localName.trim(),
+        safeWhatsapp,
+        localUpi.trim(),
+        localPaypal.trim(),
+        modalAvatarUrl.trim(),
+        modalBannerUrl.trim()
+      );
       if (success) {
         router.refresh();
         showToast("Profile updated");
@@ -185,6 +291,62 @@ export default function Home() {
       showToast("Failed to save profile");
     } finally {
       setIsSavingProfile(false); // CRITICAL FIX
+    }
+  };
+
+  const handleSaveBranding = async () => {
+    setIsSavingBranding(true);
+    try {
+      const targetId = user?.id || artisanId;
+      const safeWhatsapp = brandingWhatsapp.trim().toLowerCase().includes("unknown") ? "" : brandingWhatsapp.trim();
+
+      if (targetId) {
+        const payload: {
+          full_name: string;
+          whatsapp_number?: string;
+          upi_id?: string;
+          paypal_email?: string;
+          avatar_url?: string;
+          banner_url?: string;
+        } = {
+          full_name: brandingName.trim(),
+          whatsapp_number: safeWhatsapp,
+          upi_id: brandingUpi.trim(),
+          paypal_email: brandingPaypal.trim(),
+          avatar_url: brandingAvatarUrl.trim(),
+          banner_url: brandingBannerUrl.trim(),
+        };
+
+        const { error } = await supabase
+          .from("artisans")
+          .update(payload)
+          .eq("id", targetId);
+
+        if (error) {
+          console.warn("Direct Supabase update error:", error);
+        }
+      }
+
+      const success = await saveProfile(
+        brandingName.trim(),
+        safeWhatsapp,
+        brandingUpi.trim(),
+        brandingPaypal.trim(),
+        brandingAvatarUrl.trim(),
+        brandingBannerUrl.trim()
+      );
+
+      if (success) {
+        router.refresh();
+        showToast("Branding & Profile saved!");
+      } else {
+        showToast("Failed to save branding");
+      }
+    } catch (err) {
+      console.error("Save branding error:", err);
+      showToast("Error saving branding");
+    } finally {
+      setIsSavingBranding(false);
     }
   };
 
@@ -657,10 +819,10 @@ export default function Home() {
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setIsProfileOpen(true)}
-                  className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center text-neutral-800 font-bold font-serif hover:bg-stone-300 transition"
+                  className="rounded-full ring-2 ring-stone-200 hover:ring-stone-400 transition"
                   title={t('profile_settings')}
                 >
-                  {profileName ? profileName.charAt(0).toUpperCase() : <User size={16} />}
+                  <ArtisanAvatar name={profileName} avatarUrl={avatarUrl} size="sm" />
                 </button>
               </div>
             ) : (
@@ -698,6 +860,17 @@ export default function Home() {
             >
               <ShoppingBag size={14} className={activeTab === "catalog" ? "text-indigo-600" : ""} />
               {t('tab_my_catalog')}
+            </button>
+            <button
+              onClick={() => setActiveTab("branding")}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === "branding"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <User size={14} className={activeTab === "branding" ? "text-amber-600" : ""} />
+              Branding
             </button>
           </div>
         </div>
@@ -838,6 +1011,273 @@ export default function Home() {
                   ))}
                 </div>
               )}
+            </div>
+          ) : activeTab === "branding" ? (
+
+            /* ════════════════════ PROFILE & BRANDING VIEW ════════════════════ */
+            <div className="space-y-6 pb-12 animate-in fade-in duration-200">
+              {/* Section Heading */}
+              <div>
+                <h2 className="text-base font-extrabold text-slate-900">
+                  Profile & Storefront Branding
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Customize how your artisan profile and craft card appear across the marketplace.
+                </p>
+              </div>
+
+              {/* Optimistic Live Directory Card Preview */}
+              <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200">
+                <div className="flex items-center justify-between mb-2.5 px-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+                    <Sparkles size={12} /> Live Marketplace Card Preview
+                  </span>
+                  <span className="text-[10px] text-stone-400 font-medium">Auto-updates</span>
+                </div>
+
+                <div className="bg-white rounded-2xl overflow-hidden border border-stone-200 shadow-sm relative pointer-events-none select-none">
+                  {/* Top Banner */}
+                  <div className="h-32 w-full relative overflow-hidden bg-stone-100">
+                    {brandingBannerUrl || products[0]?.image_url ? (
+                      <img
+                        src={brandingBannerUrl || products[0]?.image_url}
+                        alt="Banner preview"
+                        className="w-full h-full object-cover object-center"
+                      />
+                    ) : (
+                      <>
+                        <div className="absolute inset-0 bg-gradient-to-br from-stone-200 to-stone-300 opacity-60"></div>
+                        <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/woven-light.png')]"></div>
+                      </>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10"></div>
+                    <div className="absolute top-2.5 right-2.5 px-2.5 py-0.5 bg-white/95 backdrop-blur-sm text-neutral-800 text-[10px] font-bold rounded-full shadow-sm flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span>{products.length} {products.length === 1 ? "Creation" : "Creations"}</span>
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="relative px-4 pb-4 pt-9 text-center">
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-10">
+                      <ArtisanAvatar
+                        name={brandingName || profileName || "Artisan"}
+                        avatarUrl={brandingAvatarUrl}
+                        size="lg"
+                        className="border-4 border-white shadow-md ring-0"
+                      />
+                    </div>
+                    <h3 className={`text-lg text-neutral-900 font-bold ${playfair.className}`}>
+                      {brandingName || profileName || "Your Artisan Name"}
+                    </h3>
+                    <p className="text-xs text-neutral-500 mt-0.5">West Bengal, India</p>
+                    <div className="mt-2 inline-block px-2.5 py-0.5 bg-stone-100 text-stone-600 text-[10px] font-semibold tracking-wider uppercase rounded-full">
+                      Master Weaver
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hidden File Inputs */}
+              <input
+                type="file"
+                ref={brandingAvatarInputRef}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUploadAsset(f, "avatar", false);
+                }}
+                accept="image/*"
+                className="hidden"
+              />
+              <input
+                type="file"
+                ref={brandingBannerInputRef}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUploadAsset(f, "banner", false);
+                }}
+                accept="image/*"
+                className="hidden"
+              />
+
+              {/* Image Uploaders */}
+              <div className="space-y-4">
+                {/* Profile Photo Uploader */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                      Profile Picture (Avatar)
+                    </label>
+                    <span className="text-[10px] text-slate-400">Max 2MB (Auto-compressed)</span>
+                  </div>
+
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDraggingAvatar(true); }}
+                    onDragLeave={() => setIsDraggingAvatar(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingAvatar(false);
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) handleUploadAsset(f, "avatar", false);
+                    }}
+                    onClick={() => brandingAvatarInputRef.current?.click()}
+                    className={`p-3.5 rounded-xl border-2 border-dashed cursor-pointer transition-all flex items-center gap-3.5 ${
+                      isDraggingAvatar
+                        ? "border-indigo-500 bg-indigo-50/50"
+                        : "border-slate-200 hover:border-slate-400 bg-slate-50/50"
+                    }`}
+                  >
+                    <ArtisanAvatar
+                      name={brandingName || profileName}
+                      avatarUrl={brandingAvatarUrl}
+                      size="lg"
+                      className="border-2 border-white shadow-sm shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-800">
+                        {isUploadingAvatar ? "Uploading photo..." : "Click or drag photo here"}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        JPG, PNG, WebP up to 2MB
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isUploadingAvatar}
+                      className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition flex items-center gap-1 shrink-0"
+                    >
+                      {isUploadingAvatar ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
+                      <span>Upload</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cover Banner Uploader */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                      Storefront Cover Photo
+                    </label>
+                    <span className="text-[10px] text-slate-400">16:9 Landscape (Max 2MB)</span>
+                  </div>
+
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDraggingBanner(true); }}
+                    onDragLeave={() => setIsDraggingBanner(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingBanner(false);
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) handleUploadAsset(f, "banner", false);
+                    }}
+                    onClick={() => brandingBannerInputRef.current?.click()}
+                    className={`h-28 rounded-xl border-2 border-dashed cursor-pointer transition-all relative overflow-hidden flex flex-col items-center justify-center ${
+                      isDraggingBanner
+                        ? "border-indigo-500 bg-indigo-50/50"
+                        : "border-slate-200 hover:border-slate-400 bg-slate-50/50"
+                    }`}
+                  >
+                    {brandingBannerUrl ? (
+                      <img
+                        src={brandingBannerUrl}
+                        alt="Current banner"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center gap-1.5 text-slate-400">
+                        <UploadCloud size={24} />
+                        <span className="text-xs font-medium">Click or drag cover banner image here</span>
+                      </div>
+                    )}
+                    {isUploadingBanner && (
+                      <div className="absolute inset-0 bg-black/60 text-white flex items-center justify-center gap-2 text-xs font-semibold">
+                        <Loader2 size={16} className="animate-spin" /> Uploading banner...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Profile Fields */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3.5">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Artisan Profile Information
+                </h3>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Display Name
+                  </label>
+                  <input
+                    type="text"
+                    value={brandingName}
+                    onChange={(e) => setBrandingName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    WhatsApp Number (Direct Domestic Inquiries)
+                  </label>
+                  <input
+                    type="tel"
+                    value={brandingWhatsapp}
+                    onChange={(e) => setBrandingWhatsapp(e.target.value)}
+                    placeholder="+91 98765 43210"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    UPI ID (Instant Domestic Pay)
+                  </label>
+                  <input
+                    type="text"
+                    value={brandingUpi}
+                    onChange={(e) => setBrandingUpi(e.target.value)}
+                    placeholder="artisan@upi"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    PayPal Email (Global USD Exports)
+                  </label>
+                  <input
+                    type="email"
+                    value={brandingPaypal}
+                    onChange={(e) => setBrandingPaypal(e.target.value)}
+                    placeholder="seller@sandbox.paypal.com"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveBranding}
+                  disabled={isSavingBranding}
+                  className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition shadow-md disabled:opacity-70"
+                >
+                  {isSavingBranding ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                  Save Branding & Profile
+                </button>
+
+                {artisanId && (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/shop/${artisanId}`)}
+                    className="w-full py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition"
+                  >
+                    <ExternalLink size={14} /> View Live Public Storefront
+                  </button>
+                )}
+              </div>
             </div>
           ) : !results ? (
 
@@ -1163,14 +1603,97 @@ export default function Home() {
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto px-6 py-8">
-              <div className="flex flex-col items-center mb-10">
-                <div className="w-24 h-24 rounded-full bg-neutral-900 text-[#F9F8F6] flex items-center justify-center text-3xl font-serif mb-4 shadow-lg border-4 border-stone-100">
-                  {localName ? localName.charAt(0).toUpperCase() : "A"}
+              {/* Hidden file inputs for modal */}
+              <input
+                type="file"
+                ref={modalAvatarInputRef}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUploadAsset(f, "avatar", true);
+                }}
+                accept="image/*"
+                className="hidden"
+              />
+              <input
+                type="file"
+                ref={modalBannerInputRef}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUploadAsset(f, "banner", true);
+                }}
+                accept="image/*"
+                className="hidden"
+              />
+
+              <div className="flex flex-col items-center mb-6">
+                <div
+                  className="relative group cursor-pointer mb-2"
+                  onClick={() => modalAvatarInputRef.current?.click()}
+                >
+                  <ArtisanAvatar
+                    name={localName}
+                    avatarUrl={modalAvatarUrl || avatarUrl}
+                    size="2xl"
+                    className="border-4 border-white shadow-lg ring-0"
+                  />
+                  <div className="absolute inset-0 rounded-full bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    {isUploadingModalAvatar ? (
+                      <Loader2 size={20} className="animate-spin" />
+                    ) : (
+                      <Camera size={20} />
+                    )}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => modalAvatarInputRef.current?.click()}
+                  className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 underline flex items-center gap-1 mb-1"
+                >
+                  {isUploadingModalAvatar ? "Uploading avatar..." : "Change profile photo"}
+                </button>
                 <h3 className={`text-2xl text-neutral-900 font-bold ${playfair.className}`}>
                   {localName || "Artisan"}
                 </h3>
-                <p className="text-neutral-500 text-sm mt-1">Verified Member</p>
+                <p className="text-neutral-500 text-xs mt-0.5">Verified Weaver</p>
+              </div>
+
+              {/* Cover Banner Box in Modal */}
+              <div className="bg-white p-3.5 border border-stone-200 rounded-2xl mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-700">
+                    Storefront Cover Banner
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => modalBannerInputRef.current?.click()}
+                    className="text-xs font-semibold text-amber-800 hover:text-amber-900 flex items-center gap-1"
+                  >
+                    {isUploadingModalBanner ? <Loader2 size={12} className="animate-spin" /> : <UploadCloud size={12} />}
+                    <span>{modalBannerUrl ? "Replace" : "Upload"}</span>
+                  </button>
+                </div>
+                <div
+                  onClick={() => modalBannerInputRef.current?.click()}
+                  className="h-24 w-full rounded-xl overflow-hidden bg-stone-100 border border-dashed border-stone-300 relative cursor-pointer hover:opacity-90 transition flex items-center justify-center group"
+                >
+                  {modalBannerUrl ? (
+                    <img
+                      src={modalBannerUrl}
+                      alt="Store banner preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 text-neutral-400 group-hover:text-neutral-600">
+                      <ImageIcon size={20} />
+                      <span className="text-[11px] font-medium">Click to upload 16:9 banner</span>
+                    </div>
+                  )}
+                  {isUploadingModalBanner && (
+                    <div className="absolute inset-0 bg-black/50 text-white flex items-center justify-center gap-2 text-xs">
+                      <Loader2 size={16} className="animate-spin" /> Uploading banner...
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-6">

@@ -3,12 +3,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Search, MapPin, User, Sparkles, Mic, MicOff } from "lucide-react";
+import { Search, MapPin, Sparkles, Mic, MicOff } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { Artisan } from "@/lib/api";
 import Marquee from "@/components/Marquee";
+import ArtisanAvatar from "@/components/ArtisanAvatar";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -26,7 +27,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCraft, setSelectedCraft] = useState("All");
   const [isListening, setIsListening] = useState(false);
-  const { artisanId, profileName, userRole, logout } = useArtisan();
+  const { artisanId, profileName, avatarUrl, userRole, logout } = useArtisan();
   const { activeLanguage, t } = useLanguage();
 
 interface SpeechRecognitionResultItem {
@@ -184,9 +185,7 @@ type SpeechRecognitionCtor = new () => ISpeechRecognition;
                   <span>Studio</span>
                 </Link>
               )}
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-stone-200 flex items-center justify-center text-neutral-800 font-bold font-serif shadow-sm text-xs sm:text-sm shrink-0">
-                {profileName ? profileName.charAt(0).toUpperCase() : <User size={14} />}
-              </div>
+              <ArtisanAvatar name={profileName} avatarUrl={avatarUrl} size="sm" showBorder />
               <button onClick={logout} className="text-xs sm:text-sm font-medium text-neutral-500 hover:text-neutral-900">Logout</button>
             </div>
           ) : (
@@ -289,13 +288,11 @@ type SpeechRecognitionCtor = new () => ISpeechRecognition;
               // Craft tag
               const crafts = ["Jamdani", "Taant", "Silk", "Khadi", "Baluchari"];
               const craftTag = crafts[artisan.id.charCodeAt(0) % crafts.length];
-              
-              const initial = artisan.full_name ? artisan.full_name.charAt(0).toUpperCase() : "A";
-              
-              // Dynamic cover image & creation count
+
+              // Dynamic cover image & creation count (prefer custom banner_url, fallback to latest creation)
               const productCount = artisan.products ? artisan.products.length : 0;
               const latestProduct = artisan.products?.find((p) => Boolean(p.image_url));
-              const coverImage = latestProduct?.image_url;
+              const coverImage = artisan.banner_url || latestProduct?.image_url;
 
               return (
                 <Link
@@ -309,7 +306,7 @@ type SpeechRecognitionCtor = new () => ISpeechRecognition;
                       <img
                         src={coverImage}
                         alt={artisan.full_name}
-                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
                       />
                     ) : (
                       <>
@@ -338,10 +335,15 @@ type SpeechRecognitionCtor = new () => ISpeechRecognition;
                   </div>
 
                   {/* Bottom Half: Details */}
-                  <div className="relative px-6 pb-6 pt-10 text-center">
+                  <div className="relative px-6 pb-6 pt-12 text-center">
                     {/* Avatar */}
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-neutral-900 border-4 border-white rounded-full flex items-center justify-center text-white text-2xl shadow-sm z-10">
-                      <span className={`${playfair.className}`}>{initial}</span>
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-10">
+                      <ArtisanAvatar
+                        name={artisan.full_name}
+                        avatarUrl={artisan.avatar_url}
+                        size="xl"
+                        className="border-4 border-white shadow-md ring-0"
+                      />
                     </div>
 
                     <h2 className={`text-2xl text-neutral-900 mb-1 ${playfair.className}`}>
