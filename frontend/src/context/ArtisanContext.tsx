@@ -97,49 +97,70 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    async function initAuth() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    async function applyUserData(user: Session["user"]) {
+      if (!user || !mounted) return;
 
-      if (session?.user) {
-        if (mounted) setArtisanId(session.user.id);
-        const profile = await fetchProfileData(session.user.id);
+      setArtisanId(user.id);
+      const metaName =
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        "Artisan";
+      const metaAvatar =
+        user.user_metadata?.avatar_url ||
+        user.user_metadata?.picture ||
+        "";
 
-        if (profile && mounted) {
-          setProfileName(profile.full_name || "New Artisan");
-          setProfilePhone(cleanPhone(profile.phone_number));
-          setWhatsappNumber(cleanPhone(profile.whatsapp_number));
-          setUpiId(profile.upi_id || "");
-          setPaypalEmail(profile.paypal_email || "");
-          setAvatarUrl(profile.avatar_url || "");
-          setBannerUrl(profile.banner_url || "");
-          setUserRole(profile.user_role || "customer");
-        }
+      // 1. Optimistic immediate population from OAuth session metadata
+      setProfileName((prev) => prev || metaName);
+      setAvatarUrl((prev) => prev || metaAvatar);
+
+      // 2. Overlay persistent database profile
+      const profile = await fetchProfileData(user.id);
+      if (profile && mounted) {
+        if (profile.full_name) setProfileName(profile.full_name);
+        setProfilePhone(cleanPhone(profile.phone_number));
+        setWhatsappNumber(cleanPhone(profile.whatsapp_number));
+        setUpiId(profile.upi_id || "");
+        setPaypalEmail(profile.paypal_email || "");
+        if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
+        if (profile.banner_url) setBannerUrl(profile.banner_url);
+        if (profile.user_role) setUserRole(profile.user_role);
       }
-      if (mounted) setIsLoading(false);
+    }
+
+    async function initAuth() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.user) {
+          await applyUserData(session.user);
+        } else {
+          // Direct fallback to getUser in case cookies were refreshed
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user) {
+            await applyUserData(user);
+          }
+        }
+      } catch (err) {
+        console.warn("initAuth notice:", err);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
     }
 
     initAuth();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event: unknown, session: Session | null) => {
+    } = supabase.auth.onAuthStateChange(async (event: string, session: Session | null) => {
+      console.log(`[ArtisanContext] onAuthStateChange event: ${event}, user: ${session?.user?.id ?? "none"}`);
       if (session?.user) {
-        if (mounted) setArtisanId(session.user.id);
-        const profile = await fetchProfileData(session.user.id);
-
-        if (profile && mounted) {
-          setProfileName(profile.full_name || "New Artisan");
-          setProfilePhone(cleanPhone(profile.phone_number));
-          setWhatsappNumber(cleanPhone(profile.whatsapp_number));
-          setUpiId(profile.upi_id || "");
-          setPaypalEmail(profile.paypal_email || "");
-          setAvatarUrl(profile.avatar_url || "");
-          setBannerUrl(profile.banner_url || "");
-          setUserRole(profile.user_role || "customer");
-        }
-      } else {
+        await applyUserData(session.user);
+      } else if (event === "SIGNED_OUT") {
         if (mounted) {
           setArtisanId(null);
           setProfileName("");
@@ -152,6 +173,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
           setUserRole("customer");
         }
       }
+      if (mounted) setIsLoading(false);
     });
 
     return () => {

@@ -141,17 +141,23 @@ function AuthSyncContent() {
           localStorage.removeItem("intended_role");
         }
 
-        // 8. Redirect 'artisan' to /studio and 'customer' to /shop with cache refresh
+        // 8. Redirect 'artisan' to /studio and 'customer' to /shop with full browser reload
         if (mounted) {
           const dest = intendedRole === "artisan" ? "/studio" : "/shop";
-          router.replace(dest);
-          router.refresh();
+          if (typeof window !== "undefined") {
+            window.location.replace(dest);
+          } else {
+            router.replace(dest);
+          }
         }
       } catch (err) {
         console.error("Error during profile sync:", err);
         if (mounted) {
-          router.replace("/shop");
-          router.refresh();
+          if (typeof window !== "undefined") {
+            window.location.replace("/shop");
+          } else {
+            router.replace("/shop");
+          }
         }
       }
     }

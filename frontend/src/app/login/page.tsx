@@ -42,10 +42,12 @@ function LoginContent() {
         localStorage.setItem("intended_role", selectedRole);
       }
 
+      const callbackUrl = `${window.location.origin}/auth/callback?role=${encodeURIComponent(selectedRole)}`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: callbackUrl,
           queryParams: {
             prompt: "select_account",
           },

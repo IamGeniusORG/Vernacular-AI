@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Search, MapPin, Sparkles, Mic, MicOff } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
@@ -10,6 +10,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { Artisan } from "@/lib/api";
 import Marquee from "@/components/Marquee";
 import ArtisanAvatar from "@/components/ArtisanAvatar";
+import { createClient } from "@/utils/supabase/client";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -27,8 +28,24 @@ export default function ShopDirectoryClient({ artisans }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCraft, setSelectedCraft] = useState("All");
   const [isListening, setIsListening] = useState(false);
-  const { artisanId, profileName, avatarUrl, userRole, logout } = useArtisan();
+  const { artisanId, profileName, avatarUrl, userRole, logout, isLoading, refreshProfile } = useArtisan();
   const { activeLanguage, t } = useLanguage();
+
+  // Active listener for Supabase Auth state changes to guarantee instant UI reactivity
+  useEffect(() => {
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user && !artisanId) {
+        refreshProfile();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [artisanId, refreshProfile]);
 
 interface SpeechRecognitionResultItem {
   transcript: string;
@@ -174,7 +191,9 @@ type SpeechRecognitionCtor = new () => ISpeechRecognition;
           </Link>
         </div>
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-          {artisanId ? (
+          {isLoading ? (
+            <div className="w-8 h-8 rounded-full bg-stone-200/70 animate-pulse" />
+          ) : artisanId ? (
             <div className="flex items-center gap-2 sm:gap-3">
               {userRole === "artisan" && (
                 <Link
