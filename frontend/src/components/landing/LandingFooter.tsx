@@ -1,0 +1,247 @@
+"use client";
+
+import React, { useState } from "react";
+import Link from "next/link";
+import { Mail, CheckCircle2, ArrowRight, Sparkles, Heart } from "lucide-react";
+import { Playfair_Display } from "next/font/google";
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  display: "swap",
+});
+
+export default function LandingFooter() {
+  const [email, setEmail] = useState("");
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email.trim() && email.includes("@")) {
+      setIsSubscribed(true);
+      setEmail("");
+    }
+  };
+
+  const scrollToDirectory = () => {
+    const el = document.getElementById("artisan-directory");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  return (
+    <footer className="bg-[#1C1917] text-white overflow-hidden">
+      {/* ── 1. Stay Connected Newsletter Signup Banner ── */}
+      <div className="border-b border-stone-800 bg-[#292524] py-14">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+            <div className="max-w-xl text-center lg:text-left">
+              <span className="text-[#D97706] text-xs font-bold uppercase tracking-widest block mb-2">
+                Stay In The Loop
+              </span>
+              <h3 className={`text-2xl sm:text-3xl font-bold text-white mb-2 ${playfair.className}`}>
+                Stories from the Loom, Directly to Your Inbox
+              </h3>
+              <p className="text-stone-400 text-xs sm:text-sm">
+                Get monthly artisan spotlights, heritage saree drops, and transparent direct-impact reports.
+              </p>
+            </div>
+
+            <div className="w-full lg:w-auto">
+              {isSubscribed ? (
+                <div className="px-6 py-4 rounded-full bg-emerald-900/50 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2">
+                  <CheckCircle2 size={18} className="text-emerald-400" />
+                  <span>Thank you for joining our patron circle!</span>
+                </div>
+              ) : (
+                <form
+                  onSubmit={handleSubscribe}
+                  className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md"
+                >
+                  <div className="relative w-full">
+                    <Mail
+                      size={16}
+                      className="absolute inset-y-0 left-4 my-auto text-stone-500"
+                    />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your email address..."
+                      className="w-full pl-11 pr-4 py-3 bg-stone-900 border border-stone-700 rounded-full text-xs sm:text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full sm:w-auto px-6 py-3 bg-[#C85A32] hover:bg-[#B34D27] text-white font-bold text-xs sm:text-sm rounded-full transition shadow-md whitespace-nowrap shrink-0"
+                  >
+                    Subscribe
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. Large CTA Banner: Join Our Global Artisan Marketplace ── */}
+      <div className="py-20 md:py-28 relative overflow-hidden bg-gradient-to-b from-[#292524] to-[#1C1917] border-b border-stone-800">
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#C85A32_1px,transparent_1px)] [background-size:16px_16px]"></div>
+        
+        <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-widest mb-4">
+            <Sparkles size={13} />
+            <span>Support Fair-Trade Living Heritage</span>
+          </span>
+
+          <h2 className={`text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-6 leading-tight ${playfair.className}`}>
+            Join Our Global Artisan Marketplace
+          </h2>
+
+          <p className="text-stone-300 text-sm sm:text-base md:text-lg mb-8 max-w-2xl mx-auto leading-relaxed font-light">
+            Whether you are looking for an exquisite GI-certified Jamdani masterpiece or are an artisan looking to take your generational craft global, Vernacular AI is your sovereign bridge.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              type="button"
+              onClick={scrollToDirectory}
+              className="w-full sm:w-auto px-8 py-4 bg-[#C85A32] hover:bg-[#B34D27] text-white rounded-full font-bold text-sm shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 group"
+            >
+              <span>Shop Unique Crafts</span>
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            <Link
+              href="/studio"
+              className="w-full sm:w-auto px-8 py-4 bg-transparent hover:bg-white/10 text-stone-200 border border-stone-600 rounded-full font-bold text-sm transition text-center"
+            >
+              Open Your Artisan Studio
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. Standard Footer Links (4-Column Grid) ── */}
+      <div className="py-16 border-b border-stone-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
+            {/* Col 1: Shop */}
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-4">
+                Shop Heritage
+              </h4>
+              <ul className="space-y-2.5 text-xs text-stone-400">
+                <li>
+                  <button onClick={scrollToDirectory} className="hover:text-white transition">All Handloom Sarees</button>
+                </li>
+                <li>
+                  <button onClick={scrollToDirectory} className="hover:text-white transition">Dhakai Jamdani</button>
+                </li>
+                <li>
+                  <button onClick={scrollToDirectory} className="hover:text-white transition">Murshidabad Baluchari Silk</button>
+                </li>
+                <li>
+                  <button onClick={scrollToDirectory} className="hover:text-white transition">Phulia Taant Cotton</button>
+                </li>
+                <li>
+                  <button onClick={scrollToDirectory} className="hover:text-white transition">Bengal Khadi Linen</button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Col 2: Sell */}
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-4">
+                Sell With Us
+              </h4>
+              <ul className="space-y-2.5 text-xs text-stone-400">
+                <li>
+                  <Link href="/studio" className="hover:text-white transition">Artisan Studio Dashboard</Link>
+                </li>
+                <li>
+                  <Link href="/studio" className="hover:text-white transition">Voice Catalog Generator</Link>
+                </li>
+                <li>
+                  <Link href="/studio" className="hover:text-white transition">Direct UPI Payout Setup</Link>
+                </li>
+                <li>
+                  <Link href="/studio" className="hover:text-white transition">PayPal Sandbox Export</Link>
+                </li>
+                <li>
+                  <Link href="/login" className="hover:text-white transition">Weaver Community Login</Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Col 3: Help & Support */}
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-4">
+                Help & Payouts
+              </h4>
+              <ul className="space-y-2.5 text-xs text-stone-400">
+                <li>
+                  <a href="#faq" className="hover:text-white transition">Frequently Asked Questions</a>
+                </li>
+                <li>
+                  <a href="#how-it-works" className="hover:text-white transition">How Payouts Work (0% Fee)</a>
+                </li>
+                <li>
+                  <a href="#why-us" className="hover:text-white transition">Worldwide Shipping Guide</a>
+                </li>
+                <li>
+                  <a href="#why-us" className="hover:text-white transition">Buyer Protection Policy</a>
+                </li>
+                <li>
+                  <Link href="/profile" className="hover:text-white transition">Patron Preferences</Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Col 4: Legal & Cultural */}
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-4">
+                Provenance & Legal
+              </h4>
+              <ul className="space-y-2.5 text-xs text-stone-400">
+                <li>
+                  <span className="text-stone-400">Geographical Indications (GI)</span>
+                </li>
+                <li>
+                  <span className="text-stone-400">Silk Mark Certified Sourcing</span>
+                </li>
+                <li>
+                  <span className="text-stone-400">Zero Commission Charter</span>
+                </li>
+                <li>
+                  <span className="text-stone-400">Privacy & Data Sovereignty</span>
+                </li>
+                <li>
+                  <span className="text-stone-400">Seva Innovation Challenge</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4. Bottom Attribution Bar ── */}
+      <div className="py-6 bg-[#141210]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
+          <div className="flex items-center gap-2">
+            <span>© 2026 Vernacular AI E-Commerce Enabler.</span>
+            <span>All rights reserved.</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-stone-400">
+            <span>Crafted with</span>
+            <Heart size={13} className="text-rose-500 fill-rose-500" />
+            <span>for rural Indian weavers & the global diaspora.</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
