@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Sparkles, ArrowRight } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
@@ -62,7 +62,7 @@ const HANDPICKED_TREASURES: TreasureItem[] = [
     badge: "Breathable Summer Weave",
     priceInr: 2200,
     priceUsd: 32,
-    imageUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/treasures/phulia-taant.jpg",
   },
   {
     id: "tr-5",
@@ -88,7 +88,8 @@ const HANDPICKED_TREASURES: TreasureItem[] = [
 
 export default function TreasuresCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { formatPrice, currency } = usePreferences();
+  const { currency } = usePreferences();
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const handleScroll = (direction: "left" | "right") => {
     if (!scrollRef.current) return;
@@ -151,62 +152,78 @@ export default function TreasuresCarousel() {
           className="flex gap-6 overflow-x-auto pb-4 pt-1 snap-x scrollbar-hide select-none"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {HANDPICKED_TREASURES.map((item) => (
-            <div
-              key={item.id}
-              className="w-[280px] sm:w-[320px] shrink-0 snap-start group bg-white rounded-2xl overflow-hidden border border-stone-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col"
-            >
-              {/* Image Box */}
-              <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-stone-100">
-                <Image
-                  src={item.imageUrl}
-                  alt={item.title}
-                  fill
-                  sizes="(max-width: 768px) 280px, 320px"
-                  unoptimized={item.imageUrl.startsWith("http")}
-                  className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                />
-                <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm text-neutral-800 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm border border-stone-200/80">
-                  {item.badge}
-                </div>
-                <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1 rounded-full">
-                  {item.craft}
-                </div>
-              </div>
+          {HANDPICKED_TREASURES.map((item) => {
+            const displaySrc = failedImages[item.id] ? "/treasures/phulia-taant.jpg" : item.imageUrl;
+            const isRemote = displaySrc.startsWith("http");
 
-              {/* Card Details */}
-              <div className="p-5 flex-1 flex flex-col justify-between">
-                <div>
-                  <span className="text-[11px] uppercase tracking-wider font-semibold text-[#8B4513] block mb-1">
-                    {item.region}
-                  </span>
-                  <h3 className={`text-base sm:text-lg font-bold text-neutral-900 line-clamp-1 mb-2 ${playfair.className}`}>
-                    {item.title}
-                  </h3>
+            return (
+              <div
+                key={item.id}
+                className="w-[280px] sm:w-[320px] shrink-0 snap-start group bg-white rounded-2xl overflow-hidden border border-stone-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col"
+              >
+                {/* Image Box */}
+                <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-stone-100">
+                  <Image
+                    src={displaySrc}
+                    alt={item.title}
+                    fill
+                    sizes="(max-width: 768px) 280px, 320px"
+                    unoptimized={isRemote}
+                    onError={() => setFailedImages((prev) => ({ ...prev, [item.id]: true }))}
+                    className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                  />
+                  <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm text-neutral-800 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm border border-stone-200/80">
+                    {item.badge}
+                  </div>
+                  <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1 rounded-full">
+                    {item.craft}
+                  </div>
                 </div>
 
-                <div className="pt-3 border-t border-stone-100 flex items-center justify-between mt-2">
+                {/* Card Details */}
+                <div className="p-5 flex-1 flex flex-col justify-between">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-neutral-400 block">
-                      Direct Price ({currency})
+                    <span className="text-[11px] uppercase tracking-wider font-semibold text-[#8B4513] block mb-1">
+                      {item.region}
                     </span>
-                    <span className="text-base font-extrabold text-neutral-900">
-                      {formatPrice(item.priceInr, item.priceUsd)}
-                    </span>
+                    <h3 className={`text-base sm:text-lg font-bold text-neutral-900 line-clamp-1 mb-2 ${playfair.className}`}>
+                      {item.title}
+                    </h3>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={scrollToDirectory}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-[#C85A32] hover:text-[#A34320] transition group-hover:translate-x-0.5"
-                  >
-                    <span>View Weavers</span>
-                    <ArrowRight size={13} />
-                  </button>
+                  <div className="pt-3 border-t border-stone-100 flex items-center justify-between mt-2">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-neutral-400 block mb-0.5">
+                        Direct Price ({currency})
+                      </span>
+                      <div
+                        className="relative inline-flex items-center overflow-hidden rounded-lg px-2.5 py-1 bg-stone-100/70 border border-stone-200/80 shadow-xs select-none"
+                        title="Curated showcase item — direct prices confirmed with artisan"
+                      >
+                        {/* Blurred placeholder digits so real price is obscured */}
+                        <span className="text-sm font-extrabold text-stone-400 filter blur-[4px] opacity-40 tracking-wider pointer-events-none select-none">
+                          {currency === "USD" ? "$ • • • •" : "₹ • • • •"}
+                        </span>
+                        {/* Translucent frosted-glass effect overlay */}
+                        <span className="absolute inset-0 bg-white/75 backdrop-blur-[3px] flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-stone-600 px-2 shadow-inner">
+                          Direct on Loom
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={scrollToDirectory}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#C85A32] hover:text-[#A34320] transition group-hover:translate-x-0.5"
+                    >
+                      <span>View Weavers</span>
+                      <ArrowRight size={13} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Explore All Categories Action */}

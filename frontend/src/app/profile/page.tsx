@@ -73,7 +73,7 @@ const SAVED_FAVORITES = [
 export default function BuyerProfilePage() {
   const router = useRouter();
   const supabase = createClient();
-  const { currency, setCurrency, language, setLanguage, formatPrice } = usePreferences();
+  const { currency, setCurrency, language, setLanguage } = usePreferences();
   const {
     artisanId,
     profileName,
@@ -598,12 +598,20 @@ export default function BuyerProfilePage() {
 
                     <div className="mt-4 pt-3 border-t border-stone-200/60 flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] uppercase font-bold text-neutral-400 block">
+                        <span className="text-[10px] uppercase font-bold text-neutral-400 block mb-0.5">
                           Price ({currency})
                         </span>
-                        <span className="text-base font-extrabold text-neutral-900">
-                          {formatPrice(item.priceInr, item.priceUsd)}
-                        </span>
+                        <div
+                          className="relative inline-flex items-center overflow-hidden rounded-lg px-2.5 py-1 bg-stone-100/70 border border-stone-200/80 shadow-xs select-none"
+                          title="Curated favorite item — direct prices confirmed with artisan"
+                        >
+                          <span className="text-sm font-extrabold text-stone-400 filter blur-[4px] opacity-40 tracking-wider pointer-events-none select-none">
+                            {currency === "USD" ? "$ • • • •" : "₹ • • • •"}
+                          </span>
+                          <span className="absolute inset-0 bg-white/75 backdrop-blur-[3px] flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-stone-600 px-2 shadow-inner">
+                            Direct on Loom
+                          </span>
+                        </div>
                       </div>
 
                       <Link
