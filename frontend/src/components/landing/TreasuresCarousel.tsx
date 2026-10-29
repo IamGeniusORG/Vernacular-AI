@@ -4,7 +4,6 @@ import React, { useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Sparkles, ArrowRight } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
-import { usePreferences } from "@/context/PreferencesContext";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -88,7 +87,6 @@ const HANDPICKED_TREASURES: TreasureItem[] = [
 
 export default function TreasuresCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { currency } = usePreferences();
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const handleScroll = (direction: "left" | "right") => {
@@ -192,29 +190,15 @@ export default function TreasuresCarousel() {
                   </div>
 
                   <div className="pt-3 border-t border-stone-100 flex items-center justify-between mt-2">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-neutral-400 block mb-0.5">
-                        Direct Price ({currency})
-                      </span>
-                      <div
-                        className="relative inline-flex items-center overflow-hidden rounded-lg px-2.5 py-1 bg-stone-100/70 border border-stone-200/80 shadow-xs select-none"
-                        title="Curated showcase item — direct prices confirmed with artisan"
-                      >
-                        {/* Blurred placeholder digits so real price is obscured */}
-                        <span className="text-sm font-extrabold text-stone-400 filter blur-[4px] opacity-40 tracking-wider pointer-events-none select-none">
-                          {currency === "USD" ? "$ • • • •" : "₹ • • • •"}
-                        </span>
-                        {/* Translucent frosted-glass effect overlay */}
-                        <span className="absolute inset-0 bg-white/75 backdrop-blur-[3px] flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-stone-600 px-2 shadow-inner">
-                          Direct on Loom
-                        </span>
-                      </div>
-                    </div>
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-stone-100/90 px-2.5 py-1 rounded-full border border-stone-200/70">
+                      <Sparkles size={11} className="text-[#C85A32]" />
+                      <span>Direct from Loom</span>
+                    </span>
 
                     <button
                       type="button"
                       onClick={scrollToDirectory}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[#C85A32] hover:text-[#A34320] transition group-hover:translate-x-0.5"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#C85A32]/10 hover:bg-[#C85A32] text-[#C85A32] hover:text-white text-xs font-bold transition-all group-hover:translate-x-0.5"
                     >
                       <span>View Weavers</span>
                       <ArrowRight size={13} />

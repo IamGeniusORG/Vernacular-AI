@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Playfair_Display } from "next/font/google";
 import {
@@ -224,8 +225,24 @@ export default function BuyerProfilePage() {
     return (
       <div className="min-h-screen bg-[#FDFBF7] flex flex-col justify-between font-sans">
         <header className="px-6 py-4 border-b border-stone-200 bg-white/70 backdrop-blur-sm flex items-center justify-between">
-          <Link href="/shop" className={`text-xl font-bold text-neutral-900 ${playfair.className}`}>
-            Vernacular AI
+          <Link
+            href="/shop"
+            className="flex items-center gap-2 group min-w-0"
+            title="Vernacular AI Home"
+          >
+            <span className={`text-xl font-bold text-neutral-900 ${playfair.className}`}>
+              Vernacular AI
+            </span>
+            <div className="relative h-7 w-auto aspect-[1423/874] shrink-0 overflow-hidden rounded-md flex items-center">
+              <Image
+                src="/brand-hero.png"
+                alt="Vernacular AI Logo"
+                width={48}
+                height={28}
+                className="h-full w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
+                priority
+              />
+            </div>
           </Link>
           <Link
             href="/login"
@@ -597,22 +614,10 @@ export default function BuyerProfilePage() {
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-stone-200/60 flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-neutral-400 block mb-0.5">
-                          Price ({currency})
-                        </span>
-                        <div
-                          className="relative inline-flex items-center overflow-hidden rounded-lg px-2.5 py-1 bg-stone-100/70 border border-stone-200/80 shadow-xs select-none"
-                          title="Curated favorite item — direct prices confirmed with artisan"
-                        >
-                          <span className="text-sm font-extrabold text-stone-400 filter blur-[4px] opacity-40 tracking-wider pointer-events-none select-none">
-                            {currency === "USD" ? "$ • • • •" : "₹ • • • •"}
-                          </span>
-                          <span className="absolute inset-0 bg-white/75 backdrop-blur-[3px] flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-stone-600 px-2 shadow-inner">
-                            Direct on Loom
-                          </span>
-                        </div>
-                      </div>
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-stone-100/90 px-2.5 py-1 rounded-full border border-stone-200/70">
+                        <Sparkles size={11} className="text-amber-700" />
+                        <span>Direct from Weaver</span>
+                      </span>
 
                       <Link
                         href="/shop"

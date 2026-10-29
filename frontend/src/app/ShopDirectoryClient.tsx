@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Search, MapPin, Mic, MicOff, ArrowRight, Sparkles, Users, Package, Globe2 } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
 import { useArtisan } from "@/context/ArtisanContext";
@@ -209,9 +210,24 @@ export default function ShopDirectoryClient({ artisans }: Props) {
           <div className="flex items-center gap-6 min-w-0">
             <Link
               href="/shop"
-              className={`text-lg sm:text-xl md:text-2xl font-extrabold text-neutral-900 tracking-tight truncate block ${playfair.className}`}
+              className="flex items-center gap-2.5 group min-w-0"
+              title="Vernacular AI Home"
             >
-              Vernacular AI
+              <span
+                className={`text-lg sm:text-xl md:text-2xl font-extrabold text-neutral-900 tracking-tight truncate block ${playfair.className}`}
+              >
+                Vernacular AI
+              </span>
+              <div className="relative h-7 sm:h-8 w-auto aspect-[1423/874] shrink-0 overflow-hidden rounded-md flex items-center">
+                <Image
+                  src="/brand-hero.png"
+                  alt="Vernacular AI Logo"
+                  width={52}
+                  height={32}
+                  className="h-full w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
+                  priority
+                />
+              </div>
             </Link>
 
             {/* Quick Anchor Navigation Links */}
@@ -244,58 +260,104 @@ export default function ShopDirectoryClient({ artisans }: Props) {
         <div className="absolute top-0 left-1/4 w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] bg-[#2E5A36]/5 rounded-full blur-3xl pointer-events-none -translate-y-1/2"></div>
         <div className="absolute bottom-0 right-1/4 w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] bg-[#C85A32]/5 rounded-full blur-3xl pointer-events-none translate-y-1/2"></div>
 
-        <div className="w-full max-w-5xl mx-auto text-center relative z-10 flex flex-col items-center">
-          {/* Eyebrow Pill */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-stone-200/80 shadow-2xs text-[#8B4513] text-xs font-bold uppercase tracking-wider mb-6">
-            <Sparkles size={13} className="text-[#C85A32]" />
-            <span>Direct From Rural Weavers • Zero Commission</span>
+        <div className="w-full max-w-[1720px] mx-auto relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 xl:gap-14 items-center">
+          {/* Left Column: Headline, Subtitle, CTAs, and Stats */}
+          <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left">
+            {/* Eyebrow Pill */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-stone-200/80 shadow-2xs text-[#8B4513] text-xs font-bold uppercase tracking-wider mb-6">
+              <Sparkles size={13} className="text-[#C85A32]" />
+              <span>Direct From Rural Weavers • Zero Commission</span>
+            </div>
+
+            {/* Headline */}
+            <h1 className={`text-4xl sm:text-5xl md:text-6xl xl:text-7xl font-extrabold text-neutral-900 mb-6 leading-[1.12] tracking-tight ${playfair.className}`}>
+              Empowering Rural Weavers. <br />
+              <span className="text-[#C85A32] italic font-serif">Global Digital Sovereignty.</span>
+            </h1>
+
+            {/* Subheadline */}
+            <p className="text-base sm:text-lg md:text-xl text-neutral-600 font-light mb-8 max-w-2xl leading-relaxed">
+              Connect with skilled artisans from West Bengal and beyond. Find unique handcrafted pieces that tell a story in their native voice.
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 w-full sm:w-auto mb-10">
+              <button
+                type="button"
+                onClick={scrollToDirectory}
+                className="w-full sm:w-auto px-8 py-4 rounded-full bg-[#C85A32] hover:bg-[#B34D27] text-white font-bold text-sm shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 group"
+              >
+                <span>Start Shopping</span>
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              <Link
+                href="/studio"
+                className="w-full sm:w-auto px-8 py-4 rounded-full bg-transparent hover:bg-neutral-900/5 text-neutral-900 border-2 border-neutral-900 font-bold text-sm transition text-center"
+              >
+                Become an Artisan
+              </Link>
+            </div>
+
+            {/* Stats Row */}
+            <div className="inline-flex flex-wrap items-center justify-center lg:justify-start gap-4 sm:gap-6 px-6 py-3.5 rounded-full bg-white/80 backdrop-blur-md border border-stone-200/90 shadow-2xs text-xs sm:text-sm font-semibold text-neutral-700">
+              <div className="flex items-center gap-1.5">
+                <Users size={16} className="text-[#C85A32]" />
+                <span><strong className="text-neutral-900">10K+</strong> Artisans</span>
+              </div>
+              <span className="text-stone-300 hidden sm:inline">|</span>
+              <div className="flex items-center gap-1.5">
+                <Package size={16} className="text-[#2E5A36]" />
+                <span><strong className="text-neutral-900">50K+</strong> Products</span>
+              </div>
+              <span className="text-stone-300 hidden sm:inline">|</span>
+              <div className="flex items-center gap-1.5">
+                <Globe2 size={16} className="text-[#3B82F6]" />
+                <span><strong className="text-neutral-900">120+</strong> Countries</span>
+              </div>
+            </div>
           </div>
 
-          {/* Headline */}
-          <h1 className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-neutral-900 mb-6 leading-[1.12] tracking-tight ${playfair.className}`}>
-            Empowering Rural Weavers. <br />
-            <span className="text-[#C85A32] italic font-serif">Global Digital Sovereignty.</span>
-          </h1>
+          {/* Right Column: Hero Brand Showcase */}
+          <div className="lg:col-span-5 flex items-center justify-center w-full">
+            <div className="relative w-full max-w-[500px] rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-white/95 via-[#FDFBF7]/90 to-[#F6F2EC]/80 backdrop-blur-md border border-stone-200/80 shadow-2xl overflow-hidden group">
+              {/* Soft decorative ambient accents */}
+              <div className="absolute -top-10 -right-10 w-44 h-44 bg-[#C85A32]/10 rounded-full blur-2xl pointer-events-none"></div>
+              <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-[#2E5A36]/10 rounded-full blur-2xl pointer-events-none"></div>
 
-          {/* Subheadline */}
-          <p className="text-base sm:text-lg md:text-xl text-neutral-600 font-light mb-10 max-w-2xl px-2 leading-relaxed">
-            Connect with skilled artisans from West Bengal and beyond. Find unique handcrafted pieces that tell a story in their native voice.
-          </p>
+              {/* Top Pill / Badge */}
+              <div className="flex items-center justify-between gap-2 mb-4 relative z-10">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/90 border border-stone-200 text-[11px] font-bold text-neutral-700 shadow-2xs">
+                  <Sparkles size={12} className="text-[#C85A32]" />
+                  <span>Official Brandmark</span>
+                </div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400">
+                  Bengal Handloom AI
+                </span>
+              </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto mb-12">
-            <button
-              type="button"
-              onClick={scrollToDirectory}
-              className="w-full sm:w-auto px-8 py-4 rounded-full bg-[#C85A32] hover:bg-[#B34D27] text-white font-bold text-sm shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 group"
-            >
-              <span>Start Shopping</span>
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </button>
+              {/* Logo Artwork */}
+              <div className="relative w-full aspect-[1423/874] overflow-hidden rounded-2xl bg-[#FAF8F5]/60 border border-stone-200/60 flex items-center justify-center p-3 sm:p-4 shadow-inner">
+                <Image
+                  src="/brand-hero.png"
+                  alt="Vernacular AI - Official Brand Artwork"
+                  width={710}
+                  height={437}
+                  className="w-full h-auto max-h-[320px] object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-700 ease-out"
+                  priority
+                />
+              </div>
 
-            <Link
-              href="/studio"
-              className="w-full sm:w-auto px-8 py-4 rounded-full bg-transparent hover:bg-neutral-900/5 text-neutral-900 border-2 border-neutral-900 font-bold text-sm transition text-center"
-            >
-              Become an Artisan
-            </Link>
-          </div>
-
-          {/* Stats Row */}
-          <div className="inline-flex flex-wrap items-center justify-center gap-4 sm:gap-8 px-6 py-3.5 rounded-full bg-white/70 backdrop-blur-md border border-stone-200/90 shadow-2xs text-xs sm:text-sm font-semibold text-neutral-700">
-            <div className="flex items-center gap-1.5">
-              <Users size={16} className="text-[#C85A32]" />
-              <span><strong className="text-neutral-900">10K+</strong> Artisans</span>
-            </div>
-            <span className="text-stone-300 hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5">
-              <Package size={16} className="text-[#2E5A36]" />
-              <span><strong className="text-neutral-900">50K+</strong> Products</span>
-            </div>
-            <span className="text-stone-300 hidden sm:inline">|</span>
-            <div className="flex items-center gap-1.5">
-              <Globe2 size={16} className="text-[#3B82F6]" />
-              <span><strong className="text-neutral-900">120+</strong> Countries</span>
+              {/* Caption Footer */}
+              <div className="mt-4 pt-3 border-t border-stone-200/70 flex items-center justify-between text-xs text-neutral-600 font-medium relative z-10">
+                <span className="flex items-center gap-1.5 text-neutral-700 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Direct-from-Loom Protocol
+                </span>
+                <span className="text-[#8B4513] font-bold text-[11px] uppercase tracking-wider">
+                  Zero Commission
+                </span>
+              </div>
             </div>
           </div>
         </div>
