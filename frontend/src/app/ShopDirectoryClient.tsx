@@ -15,6 +15,7 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { createClient } from "@/utils/supabase/client";
 
 // Modular Landing Page Components
+import DynamicWeaveCanvas from "@/components/DynamicWeaveCanvas";
 import TreasuresCarousel from "@/components/landing/TreasuresCarousel";
 import HowItWorks from "@/components/landing/HowItWorks";
 import TrustSections from "@/components/landing/TrustSections";
@@ -195,50 +196,55 @@ export default function ShopDirectoryClient({ artisans }: Props) {
   });
 
   return (
-    <div className="min-h-screen bg-[#F9F8F6] font-sans text-neutral-900 selection:bg-amber-100 selection:text-amber-900">
+    <div className="min-h-screen bg-[#F9F8F6] font-sans text-neutral-900 selection:bg-amber-100 selection:text-amber-900 relative w-full overflow-x-hidden">
+      {/* ── Dynamic Ambient Background Canvas (Spans 100% of browser window, resizes dynamically) ── */}
+      <DynamicWeaveCanvas />
+
       {/* ── Top Announcement Marquee ── */}
       <Marquee />
 
       {/* ── Global Sticky Navigation Header ── */}
-      <header className="px-4 md:px-8 py-3.5 md:py-4 flex items-center justify-between gap-3 sticky top-0 z-40 bg-[#F9F8F6]/90 backdrop-blur-md border-b border-stone-200/90 shadow-2xs">
-        <div className="flex items-center gap-6 min-w-0">
-          <Link
-            href="/shop"
-            className={`text-lg sm:text-xl md:text-2xl font-extrabold text-neutral-900 tracking-tight truncate block ${playfair.className}`}
-          >
-            Vernacular AI
-          </Link>
+      <header className="w-full sticky top-0 z-40 bg-[#F9F8F6]/90 backdrop-blur-md border-b border-stone-200/90 shadow-2xs">
+        <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20 py-3.5 md:py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-6 min-w-0">
+            <Link
+              href="/shop"
+              className={`text-lg sm:text-xl md:text-2xl font-extrabold text-neutral-900 tracking-tight truncate block ${playfair.className}`}
+            >
+              Vernacular AI
+            </Link>
 
-          {/* Quick Anchor Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-5 text-xs font-semibold text-neutral-600">
-            <button onClick={scrollToDirectory} className="hover:text-neutral-900 transition">
-              Artisan Directory
-            </button>
-            <a href="#how-it-works" className="hover:text-neutral-900 transition">
-              How It Works
-            </a>
-            <a href="#why-us" className="hover:text-neutral-900 transition">
-              Why Vernacular AI
-            </a>
-            <a href="#faq" className="hover:text-neutral-900 transition">
-              FAQs
-            </a>
-          </nav>
-        </div>
+            {/* Quick Anchor Navigation Links */}
+            <nav className="hidden lg:flex items-center gap-5 text-xs font-semibold text-neutral-600">
+              <button onClick={scrollToDirectory} className="hover:text-neutral-900 transition">
+                Artisan Directory
+              </button>
+              <a href="#how-it-works" className="hover:text-neutral-900 transition">
+                How It Works
+              </a>
+              <a href="#why-us" className="hover:text-neutral-900 transition">
+                Why Vernacular AI
+              </a>
+              <a href="#faq" className="hover:text-neutral-900 transition">
+                FAQs
+              </a>
+            </nav>
+          </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <LanguageToggle />
-          <UserDropdown />
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <LanguageToggle />
+            <UserDropdown />
+          </div>
         </div>
       </header>
 
-      {/* ── 1. The Hero Section (Soft Warm Beige/Green Gradient) ── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#F5F2EB] via-[#EFEBE4] to-[#FAF8F5] py-20 md:py-28 px-4 sm:px-6 md:px-8 border-b border-stone-200/60">
+      {/* ── 1. The Hero Section (Soft Warm Beige/Green Gradient, uses full canvas height and width) ── */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#F5F2EB] via-[#EFEBE4] to-[#FAF8F5] min-h-[72vh] lg:min-h-[80vh] flex flex-col justify-center py-16 md:py-24 2xl:py-32 px-4 sm:px-8 md:px-12 2xl:px-20 border-b border-stone-200/60 w-full">
         {/* Soft Ambient Radial Accents */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#2E5A36]/5 rounded-full blur-3xl pointer-events-none -translate-y-1/2"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#C85A32]/5 rounded-full blur-3xl pointer-events-none translate-y-1/2"></div>
+        <div className="absolute top-0 left-1/4 w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] bg-[#2E5A36]/5 rounded-full blur-3xl pointer-events-none -translate-y-1/2"></div>
+        <div className="absolute bottom-0 right-1/4 w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] bg-[#C85A32]/5 rounded-full blur-3xl pointer-events-none translate-y-1/2"></div>
 
-        <div className="max-w-4xl mx-auto text-center relative z-10 flex flex-col items-center">
+        <div className="w-full max-w-5xl mx-auto text-center relative z-10 flex flex-col items-center">
           {/* Eyebrow Pill */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-stone-200/80 shadow-2xs text-[#8B4513] text-xs font-bold uppercase tracking-wider mb-6">
             <Sparkles size={13} className="text-[#C85A32]" />
@@ -301,8 +307,8 @@ export default function ShopDirectoryClient({ artisans }: Props) {
       {/* ── 3. How It Works (Two-Column Split Grid) ── */}
       <HowItWorks />
 
-      {/* ── 4. Meet Our Talented Artisans (Integrated Functional Directory) ── */}
-      <section id="artisan-directory" className="py-20 md:py-28 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 scroll-mt-20">
+      {/* ── 4. Meet Our Talented Artisans (Integrated Functional Directory - Full Width Responsive Canvas) ── */}
+      <section id="artisan-directory" className="py-20 md:py-28 w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20 scroll-mt-20">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <span className="text-[#C85A32] uppercase tracking-widest text-xs font-bold mb-2 block">
             Loom Directory
@@ -389,7 +395,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-6 sm:gap-8">
             {filteredArtisans.map((artisan) => {
               const crafts = ["Jamdani", "Taant", "Silk", "Khadi", "Baluchari"];
               const craftTag = crafts[artisan.id.charCodeAt(0) % crafts.length];

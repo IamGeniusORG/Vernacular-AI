@@ -103,7 +103,7 @@ export default function TrustSections() {
     <div id="why-us" className="bg-[#FAF8F5]">
       {/* ── 1. Why Choose Vernacular AI (6-Grid Layout) ── */}
       <section className="py-20 md:py-28 border-t border-stone-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <span className="text-[#8B4513] uppercase tracking-widest text-xs font-bold mb-2 block">
               Ethical Heritage E-Commerce
@@ -142,7 +142,7 @@ export default function TrustSections() {
 
       {/* ── 2. Empower Your Craft Business (4-Column Feature Row) ── */}
       <section className="py-20 bg-[#F2EFE9]/60 border-y border-stone-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-[#2E5A36] uppercase tracking-widest text-xs font-bold mb-2 block">
               Artisan Empowerment
@@ -183,7 +183,7 @@ export default function TrustSections() {
 
       {/* ── 3. Your Trust, Our Priority (3-Column Row) ── */}
       <section className="py-20 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-[#C85A32] uppercase tracking-widest text-xs font-bold mb-2 block">
               Integrity & Security

@@ -85,7 +85,7 @@ export default function HowItWorks() {
 
   return (
     <section id="how-it-works" className="py-20 md:py-28 bg-[#FAF8F5]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+      <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20">
         {/* Section Heading */}
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-[#8B4513] uppercase tracking-widest text-xs font-bold mb-2 block">

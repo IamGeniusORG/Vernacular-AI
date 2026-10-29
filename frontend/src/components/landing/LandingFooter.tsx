@@ -34,7 +34,7 @@ export default function LandingFooter() {
     <footer className="bg-[#1C1917] text-white overflow-hidden">
       {/* ── 1. Stay Connected Newsletter Signup Banner ── */}
       <div className="border-b border-stone-800 bg-[#292524] py-14">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             <div className="max-w-xl text-center lg:text-left">
               <span className="text-[#D97706] text-xs font-bold uppercase tracking-widest block mb-2">
@@ -126,7 +126,7 @@ export default function LandingFooter() {
 
       {/* ── 3. Standard Footer Links (4-Column Grid) ── */}
       <div className="py-16 border-b border-stone-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
             {/* Col 1: Shop */}
             <div>
