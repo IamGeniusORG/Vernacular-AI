@@ -1,11 +1,11 @@
 {
-  "name": "Artisan Storefront",
-  "short_name": "Artisan",
-  "description": "Vernacular AI E-Commerce Enabler",
+  "name": "Vernacular AI - Global Digital Sovereignty for Rural Artisans",
+  "short_name": "Vernacular AI",
+  "description": "Discover authentic handlooms directly from the weavers. Zero commission, multilingual AI, and direct global shipping.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F9F8F6",
-  "theme_color": "#E05A47",
+  "theme_color": "#C85A32",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
