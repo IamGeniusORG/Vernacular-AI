@@ -66,7 +66,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCraft, setSelectedCraft] = useState("All");
   const [isListening, setIsListening] = useState(false);
-  const { artisanId, refreshProfile } = useArtisan();
+  const { artisanId, userRole, refreshProfile } = useArtisan();
   const { activeLanguage, t } = useLanguage();
 
   // Active listener for Supabase Auth state changes to guarantee instant UI reactivity
@@ -292,12 +292,24 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
               </button>
 
-              <Link
-                href="/studio"
-                className="w-full sm:w-auto px-8 py-4 rounded-full bg-transparent hover:bg-neutral-900/5 text-neutral-900 border-2 border-neutral-900 font-bold text-sm transition text-center"
-              >
-                {t("hero_become_artisan")}
-              </Link>
+              {userRole === "customer" ? (
+                <div
+                  title="Artisan Studio is reserved for verified artisan accounts (Currently logged in as Patron / Buyer)"
+                  className="w-full sm:w-auto px-8 py-4 rounded-full bg-stone-200/60 text-stone-400 border-2 border-stone-300/80 font-bold text-sm text-center cursor-not-allowed select-none opacity-60 flex items-center justify-center gap-2"
+                >
+                  <span>{t("hero_become_artisan")}</span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-stone-300 text-stone-600">
+                    Artisan Only
+                  </span>
+                </div>
+              ) : (
+                <Link
+                  href="/studio"
+                  className="w-full sm:w-auto px-8 py-4 rounded-full bg-transparent hover:bg-neutral-900/5 text-neutral-900 border-2 border-neutral-900 font-bold text-sm transition text-center"
+                >
+                  {t("hero_become_artisan")}
+                </Link>
+              )}
             </div>
 
             {/* Stats Row */}

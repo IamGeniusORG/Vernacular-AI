@@ -8,6 +8,7 @@ import {
   Trash2, RefreshCw, Camera, ExternalLink, ImageIcon
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
 import { useLanguage } from "@/context/LanguageContext";
 import LanguageToggle from "@/components/LanguageToggle";
@@ -78,12 +79,7 @@ export default function Home() {
   } = useArtisan();
   const supabase = createClient();
 
-  useEffect(() => {
-    if (!authLoading && artisanId && userRole === "customer") {
-      router.push("/shop");
-    }
-  }, [authLoading, artisanId, userRole, router]);
-
+  // Dedicated state handles customer accounts gracefully below without silent redirects
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
   // Local state for the input fields in the modal
@@ -824,11 +820,66 @@ export default function Home() {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Wait for auth to load or if the user is a customer (they will be redirected by the useEffect)
-  if (authLoading || (artisanId && userRole === "customer")) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center font-sans">
         <Loader2 className="animate-spin text-slate-400" size={32} />
+      </div>
+    );
+  }
+
+  // Customer Account View: gracefully explains that Studio tools are reserved for verified weavers
+  if (artisanId && userRole === "customer") {
+    return (
+      <div className="min-h-screen bg-[#F9F8F6] flex flex-col justify-between font-sans text-neutral-900">
+        <header className="px-6 py-4 border-b border-stone-200 bg-white/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-30">
+          <Link href="/shop" className="flex items-center gap-2.5 group">
+            <span className={`text-xl font-bold text-neutral-900 ${playfair.className}`}>Vernacular AI</span>
+          </Link>
+          <div className="flex items-center gap-2.5">
+            <LanguageToggle />
+            <UserDropdown />
+          </div>
+        </header>
+
+        <main className="max-w-md mx-auto px-6 py-16 text-center">
+          <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <ShoppingBag size={28} />
+          </div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full mb-3 inline-block">
+            Patron / Buyer Account
+          </span>
+          <h1 className={`text-2xl font-bold text-neutral-900 mb-2 ${playfair.className}`}>
+            Artisan Studio is Reserved for Weavers
+          </h1>
+          <p className="text-xs sm:text-sm text-neutral-500 mb-6 leading-relaxed">
+            You are signed in as a valued patron. The Studio features (voice catalog generation, direct UPI payout setup, and workshop branding) are reserved for verified weaver accounts.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link
+              href="/profile"
+              className="w-full py-3 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs sm:text-sm font-semibold transition shadow-md"
+            >
+              Go to Buyer Profile & Preferences
+            </Link>
+            <Link
+              href="/shop"
+              className="w-full py-3 bg-white hover:bg-stone-100 text-neutral-700 border border-stone-200 rounded-xl text-xs sm:text-sm font-semibold transition"
+            >
+              Browse Artisan Marketplace
+            </Link>
+            <Link
+              href="/login"
+              className="w-full py-2.5 text-xs text-neutral-500 hover:text-neutral-800 font-semibold transition"
+            >
+              Switch Account or Log In as Artisan
+            </Link>
+          </div>
+        </main>
+
+        <footer className="py-6 text-center text-xs text-neutral-400 border-t border-stone-200 bg-white">
+          Vernacular AI E-Commerce Enabler • 100% Direct Weaver Platform
+        </footer>
       </div>
     );
   }

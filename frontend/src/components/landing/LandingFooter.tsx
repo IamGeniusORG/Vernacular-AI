@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Mail, CheckCircle2, ArrowRight, Sparkles, Heart } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
 import { useLanguage } from "@/context/LanguageContext";
+import { useArtisan } from "@/context/ArtisanContext";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -14,6 +15,7 @@ const playfair = Playfair_Display({
 
 export default function LandingFooter() {
   const { t } = useLanguage();
+  const { userRole } = useArtisan();
   const [email, setEmail] = useState("");
   const [isSubscribed, setIsSubscribed] = useState(false);
 
@@ -116,12 +118,24 @@ export default function LandingFooter() {
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </button>
 
-            <Link
-              href="/studio"
-              className="w-full sm:w-auto px-8 py-4 bg-transparent hover:bg-white/10 text-stone-200 border border-stone-600 rounded-full font-bold text-sm transition text-center"
-            >
-              {t("footer_cta_btn", "Open Your Artisan Studio")}
-            </Link>
+            {userRole === "customer" ? (
+              <div
+                title="Artisan Studio is reserved for verified artisan accounts (Currently logged in as Patron / Buyer)"
+                className="w-full sm:w-auto px-8 py-4 bg-stone-800/80 text-stone-500 border border-stone-700 rounded-full font-bold text-sm text-center cursor-not-allowed select-none opacity-50 flex items-center justify-center gap-2"
+              >
+                <span>{t("footer_cta_btn", "Open Your Artisan Studio")}</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-stone-700 text-stone-400">
+                  Artisan Only
+                </span>
+              </div>
+            ) : (
+              <Link
+                href="/studio"
+                className="w-full sm:w-auto px-8 py-4 bg-transparent hover:bg-white/10 text-stone-200 border border-stone-600 rounded-full font-bold text-sm transition text-center"
+              >
+                {t("footer_cta_btn", "Open Your Artisan Studio")}
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -160,21 +174,55 @@ export default function LandingFooter() {
                 {t("footer_col_weavers", "Master Weavers")}
               </h4>
               <ul className="space-y-2.5 text-xs text-stone-400">
-                <li>
-                  <Link href="/studio" className="hover:text-white transition">{t("studio_dashboard", "Artisan Studio Dashboard")}</Link>
-                </li>
-                <li>
-                  <Link href="/studio" className="hover:text-white transition">{t("generate_btn", "Voice Catalog Generator")}</Link>
-                </li>
-                <li>
-                  <Link href="/studio" className="hover:text-white transition">{t("upi_id_label", "Direct UPI Payout Setup")}</Link>
-                </li>
-                <li>
-                  <Link href="/studio" className="hover:text-white transition">{t("international_shipping", "PayPal Sandbox Export")}</Link>
-                </li>
-                <li>
-                  <Link href="/login" className="hover:text-white transition">{t("sign_in", "Weaver Community Login")}</Link>
-                </li>
+                {userRole === "customer" ? (
+                  <>
+                    <li title="Artisan Studio is reserved for verified artisan accounts (Currently logged in as Patron / Buyer)">
+                      <span className="text-stone-600 cursor-not-allowed select-none opacity-50 flex items-center justify-between">
+                        <span>{t("studio_dashboard", "Artisan Studio Dashboard")}</span>
+                        <span className="text-[9px] uppercase px-1.5 py-0.5 bg-stone-800 text-stone-500 rounded">Artisan</span>
+                      </span>
+                    </li>
+                    <li title="Artisan Studio is reserved for verified artisan accounts (Currently logged in as Patron / Buyer)">
+                      <span className="text-stone-600 cursor-not-allowed select-none opacity-50 flex items-center justify-between">
+                        <span>{t("generate_btn", "Voice Catalog Generator")}</span>
+                        <span className="text-[9px] uppercase px-1.5 py-0.5 bg-stone-800 text-stone-500 rounded">Artisan</span>
+                      </span>
+                    </li>
+                    <li title="Artisan Studio is reserved for verified artisan accounts (Currently logged in as Patron / Buyer)">
+                      <span className="text-stone-600 cursor-not-allowed select-none opacity-50 flex items-center justify-between">
+                        <span>{t("upi_id_label", "Direct UPI Payout Setup")}</span>
+                        <span className="text-[9px] uppercase px-1.5 py-0.5 bg-stone-800 text-stone-500 rounded">Artisan</span>
+                      </span>
+                    </li>
+                    <li title="Artisan Studio is reserved for verified artisan accounts (Currently logged in as Patron / Buyer)">
+                      <span className="text-stone-600 cursor-not-allowed select-none opacity-50 flex items-center justify-between">
+                        <span>{t("international_shipping", "PayPal Sandbox Export")}</span>
+                        <span className="text-[9px] uppercase px-1.5 py-0.5 bg-stone-800 text-stone-500 rounded">Artisan</span>
+                      </span>
+                    </li>
+                    <li>
+                      <Link href="/login" className="hover:text-white transition">{t("sign_in", "Switch / Log in as Artisan")}</Link>
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    <li>
+                      <Link href="/studio" className="hover:text-white transition">{t("studio_dashboard", "Artisan Studio Dashboard")}</Link>
+                    </li>
+                    <li>
+                      <Link href="/studio" className="hover:text-white transition">{t("generate_btn", "Voice Catalog Generator")}</Link>
+                    </li>
+                    <li>
+                      <Link href="/studio" className="hover:text-white transition">{t("upi_id_label", "Direct UPI Payout Setup")}</Link>
+                    </li>
+                    <li>
+                      <Link href="/studio" className="hover:text-white transition">{t("international_shipping", "PayPal Sandbox Export")}</Link>
+                    </li>
+                    <li>
+                      <Link href="/login" className="hover:text-white transition">{t("sign_in", "Weaver Community Login")}</Link>
+                    </li>
+                  </>
+                )}
               </ul>
             </div>
 

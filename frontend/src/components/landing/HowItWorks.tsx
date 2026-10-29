@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
 import { useLanguage } from "@/context/LanguageContext";
+import { useArtisan } from "@/context/ArtisanContext";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -24,6 +25,7 @@ const playfair = Playfair_Display({
 
 export default function HowItWorks() {
   const { t } = useLanguage();
+  const { userRole } = useArtisan();
 
   const scrollToDirectory = () => {
     const el = document.getElementById("artisan-directory");
@@ -197,13 +199,25 @@ export default function HowItWorks() {
             </div>
 
             <div className="pt-8 mt-8 border-t border-stone-200/60">
-              <Link
-                href="/studio"
-                className="w-full py-3.5 px-6 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-sm transition shadow-md flex items-center justify-center gap-2 group text-center"
-              >
-                <span>{t("hero_become_artisan", "Become an Artisan")}</span>
-                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-              </Link>
+              {userRole === "customer" ? (
+                <div
+                  title="Artisan Studio is reserved for verified artisan accounts (Currently logged in as Patron / Buyer)"
+                  className="w-full py-3.5 px-6 rounded-full bg-stone-200/70 text-stone-400 font-bold text-sm transition flex items-center justify-center gap-2 text-center cursor-not-allowed select-none opacity-60"
+                >
+                  <span>{t("hero_become_artisan", "Become an Artisan")}</span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-stone-300 text-stone-600">
+                    Artisan Only
+                  </span>
+                </div>
+              ) : (
+                <Link
+                  href="/studio"
+                  className="w-full py-3.5 px-6 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-sm transition shadow-md flex items-center justify-center gap-2 group text-center"
+                >
+                  <span>{t("hero_become_artisan", "Become an Artisan")}</span>
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+              )}
             </div>
           </div>
         </div>
