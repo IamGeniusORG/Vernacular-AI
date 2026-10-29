@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import UniversalAvatar from "@/components/UniversalAvatar";
 import { useArtisan } from "@/context/ArtisanContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface UserDropdownProps {
   className?: string;
@@ -22,6 +23,7 @@ interface UserDropdownProps {
 
 export default function UserDropdown({ className = "", onOpenProfileDrawer }: UserDropdownProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const {
     artisanId,
     profileName,
@@ -82,13 +84,13 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
         href="/login"
         className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-full text-xs sm:text-sm font-semibold transition shadow-sm shrink-0 flex items-center gap-1.5"
       >
-        <span>Sign In</span>
+        <span>{t("sign_in", "Sign In")}</span>
       </Link>
     );
   }
 
   const isArtisan = userRole === "artisan";
-  const displayName = profileName || (isArtisan ? "Artisan Partner" : "Patron");
+  const displayName = profileName || (isArtisan ? t("artisan_partner", "Artisan Partner") : t("patron_buyer", "Patron"));
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
@@ -135,11 +137,11 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
               <div className="mt-0.5">
                 {isArtisan ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                    <Sparkles size={10} /> Artisan Partner
+                    <Sparkles size={10} /> {t("artisan_partner", "Artisan Partner")}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                    <ShoppingBag size={10} /> Patron / Buyer
+                    <ShoppingBag size={10} /> {t("patron_buyer", "Patron / Buyer")}
                   </span>
                 )}
               </div>
@@ -156,7 +158,7 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
                   className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-neutral-700 hover:bg-stone-100 hover:text-neutral-900 transition"
                 >
                   <Sparkles size={15} className="text-amber-600 shrink-0" />
-                  <span>Studio Dashboard</span>
+                  <span>{t("studio_dashboard", "Studio Dashboard")}</span>
                 </Link>
 
                 {onOpenProfileDrawer ? (
@@ -169,7 +171,7 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-neutral-700 hover:bg-stone-100 hover:text-neutral-900 transition"
                   >
                     <User size={15} className="text-neutral-500 shrink-0" />
-                    <span>Edit Profile & Branding</span>
+                    <span>{t("profile_settings", "Edit Profile & Branding")}</span>
                   </button>
                 ) : (
                   <Link
@@ -178,7 +180,7 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
                     className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-neutral-700 hover:bg-stone-100 hover:text-neutral-900 transition"
                   >
                     <User size={15} className="text-neutral-500 shrink-0" />
-                    <span>Edit Profile & Branding</span>
+                    <span>{t("profile_settings", "Edit Profile & Branding")}</span>
                   </Link>
                 )}
 
@@ -188,7 +190,7 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
                   className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-neutral-700 hover:bg-stone-100 hover:text-neutral-900 transition"
                 >
                   <Store size={15} className="text-neutral-500 shrink-0" />
-                  <span>Explore Marketplace</span>
+                  <span>{t("explore_marketplace", "Explore Marketplace")}</span>
                 </Link>
               </>
             ) : (
@@ -199,7 +201,7 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
                   className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-neutral-700 hover:bg-stone-100 hover:text-neutral-900 transition"
                 >
                   <User size={15} className="text-indigo-600 shrink-0" />
-                  <span>My Account</span>
+                  <span>{t("profile_link", "My Account")}</span>
                 </Link>
 
                 <Link
@@ -208,7 +210,7 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
                   className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-neutral-700 hover:bg-stone-100 hover:text-neutral-900 transition"
                 >
                   <Sliders size={15} className="text-neutral-500 shrink-0" />
-                  <span>Preferences</span>
+                  <span>{t("global_preferences", "Preferences")}</span>
                 </Link>
 
                 <Link
@@ -217,7 +219,7 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
                   className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-neutral-700 hover:bg-stone-100 hover:text-neutral-900 transition"
                 >
                   <ShoppingBag size={15} className="text-neutral-500 shrink-0" />
-                  <span>Explore Handlooms</span>
+                  <span>{t("explore_marketplace", "Explore Handlooms")}</span>
                 </Link>
               </>
             )}
@@ -231,7 +233,7 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
               className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition"
             >
               <LogOut size={15} className="shrink-0" />
-              <span>Sign Out</span>
+              <span>{t("sign_out", "Sign Out")}</span>
             </button>
           </div>
         </div>

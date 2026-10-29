@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Mail, CheckCircle2, ArrowRight, Sparkles, Heart } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
+import { useLanguage } from "@/context/LanguageContext";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -12,6 +13,7 @@ const playfair = Playfair_Display({
 });
 
 export default function LandingFooter() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [isSubscribed, setIsSubscribed] = useState(false);
 
@@ -38,13 +40,13 @@ export default function LandingFooter() {
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             <div className="max-w-xl text-center lg:text-left">
               <span className="text-[#D97706] text-xs font-bold uppercase tracking-widest block mb-2">
-                Stay In The Loop
+                {t("footer_stories_badge", "Stay In The Loop")}
               </span>
               <h3 className={`text-2xl sm:text-3xl font-bold text-white mb-2 ${playfair.className}`}>
-                Stories from the Loom, Directly to Your Inbox
+                {t("footer_stories_title", "Stories from the Loom, Directly to Your Inbox")}
               </h3>
               <p className="text-stone-400 text-xs sm:text-sm">
-                Get monthly artisan spotlights, heritage saree drops, and transparent direct-impact reports.
+                {t("footer_stories_sub", "Get monthly artisan spotlights, heritage saree drops, and transparent direct-impact reports.")}
               </p>
             </div>
 
@@ -52,7 +54,7 @@ export default function LandingFooter() {
               {isSubscribed ? (
                 <div className="px-6 py-4 rounded-full bg-emerald-900/50 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2">
                   <CheckCircle2 size={18} className="text-emerald-400" />
-                  <span>Thank you for joining our patron circle!</span>
+                  <span>{t("footer_subscribed", "Thank you for joining our patron circle!")}</span>
                 </div>
               ) : (
                 <form
@@ -69,15 +71,15 @@ export default function LandingFooter() {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email address..."
+                      placeholder={t("footer_email_placeholder", "Enter your email address...")}
                       className="w-full pl-11 pr-4 py-3 bg-stone-900 border border-stone-700 rounded-full text-xs sm:text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="w-full sm:w-auto px-6 py-3 bg-[#C85A32] hover:bg-[#B34D27] text-white font-bold text-xs sm:text-sm rounded-full transition shadow-md whitespace-nowrap shrink-0"
+                    className="w-full sm:w-auto px-6 py-3 bg-[#C85A32] hover:bg-[#B34D27] text-white font-bold text-xs sm:text-sm rounded-full transition shadow-md whitespace-nowrap shrink-0 cursor-pointer"
                   >
-                    Subscribe
+                    {t("footer_subscribe", "Subscribe")}
                   </button>
                 </form>
               )}
@@ -93,24 +95,24 @@ export default function LandingFooter() {
         <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-widest mb-4">
             <Sparkles size={13} />
-            <span>Support Fair-Trade Living Heritage</span>
+            <span>{t("hero_eyebrow", "Support Fair-Trade Living Heritage")}</span>
           </span>
 
           <h2 className={`text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-6 leading-tight ${playfair.className}`}>
-            Join Our Global Artisan Marketplace
+            {t("footer_cta_title", "Are You a Master Weaver or Weaver Cooperative?")}
           </h2>
 
           <p className="text-stone-300 text-sm sm:text-base md:text-lg mb-8 max-w-2xl mx-auto leading-relaxed font-light">
-            Whether you are looking for an exquisite GI-certified Jamdani masterpiece or are an artisan looking to take your generational craft global, Vernacular AI is your sovereign bridge.
+            {t("footer_cta_sub", "Join over 10,000 artisans across Bengal taking their generational craft direct to global buyers. Zero platform fee, voice-only setup, instant payouts.")}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               type="button"
               onClick={scrollToDirectory}
-              className="w-full sm:w-auto px-8 py-4 bg-[#C85A32] hover:bg-[#B34D27] text-white rounded-full font-bold text-sm shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 group"
+              className="w-full sm:w-auto px-8 py-4 bg-[#C85A32] hover:bg-[#B34D27] text-white rounded-full font-bold text-sm shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 group cursor-pointer"
             >
-              <span>Shop Unique Crafts</span>
+              <span>{t("hero_start_shopping", "Shop Unique Crafts")}</span>
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </button>
 
@@ -118,7 +120,7 @@ export default function LandingFooter() {
               href="/studio"
               className="w-full sm:w-auto px-8 py-4 bg-transparent hover:bg-white/10 text-stone-200 border border-stone-600 rounded-full font-bold text-sm transition text-center"
             >
-              Open Your Artisan Studio
+              {t("footer_cta_btn", "Open Your Artisan Studio")}
             </Link>
           </div>
         </div>
@@ -131,23 +133,23 @@ export default function LandingFooter() {
             {/* Col 1: Shop */}
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-4">
-                Shop Heritage
+                {t("footer_col_shop", "Shop Heritage")}
               </h4>
               <ul className="space-y-2.5 text-xs text-stone-400">
                 <li>
-                  <button onClick={scrollToDirectory} className="hover:text-white transition">All Handloom Sarees</button>
+                  <button onClick={scrollToDirectory} className="hover:text-white transition">{t("footer_all_sarees", "All Handloom Sarees")}</button>
                 </li>
                 <li>
-                  <button onClick={scrollToDirectory} className="hover:text-white transition">Dhakai Jamdani</button>
+                  <button onClick={scrollToDirectory} className="hover:text-white transition">{t("footer_jamdani", "Dhakai Jamdani")}</button>
                 </li>
                 <li>
-                  <button onClick={scrollToDirectory} className="hover:text-white transition">Murshidabad Baluchari Silk</button>
+                  <button onClick={scrollToDirectory} className="hover:text-white transition">{t("footer_baluchari", "Murshidabad Baluchari Silk")}</button>
                 </li>
                 <li>
-                  <button onClick={scrollToDirectory} className="hover:text-white transition">Phulia Taant Cotton</button>
+                  <button onClick={scrollToDirectory} className="hover:text-white transition">{t("footer_taant", "Phulia Taant Cotton")}</button>
                 </li>
                 <li>
-                  <button onClick={scrollToDirectory} className="hover:text-white transition">Bengal Khadi Linen</button>
+                  <button onClick={scrollToDirectory} className="hover:text-white transition">{t("footer_khadi", "Bengal Khadi Linen")}</button>
                 </li>
               </ul>
             </div>
@@ -155,23 +157,23 @@ export default function LandingFooter() {
             {/* Col 2: Sell */}
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-4">
-                Sell With Us
+                {t("footer_col_weavers", "Master Weavers")}
               </h4>
               <ul className="space-y-2.5 text-xs text-stone-400">
                 <li>
-                  <Link href="/studio" className="hover:text-white transition">Artisan Studio Dashboard</Link>
+                  <Link href="/studio" className="hover:text-white transition">{t("studio_dashboard", "Artisan Studio Dashboard")}</Link>
                 </li>
                 <li>
-                  <Link href="/studio" className="hover:text-white transition">Voice Catalog Generator</Link>
+                  <Link href="/studio" className="hover:text-white transition">{t("generate_btn", "Voice Catalog Generator")}</Link>
                 </li>
                 <li>
-                  <Link href="/studio" className="hover:text-white transition">Direct UPI Payout Setup</Link>
+                  <Link href="/studio" className="hover:text-white transition">{t("upi_id_label", "Direct UPI Payout Setup")}</Link>
                 </li>
                 <li>
-                  <Link href="/studio" className="hover:text-white transition">PayPal Sandbox Export</Link>
+                  <Link href="/studio" className="hover:text-white transition">{t("international_shipping", "PayPal Sandbox Export")}</Link>
                 </li>
                 <li>
-                  <Link href="/login" className="hover:text-white transition">Weaver Community Login</Link>
+                  <Link href="/login" className="hover:text-white transition">{t("sign_in", "Weaver Community Login")}</Link>
                 </li>
               </ul>
             </div>
@@ -179,23 +181,20 @@ export default function LandingFooter() {
             {/* Col 3: Help & Support */}
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-4">
-                Help & Payouts
+                {t("footer_col_about", "Help & Payouts")}
               </h4>
               <ul className="space-y-2.5 text-xs text-stone-400">
                 <li>
-                  <a href="#faq" className="hover:text-white transition">Frequently Asked Questions</a>
+                  <a href="#faq" className="hover:text-white transition">{t("nav_faq", "Frequently Asked Questions")}</a>
                 </li>
                 <li>
-                  <a href="#how-it-works" className="hover:text-white transition">How Payouts Work (0% Fee)</a>
+                  <a href="#how-it-works" className="hover:text-white transition">{t("nav_how_it_works", "How It Works")}</a>
                 </li>
                 <li>
-                  <a href="#why-us" className="hover:text-white transition">Worldwide Shipping Guide</a>
+                  <a href="#why-us" className="hover:text-white transition">{t("nav_why_us", "Why Vernacular AI")}</a>
                 </li>
                 <li>
-                  <a href="#why-us" className="hover:text-white transition">Buyer Protection Policy</a>
-                </li>
-                <li>
-                  <Link href="/profile" className="hover:text-white transition">Patron Preferences</Link>
+                  <Link href="/profile" className="hover:text-white transition">{t("profile_link", "Patron Preferences")}</Link>
                 </li>
               </ul>
             </div>
@@ -203,7 +202,7 @@ export default function LandingFooter() {
             {/* Col 4: Legal & Cultural */}
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-4">
-                Provenance & Legal
+                {t("footer_col_legal", "Provenance & Legal")}
               </h4>
               <ul className="space-y-2.5 text-xs text-stone-400">
                 <li>
@@ -213,10 +212,10 @@ export default function LandingFooter() {
                   <span className="text-stone-400">Silk Mark Certified Sourcing</span>
                 </li>
                 <li>
-                  <span className="text-stone-400">Zero Commission Charter</span>
+                  <span className="text-stone-400">{t("zero_commission", "Zero Commission Charter")}</span>
                 </li>
                 <li>
-                  <span className="text-stone-400">Privacy & Data Sovereignty</span>
+                  <span className="text-stone-400">{t("bengal_handloom_ai", "Bengal Handloom AI")}</span>
                 </li>
                 <li>
                   <span className="text-stone-400">Seva Innovation Challenge</span>
@@ -231,14 +230,13 @@ export default function LandingFooter() {
       <div className="py-6 bg-[#141210]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
           <div className="flex items-center gap-2">
-            <span>© 2026 Vernacular AI E-Commerce Enabler.</span>
-            <span>All rights reserved.</span>
+            <span>{t("footer_copyright", "© 2026 Vernacular AI E-Commerce Enabler. All rights reserved.")}</span>
           </div>
 
           <div className="flex items-center gap-1.5 text-stone-400">
-            <span>Crafted with</span>
+            <span>{t("footer_crafted_with", "Crafted with")}</span>
             <Heart size={13} className="text-rose-500 fill-rose-500" />
-            <span>for rural Indian weavers & the global diaspora.</span>
+            <span>{t("footer_for_weavers", "for rural Indian weavers & the global diaspora.")}</span>
           </div>
         </div>
       </div>

@@ -162,15 +162,15 @@ export default function StorefrontClient({ products, artisan }: Props) {
               title="Back to Directory"
             >
               <ArrowLeft size={16} className="text-neutral-500 group-hover:-translate-x-0.5 transition-transform" />
-              <span className="hidden sm:inline">← Back to Directory</span>
-              <span className="inline sm:hidden">Marketplace</span>
+              <span className="hidden sm:inline">{t("back_to_directory")}</span>
+              <span className="inline sm:hidden">{t("nav_directory")}</span>
             </Link>
             <div className="h-5 w-px bg-stone-300 hidden sm:block shrink-0"></div>
             <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
               <UniversalAvatar user={artisan} size="sm" showBorder />
               <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
                 <h1 className={`text-base sm:text-lg md:text-xl text-neutral-900 truncate ${playfair.className}`}>
-                  {artisan.full_name}&apos;s Loom
+                  {artisan.full_name}{t("loom_suffix")}
                 </h1>
                 <BadgeCheck size={18} className="text-amber-700 shrink-0 mt-0.5" />
               </div>
@@ -183,7 +183,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                 href="/studio"
                 className="hidden sm:inline-flex px-3.5 py-1.5 bg-neutral-900 text-white rounded-full text-xs font-semibold items-center gap-1.5 hover:bg-neutral-800 transition shadow-sm"
               >
-                <Camera size={13} /> <span>Studio</span>
+                <Camera size={13} /> <span>{t("studio_dashboard")}</span>
               </Link>
             )}
             <UserDropdown />
@@ -197,7 +197,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500 hover:text-amber-800 transition group"
           >
             <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform text-neutral-400 group-hover:text-amber-800" />
-            <span>Explore Marketplace</span>
+            <span>{t("explore_marketplace")}</span>
             <span className="text-stone-300">/</span>
             <span className="text-neutral-800 font-bold">{artisan.full_name}</span>
           </Link>
@@ -242,7 +242,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                     <BadgeCheck size={20} className="text-amber-600 shrink-0" />
                   </div>
                   <p className="text-xs sm:text-sm text-neutral-500 font-medium">
-                    {artisan.district || "West Bengal, India"} • {products.length} {products.length === 1 ? "Creation" : "Creations"}
+                    {artisan.district || "West Bengal, India"} • {products.length} {products.length === 1 ? t("creation") : t("creations_count")}
                   </p>
                 </div>
               </div>
@@ -253,7 +253,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                   className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-neutral-800 rounded-full text-xs font-semibold flex items-center gap-1.5 transition border border-stone-200 shadow-sm"
                 >
                   <Camera size={13} />
-                  <span>Customize Profile & Branding</span>
+                  <span>{t("customize_profile")}</span>
                 </Link>
               )}
             </div>
@@ -269,12 +269,12 @@ export default function StorefrontClient({ products, artisan }: Props) {
               </div>
               <div>
                 <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider block">
-                  Shipping Destination
+                  {t("shipping_destination")}
                 </span>
                 <p className="text-[11px] text-neutral-400">
                   {destination === "domestic"
-                    ? "Standard domestic shipping within India (UPI & WhatsApp Checkout)"
-                    : "Worldwide insured boutique export (PayPal Sandbox Checkout in USD)"}
+                    ? t("domestic_shipping_desc")
+                    : t("international_shipping_desc")}
                 </p>
               </div>
             </div>
@@ -293,7 +293,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                 }`}
               >
                 <span>🇮🇳</span>
-                <span>Domestic (INR)</span>
+                <span>{t("domestic_shipping")}</span>
               </button>
               <button
                 type="button"
@@ -308,7 +308,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                 }`}
               >
                 <span>🌍</span>
-                <span>International (USD)</span>
+                <span>{t("international_shipping")}</span>
               </button>
             </div>
           </div>
@@ -357,11 +357,11 @@ export default function StorefrontClient({ products, artisan }: Props) {
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <p className="text-xs font-bold tracking-widest text-amber-700 uppercase">
-                              ✦ Masterpiece Showcase
+                              {t("masterpiece_showcase")}
                             </p>
                             {destination === "international" && (
                               <span className="text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
-                                Global Export Mode
+                                {t("global_export_mode")}
                               </span>
                             )}
                           </div>
@@ -374,14 +374,14 @@ export default function StorefrontClient({ products, artisan }: Props) {
                                 <span className="text-2xl sm:text-3xl font-extrabold text-stone-900">
                                   ${usdPrice.toFixed(2)} USD
                                 </span>
-                                <span className="text-xs text-stone-500 font-light">Worldwide Express Insured Delivery</span>
+                                <span className="text-xs text-stone-500 font-light">{t("worldwide_delivery")}</span>
                               </>
                             ) : (
                               <>
                                 <span className="text-2xl sm:text-3xl font-extrabold text-stone-900">
                                   ₹{inrPrice}
                                 </span>
-                                <span className="text-xs text-stone-500 font-light">Direct to Weaver</span>
+                                <span className="text-xs text-stone-500 font-light">{t("direct_from_weaver")}</span>
                               </>
                             )}
                           </div>
@@ -395,7 +395,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                         {slideAudio && (
                           <div className="pt-4 border-t border-stone-200">
                             <p className="text-xs font-bold tracking-widest text-stone-500 uppercase mb-2 flex items-center gap-2">
-                              <Volume2 className="w-4 h-4 text-amber-700"/> Voice of the Weaver
+                              <Volume2 className="w-4 h-4 text-amber-700"/> {t("voice_of_weaver")}
                             </p>
                             <audio 
                               controls 
@@ -445,7 +445,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
         {/* Section Divider & Heading */}
         <div className="flex items-center gap-6 mb-12">
           <h3 className={`text-2xl md:text-3xl text-neutral-800 ${playfair.className} whitespace-nowrap`}>
-            Explore the Collection
+            {t("explore_collection")}
           </h3>
           <div className="flex-1 h-px bg-stone-300"></div>
         </div>
@@ -503,7 +503,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                     <div className="mt-2 w-full pt-1">
                       <span className="block text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                         <Volume2 size={12} className="text-amber-600" />
-                        Voice of the Weaver
+                        {t("voice_of_weaver")}
                       </span>
                       <audio 
                         controls 
@@ -531,7 +531,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                     <div className="flex flex-col gap-2 mt-2 w-full">
                       <div className="flex items-center justify-between px-1">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
-                          <Globe size={12} className="text-emerald-600" /> Insured Export
+                          <Globe size={12} className="text-emerald-600" /> {t("insured_export")}
                         </span>
                         <span className="text-xs font-bold text-stone-900">${usdPrice.toFixed(2)} USD</span>
                       </div>
@@ -583,7 +583,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                         onClick={() => handleBuy(product)}
                         className="w-full py-2.5 bg-neutral-900 text-white rounded-lg text-sm font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors shadow-sm active:scale-[0.99]"
                       >
-                        <MessageCircle size={16} className="opacity-90" /> Buy on WhatsApp
+                        <MessageCircle size={16} className="opacity-90" /> {t("buy_on_whatsapp")}
                       </button>
 
                       {/* Instant UPI Pay Modal Trigger */}
@@ -606,10 +606,10 @@ export default function StorefrontClient({ products, artisan }: Props) {
       {/* ── Footer ── */}
       <footer className="text-center py-16 px-4 border-t border-stone-200 mt-12">
         <p className={`text-xl text-neutral-800 mb-4 ${playfair.className}`}>
-          {artisan.full_name}&apos;s Loom
+          {artisan.full_name}{t("loom_suffix")}
         </p>
         <p className="text-sm text-neutral-400 font-light font-sans">
-          Powered by <span className="text-neutral-600 font-medium">Vernacular AI</span>
+          {t("powered_by")} <span className="text-neutral-600 font-medium">Vernacular AI</span>
         </p>
       </footer>
 
@@ -640,7 +640,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
               <h3 className={`text-base text-neutral-800 font-medium line-clamp-1 ${playfair.className}`}>
                 {upiTitle}
               </h3>
-              <p className="text-xs text-neutral-400 mt-0.5">Direct payment to {artisan.full_name}</p>
+              <p className="text-xs text-neutral-400 mt-0.5">{t("direct_payment_to")} {artisan.full_name}</p>
             </div>
 
             {/* QR Code Canvas */}
@@ -657,7 +657,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
             {/* UPI ID Display & Copy */}
             <div className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between mb-4">
               <div className="min-w-0 pr-2">
-                <span className="block text-[10px] text-stone-400 uppercase font-bold tracking-wider">Artisan UPI ID</span>
+                <span className="block text-[10px] text-stone-400 uppercase font-bold tracking-wider">{t("artisan_upi_id")}</span>
                 <span className="text-xs font-semibold text-stone-800 truncate block font-mono">{upiId}</span>
               </div>
               <button
@@ -700,15 +700,15 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[11px] font-bold tracking-wide uppercase mb-2">
               <Globe size={12} className="text-emerald-600" />
-              <span>International Export Order Confirmed</span>
+              <span>{t("export_order_confirmed")}</span>
             </div>
 
             <h3 className={`text-2xl text-stone-900 font-bold mb-2 ${playfair.className}`}>
-              Thank You for Your Order!
+              {t("order_thank_you")}
             </h3>
 
             <p className="text-xs text-stone-600 mb-6 font-light leading-relaxed">
-              Your direct export purchase directly empowers traditional weavers in rural India. Your order will be prepared with insured worldwide boutique shipping.
+              {t("order_success_desc")}
             </p>
 
             {/* Order Details Card */}

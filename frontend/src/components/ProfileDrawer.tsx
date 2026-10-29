@@ -7,6 +7,7 @@ import { X, CheckCircle, Loader2, LogOut, Copy, Camera, UploadCloud, ImageIcon }
 import { useArtisan } from "@/context/ArtisanContext";
 import { QRCodeCanvas } from "qrcode.react";
 import UniversalAvatar from "@/components/UniversalAvatar";
+import { useLanguage } from "@/context/LanguageContext";
 import { uploadArtisanAsset } from "@/lib/uploadAsset";
 import { revalidateArtisanProfile } from "@/app/actions/revalidate";
 
@@ -41,6 +42,7 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
     saveProfile,
     logout,
   } = useArtisan();
+  const { t } = useLanguage();
 
   const [localName, setLocalName] = useState(profileName || "");
   const [localWhatsapp, setLocalWhatsapp] = useState(getSafePhone(whatsappNumber, profilePhone));
@@ -196,7 +198,7 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
               {isUploadingAvatar ? "Uploading avatar..." : "Change profile photo"}
             </button>
             <h3 className="text-xl font-bold text-neutral-900">{localName || "Artisan"}</h3>
-            <span className="text-xs text-amber-700 font-semibold tracking-wider uppercase mt-0.5">Verified Weaver</span>
+            <span className="text-xs text-amber-700 font-semibold tracking-wider uppercase mt-0.5">{t("verified_weaver")}</span>
           </div>
 
           {/* Cover Banner Uploader Card */}
@@ -244,7 +246,7 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 mb-1.5">
-                Display Name
+                {t("display_name")}
               </label>
               <input
                 type="text"
@@ -336,7 +338,7 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
             className="w-full py-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition disabled:opacity-70"
           >
             {isSaving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle size={16} />}
-            Save Changes
+            {t("save_changes")}
           </button>
           <button
             onClick={async () => {
@@ -345,7 +347,7 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
             }}
             className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition"
           >
-            <LogOut size={14} /> Sign Out
+            <LogOut size={14} /> {t("sign_out")}
           </button>
         </div>
 

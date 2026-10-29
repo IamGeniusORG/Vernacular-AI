@@ -6,28 +6,38 @@ import { Language } from "@/i18n/dictionaries";
 export default function LanguageToggle() {
   const { activeLanguage, setLanguage } = useLanguage();
 
-  const options: { id: Language; label: string }[] = [
-    { id: "en", label: "A" },
-    { id: "bn", label: "অ" },
-    { id: "hi", label: "अ" },
+  const options: { id: Language; label: string; name: string }[] = [
+    { id: "en", label: "A", name: "English" },
+    { id: "bn", label: "অ", name: "বাংলা (Bengali)" },
+    { id: "hi", label: "अ", name: "हिन्दी (Hindi)" },
   ];
 
   return (
-    <div className="flex bg-stone-200 rounded-full p-1 shadow-inner relative">
+    <div
+      className="flex bg-stone-200/80 rounded-full p-1 shadow-inner relative border border-stone-300/70 select-none"
+      role="group"
+      aria-label="Language Selector"
+    >
       {options.map((option) => {
         const isActive = activeLanguage === option.id;
         return (
           <button
             key={option.id}
+            type="button"
             onClick={() => setLanguage(option.id)}
-            className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 z-10 ${
-              isActive ? "text-white" : "text-neutral-600 hover:text-neutral-900"
+            title={option.name}
+            aria-label={`Switch language to ${option.name}`}
+            aria-pressed={isActive}
+            className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 z-10 cursor-pointer ${
+              isActive
+                ? "text-white shadow-sm"
+                : "text-neutral-700 hover:text-neutral-950 hover:bg-stone-300/40"
             }`}
           >
             {isActive && (
-              <span className="absolute inset-0 bg-indigo-600 rounded-full shadow-md z-[-1]" />
+              <span className="absolute inset-0 bg-[#C85A32] rounded-full shadow-md z-[-1] animate-in fade-in duration-200" />
             )}
-            {option.label}
+            <span className="relative z-10">{option.label}</span>
           </button>
         );
       })}

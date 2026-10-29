@@ -14,6 +14,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
+import { useLanguage } from "@/context/LanguageContext";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -22,6 +23,8 @@ const playfair = Playfair_Display({
 });
 
 export default function HowItWorks() {
+  const { t } = useLanguage();
+
   const scrollToDirectory = () => {
     const el = document.getElementById("artisan-directory");
     if (el) {
@@ -33,26 +36,26 @@ export default function HowItWorks() {
     {
       num: "01",
       icon: Compass,
-      title: "Browse unique items",
-      desc: "Explore master weavers and listen to their authentic loom stories in native Bengali, Hindi, or English.",
+      title: t("buyer_step_1_title", "Browse unique items"),
+      desc: t("buyer_step_1_desc", "Explore master weavers and listen to their authentic loom stories in native Bengali, Hindi, or English."),
     },
     {
       num: "02",
       icon: ShoppingBag,
-      title: "Add to cart / Direct Pay",
-      desc: "Checkout directly via instant 0% fee UPI QR (India) or protected PayPal Sandbox (Worldwide in USD).",
+      title: t("buyer_step_2_title", "Add to cart / Direct Pay"),
+      desc: t("buyer_step_2_desc", "Checkout directly via instant 0% fee UPI QR (India) or protected PayPal Sandbox (Worldwide in USD)."),
     },
     {
       num: "03",
       icon: Truck,
-      title: "Fast insured shipping",
-      desc: "Your piece is packaged with care directly at rural weaving clusters in Nadia, Murshidabad, and Hooghly.",
+      title: t("buyer_step_3_title", "Fast insured shipping"),
+      desc: t("buyer_step_3_desc", "Your piece is packaged with care directly at rural weaving clusters in Nadia, Murshidabad, and Hooghly."),
     },
     {
       num: "04",
       icon: Heart,
-      title: "Enjoy your craft",
-      desc: "Own a certified, living piece of Indian handloom heritage with zero middleman markups.",
+      title: t("buyer_step_4_title", "Enjoy your craft"),
+      desc: t("buyer_step_4_desc", "Own a certified, living piece of Indian handloom heritage with zero middleman markups."),
     },
   ];
 
@@ -60,26 +63,26 @@ export default function HowItWorks() {
     {
       num: "01",
       icon: UserPlus,
-      title: "Create account",
-      desc: "Sign up in 30 seconds using Google or your phone number. Instant verified weaver profile creation.",
+      title: t("artisan_step_1_title", "Create account"),
+      desc: t("artisan_step_1_desc", "Sign up in 30 seconds using Google or your phone number. Instant verified weaver profile creation."),
     },
     {
       num: "02",
       icon: Mic,
-      title: "List your products",
-      desc: "Snap photos and hold the mic to describe in your native language. Gemini 2.5 Flash crafts English titles & dual pricing.",
+      title: t("artisan_step_2_title", "List your products"),
+      desc: t("artisan_step_2_desc", "Snap photos and hold the mic to describe in your native language. Gemini 2.5 Flash crafts English titles & dual pricing."),
     },
     {
       num: "03",
       icon: QrCode,
-      title: "Receive orders directly",
-      desc: "Customer payments go directly to your own UPI ID or PayPal account. 100% direct with 0% platform commission.",
+      title: t("artisan_step_3_title", "Receive orders directly"),
+      desc: t("artisan_step_3_desc", "Customer payments go directly to your own UPI ID or PayPal account. 100% direct with 0% platform commission."),
     },
     {
       num: "04",
       icon: TrendingUp,
-      title: "Grow your business",
-      desc: "Reach patrons across 120+ countries and build sovereign digital identity for your generation-old craft.",
+      title: t("artisan_step_4_title", "Grow your business"),
+      desc: t("artisan_step_4_desc", "Reach patrons across 120+ countries and build sovereign digital identity for your generation-old craft."),
     },
   ];
 
@@ -89,13 +92,13 @@ export default function HowItWorks() {
         {/* Section Heading */}
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-[#8B4513] uppercase tracking-widest text-xs font-bold mb-2 block">
-            Ecosystem Architecture
+            {t("how_it_works_badge", "Ecosystem Architecture")}
           </span>
           <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold text-neutral-900 mb-4 ${playfair.className}`}>
-            How Vernacular AI Works
+            {t("how_it_works_title", "How Vernacular AI Works")}
           </h2>
           <p className="text-neutral-600 text-sm sm:text-base">
-            A dual-sided ecosystem removing language, technological, and currency barriers for rural weavers and global patrons.
+            {t("how_it_works_sub", "A dual-sided ecosystem removing language, technological, and currency barriers for rural weavers and global patrons.")}
           </p>
         </div>
 
@@ -107,10 +110,10 @@ export default function HowItWorks() {
               <div className="flex items-center justify-between border-b border-stone-100 pb-5 mb-8">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-[#C85A32]">
-                    For Patrons & Collectors
+                    {t("for_buyers_badge", "For Patrons & Collectors")}
                   </span>
                   <h3 className={`text-2xl font-bold text-neutral-900 mt-1 ${playfair.className}`}>
-                    For Buyers
+                    {t("for_buyers_title", "For Buyers")}
                   </h3>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-[#FDF6F0] text-[#C85A32] flex items-center justify-center">
@@ -147,7 +150,7 @@ export default function HowItWorks() {
                 onClick={scrollToDirectory}
                 className="w-full py-3.5 px-6 rounded-full bg-[#C85A32] hover:bg-[#B34D27] text-white font-bold text-sm transition shadow-md flex items-center justify-center gap-2 group"
               >
-                <span>Start Shopping</span>
+                <span>{t("hero_start_shopping", "Start Shopping")}</span>
                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
@@ -159,10 +162,10 @@ export default function HowItWorks() {
               <div className="flex items-center justify-between border-b border-stone-200/60 pb-5 mb-8">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-[#2E5A36]">
-                    For Rural Weavers & Cooperatives
+                    {t("for_artisans_badge", "For Rural Weavers & Cooperatives")}
                   </span>
                   <h3 className={`text-2xl font-bold text-neutral-900 mt-1 ${playfair.className}`}>
-                    For Artisans
+                    {t("for_artisans_title", "For Artisans")}
                   </h3>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-[#EDF3EC] text-[#2E5A36] flex items-center justify-center">
@@ -198,7 +201,7 @@ export default function HowItWorks() {
                 href="/studio"
                 className="w-full py-3.5 px-6 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-sm transition shadow-md flex items-center justify-center gap-2 group text-center"
               >
-                <span>Become an Artisan</span>
+                <span>{t("hero_become_artisan", "Become an Artisan")}</span>
                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>

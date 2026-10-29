@@ -22,8 +22,10 @@ import {
 } from "lucide-react";
 import UniversalAvatar from "@/components/UniversalAvatar";
 import UserDropdown from "@/components/UserDropdown";
+import LanguageToggle from "@/components/LanguageToggle";
 import { usePreferences } from "@/context/PreferencesContext";
 import { useArtisan } from "@/context/ArtisanContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { uploadArtisanAsset } from "@/lib/uploadAsset";
 import { createClient } from "@/utils/supabase/client";
 
@@ -75,6 +77,7 @@ export default function BuyerProfilePage() {
   const router = useRouter();
   const supabase = createClient();
   const { currency, setCurrency, language, setLanguage } = usePreferences();
+  const { t } = useLanguage();
   const {
     artisanId,
     profileName,
@@ -214,7 +217,7 @@ export default function BuyerProfilePage() {
       <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-6">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="animate-spin text-amber-700" size={32} />
-          <p className="text-sm font-medium text-neutral-500">Loading your profile...</p>
+          <p className="text-sm font-medium text-neutral-500">{t("loading_profile", "Loading your profile...")}</p>
         </div>
       </div>
     );
@@ -244,12 +247,15 @@ export default function BuyerProfilePage() {
               Vernacular AI
             </span>
           </Link>
-          <Link
-            href="/login"
-            className="px-4 py-2 bg-stone-900 text-white rounded-full text-xs font-semibold hover:bg-stone-800 transition shadow-sm"
-          >
-            Sign In
-          </Link>
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <Link
+              href="/login"
+              className="px-4 py-2 bg-stone-900 text-white rounded-full text-xs font-semibold hover:bg-stone-800 transition shadow-sm"
+            >
+              {t("sign_in")}
+            </Link>
+          </div>
         </header>
 
         <main className="max-w-md mx-auto px-6 py-16 text-center">
@@ -257,16 +263,16 @@ export default function BuyerProfilePage() {
             <User size={30} />
           </div>
           <h1 className={`text-2xl font-bold text-neutral-900 mb-2 ${playfair.className}`}>
-            Buyer Account & Preferences
+            {t("buyer_account_title")}
           </h1>
           <p className="text-sm text-neutral-500 mb-6">
-            Sign in to personalize your profile picture, set your preferred currency, and manage saved handloom creations.
+            {t("buyer_account_desc")}
           </p>
           <button
             onClick={() => router.push("/login")}
             className="w-full py-3 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-sm font-semibold transition shadow-md"
           >
-            Sign In to Continue
+            {t("sign_in_to_continue")}
           </button>
         </main>
 
@@ -297,15 +303,16 @@ export default function BuyerProfilePage() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-stone-100 text-neutral-700 rounded-full text-xs font-semibold transition border border-stone-200 shadow-sm"
           >
             <ArrowLeft size={14} />
-            <span>Back to Marketplace</span>
+            <span>{t("back_to_marketplace")}</span>
           </Link>
           <div className="h-4 w-px bg-stone-300 hidden sm:block"></div>
           <span className={`text-lg font-bold text-neutral-900 hidden sm:inline ${playfair.className}`}>
-            Account & Preferences
+            {t("account_preferences")}
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <LanguageToggle />
           <UserDropdown />
         </div>
       </header>
@@ -315,13 +322,13 @@ export default function BuyerProfilePage() {
         {/* Title Banner */}
         <div className="mb-8">
           <span className="text-amber-800 uppercase tracking-widest text-xs font-bold mb-1.5 block">
-            Patron Profile
+            {t("patron_profile")}
           </span>
           <h1 className={`text-3xl md:text-4xl font-extrabold text-neutral-900 ${playfair.className}`}>
-            Personalize Your Experience
+            {t("profile_title")}
           </h1>
           <p className="text-sm text-neutral-500 mt-1 max-w-xl">
-            Manage your buyer identity, custom avatar, and global preferences across all artisan looms and storefronts.
+            {t("profile_subtitle")}
           </p>
         </div>
 
@@ -331,7 +338,7 @@ export default function BuyerProfilePage() {
             <div className="flex items-center gap-2 mb-6">
               <User size={18} className="text-amber-700" />
               <h2 className={`text-xl font-bold text-neutral-900 ${playfair.className}`}>
-                Identity & Profile
+                {t("identity_section")}
               </h2>
             </div>
 
@@ -380,11 +387,11 @@ export default function BuyerProfilePage() {
                   </h3>
                   {isArtisan ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                      <Sparkles size={11} /> Artisan Partner
+                      <Sparkles size={11} /> {t("artisan_partner")}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                      <ShoppingBag size={11} /> Patron / Buyer
+                      <ShoppingBag size={11} /> {t("patron_buyer")}
                     </span>
                   )}
                 </div>
@@ -400,7 +407,7 @@ export default function BuyerProfilePage() {
             {/* Display Name Edit Form */}
             <div className="pt-6">
               <label className="block text-xs font-bold uppercase tracking-wider text-neutral-600 mb-2">
-                Display Name
+                {t("display_name")}
               </label>
               <div className="flex flex-col sm:flex-row gap-3">
                 <input
@@ -422,7 +429,7 @@ export default function BuyerProfilePage() {
                       <span>Saving...</span>
                     </>
                   ) : (
-                    <span>Save Name</span>
+                    <span>{t("save_name")}</span>
                   )}
                 </button>
               </div>
@@ -434,7 +441,7 @@ export default function BuyerProfilePage() {
             <div className="flex items-center gap-2 mb-6">
               <Coins size={18} className="text-amber-700" />
               <h2 className={`text-xl font-bold text-neutral-900 ${playfair.className}`}>
-                Global Preferences
+                {t("global_preferences")}
               </h2>
             </div>
 
@@ -444,14 +451,14 @@ export default function BuyerProfilePage() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-neutral-600">
-                      Preferred Currency
+                      {t("preferred_currency")}
                     </span>
                     <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                      Live Conversion
+                      {t("live_conversion")}
                     </span>
                   </div>
                   <p className="text-xs text-neutral-500 mb-4">
-                    Choose how saree and craft prices are rendered throughout the directory, search, and checkout.
+                    {t("currency_helper")}
                   </p>
                 </div>
 
@@ -504,12 +511,12 @@ export default function BuyerProfilePage() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-neutral-600">
-                      Preferred Language
+                      {t("preferred_language")}
                     </span>
                     <Globe size={15} className="text-neutral-400" />
                   </div>
                   <p className="text-xs text-neutral-500 mb-4">
-                    Vernacular interface and AI craft story descriptions in your native language.
+                    {t("language_desc")}
                   </p>
                 </div>
 
@@ -562,7 +569,7 @@ export default function BuyerProfilePage() {
 
                 <div className="mt-3 text-[11px] text-neutral-400 flex items-center gap-1.5">
                   <Sparkles size={13} className="text-amber-600 shrink-0" />
-                  <span>AI multilingual catalogs render voice & transcripts in this language.</span>
+                  <span>{t("language_helper")}</span>
                 </div>
               </div>
             </div>
@@ -574,16 +581,16 @@ export default function BuyerProfilePage() {
               <div className="flex items-center gap-2">
                 <Heart size={18} className="text-rose-500 fill-rose-500" />
                 <h2 className={`text-xl font-bold text-neutral-900 ${playfair.className}`}>
-                  Saved Favorites & Wishlist
+                  {t("saved_favorites")}
                 </h2>
               </div>
               <span className="text-xs font-bold text-neutral-500 bg-stone-100 px-3 py-1 rounded-full border border-stone-200">
-                {SAVED_FAVORITES.length} Saved Items
+                {SAVED_FAVORITES.length} {t("saved_items_count")}
               </span>
             </div>
 
             <p className="text-xs text-neutral-500 mb-6">
-              Weavers and handcrafted sarees you have bookmarked. Prices reflect your chosen global currency ({currency}).
+              {t("wishlist_desc")}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
@@ -616,14 +623,14 @@ export default function BuyerProfilePage() {
                     <div className="mt-4 pt-3 border-t border-stone-200/60 flex items-center justify-between">
                       <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-stone-100/90 px-2.5 py-1 rounded-full border border-stone-200/70">
                         <Sparkles size={11} className="text-amber-700" />
-                        <span>Direct from Weaver</span>
+                        <span>{t("direct_from_weaver")}</span>
                       </span>
 
                       <Link
                         href="/shop"
                         className="px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1 shadow-sm"
                       >
-                        <span>View</span>
+                        <span>{t("view")}</span>
                         <ExternalLink size={12} />
                       </Link>
                     </div>

@@ -17,6 +17,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
+import { useLanguage } from "@/context/LanguageContext";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -25,77 +26,79 @@ const playfair = Playfair_Display({
 });
 
 export default function TrustSections() {
+  const { t } = useLanguage();
+
   const whyChooseFeatures = [
     {
       icon: Award,
-      title: "Quality Guaranteed",
-      desc: "Every textile is spun on traditional pit and frame looms with certified natural fibers and pure dyes.",
+      title: t("why_feature_1_title", "Quality Guaranteed"),
+      desc: t("why_feature_1_desc", "Every textile is spun on traditional pit and frame looms with certified natural fibers and pure dyes."),
     },
     {
       icon: Globe,
-      title: "Worldwide Insured Shipping",
-      desc: "Direct boutique export to 120+ countries with full transit insurance and reliable tracking.",
+      title: t("why_feature_2_title", "Worldwide Insured Shipping"),
+      desc: t("why_feature_2_desc", "Direct boutique export to 120+ countries with full transit insurance and reliable tracking."),
     },
     {
       icon: HeartHandshake,
-      title: "Support Local Artisans",
-      desc: "100% direct-to-weaver proceeds. Zero platform cuts, zero broker extortion, and complete transparency.",
+      title: t("why_feature_3_title", "Support Local Artisans"),
+      desc: t("why_feature_3_desc", "100% direct-to-weaver proceeds. Zero platform cuts, zero broker extortion, and complete transparency."),
     },
     {
       icon: Mic,
-      title: "Vernacular AI Voice Catalogs",
-      desc: "Empowering non-English literate weavers to catalog sarees in 60s via speech in Bengali or Hindi.",
+      title: t("why_feature_4_title", "Vernacular AI Voice Catalogs"),
+      desc: t("why_feature_4_desc", "Empowering non-English literate weavers to catalog sarees in 60s via speech in Bengali or Hindi."),
     },
     {
       icon: Coins,
-      title: "Dual Currency Architecture",
-      desc: "Domestic shoppers pay instantly via zero-fee UPI QR, while international patrons checkout in USD via PayPal.",
+      title: t("why_feature_5_title", "Dual Currency Architecture"),
+      desc: t("why_feature_5_desc", "Domestic shoppers pay instantly via zero-fee UPI QR, while international patrons checkout in USD via PayPal."),
     },
     {
       icon: Sparkles,
-      title: "Preserving Living Heritage",
-      desc: "Direct digital sovereignty that safeguards centuries-old UNESCO-recognized craft identities.",
+      title: t("why_feature_6_title", "Preserving Living Heritage"),
+      desc: t("why_feature_6_desc", "Direct digital sovereignty that safeguards centuries-old UNESCO-recognized craft identities."),
     },
   ];
 
   const empowerArtisanFeatures = [
     {
       icon: Zap,
-      title: "Easy Shop Setup",
-      desc: "No tech barriers. Snap a photo, speak your craft story, and get a live storefront link in under 60 seconds.",
+      title: t("empower_feature_1_title", "Easy Shop Setup"),
+      desc: t("empower_feature_1_desc", "No tech barriers. Snap a photo, speak your craft story, and get a live storefront link in under 60 seconds."),
     },
     {
       icon: BarChart3,
-      title: "Powerful AI Analytics",
-      desc: "Automated suggested price ranges based on weave complexity, thread count, and historical market data.",
+      title: t("empower_feature_2_title", "Powerful AI Analytics"),
+      desc: t("empower_feature_2_desc", "Automated suggested price ranges based on weave complexity, thread count, and historical market data."),
     },
     {
       icon: ShieldCheck,
-      title: "Instant Direct Payments",
-      desc: "Zero escrow delays. Funds settle directly into your linked bank UPI ID or verified PayPal account.",
+      title: t("empower_feature_3_title", "Instant Direct Payments"),
+      desc: t("empower_feature_3_desc", "Zero escrow delays. Funds settle directly into your linked bank UPI ID or verified PayPal account."),
     },
     {
       icon: Share2,
-      title: "Global Marketing Tools",
-      desc: "Generate viral WhatsApp audio cards, printable shop QR flyers, and high-res export product sheets.",
+      title: t("empower_feature_4_title", "Global Marketing Tools"),
+      desc: t("empower_feature_4_desc", "Generate viral WhatsApp audio cards, printable shop QR flyers, and high-res export product sheets."),
     },
   ];
 
   const trustHighlights = [
     {
       icon: BadgeCheck,
-      title: "Verified Rural Artisans",
-      desc: "Every artisan profile is geotagged to their native weaving district in Bengal, guaranteeing authentic craftsmanship.",
+      title: t("trust_highlight_1_title", "Verified Rural Artisans"),
+      desc: t("trust_highlight_1_desc", "Every artisan profile is geotagged to their native weaving district in Bengal, guaranteeing authentic craftsmanship."),
     },
     {
       icon: Lock,
-      title: "Secure Dual-Rail Transactions",
-      desc: "End-to-end encrypted domestic payouts via NPCI UPI alongside full global PayPal Buyer Protection.",
+      title: t("trust_highlight_2_title", "Secure Dual-Rail Transactions"),
+      desc: t("trust_highlight_2_desc", "End-to-end encrypted domestic payouts via NPCI UPI alongside full global PayPal Buyer Protection."),
     },
     {
       icon: UserCheck,
-      title: "Direct Weaver Protection",
-      desc: "Patrons receive direct provenance audio with each creation, bridging cultural authenticity and buyer trust.",
+      title: t("trust_highlight_3_title", "Direct Weaver Protection"),
+      desc: t("trust_highlight_3_desc", "Patrons receive direct provenance audio with each creation, bridging cultural authenticity and buyer trust."),
     },
   ];
 
@@ -109,10 +112,10 @@ export default function TrustSections() {
               Ethical Heritage E-Commerce
             </span>
             <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold text-neutral-900 mb-4 ${playfair.className}`}>
-              Why Choose Vernacular AI
+              {t("why_choose_title", "Why Choose Vernacular AI")}
             </h2>
             <p className="text-neutral-600 text-sm sm:text-base">
-              A paradigm shift that replaces predatory middlemen with direct multimodal AI and fair-trade sovereignty.
+              {t("why_choose_sub", "Built from the ground up to solve rural digital exclusion and eliminate middleman exploitation.")}
             </p>
           </div>
 
@@ -145,13 +148,13 @@ export default function TrustSections() {
         <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-[#2E5A36] uppercase tracking-widest text-xs font-bold mb-2 block">
-              Artisan Empowerment
+              {t("empower_badge", "Artisan Empowerment")}
             </span>
             <h2 className={`text-3xl sm:text-4xl font-bold text-neutral-900 mb-3 ${playfair.className}`}>
-              Empower Your Craft Business
+              {t("empower_title", "Empowering Artisans at Every Step")}
             </h2>
             <p className="text-neutral-600 text-sm">
-              Tailored specifically for rural weavers who prefer voice over typing and simplicity over complex forms.
+              {t("empower_sub", "Tools designed specifically for rural weavers to build, manage, and scale their craft business.")}
             </p>
           </div>
 
@@ -189,10 +192,10 @@ export default function TrustSections() {
               Integrity & Security
             </span>
             <h2 className={`text-3xl sm:text-4xl font-bold text-neutral-900 mb-3 ${playfair.className}`}>
-              Your Trust, Our Priority
+              {t("trust_banner_title", "Empowering Generational Weaving Traditions")}
             </h2>
             <p className="text-neutral-600 text-sm">
-              Engineered with world-class fintech rails and direct weaver verification for total peace of mind.
+              {t("trust_banner_desc", "Our sovereign technology directly strengthens rural handicraft clusters, providing sustainable global reach while protecting authentic heritage.")}
             </p>
           </div>
 

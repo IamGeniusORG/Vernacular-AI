@@ -234,16 +234,16 @@ export default function ShopDirectoryClient({ artisans }: Props) {
             {/* Quick Anchor Navigation Links */}
             <nav className="hidden lg:flex items-center gap-5 text-xs font-semibold text-neutral-600">
               <button onClick={scrollToDirectory} className="hover:text-neutral-900 transition">
-                Artisan Directory
+                {t("nav_directory")}
               </button>
               <a href="#how-it-works" className="hover:text-neutral-900 transition">
-                How It Works
+                {t("nav_how_it_works")}
               </a>
               <a href="#why-us" className="hover:text-neutral-900 transition">
-                Why Vernacular AI
+                {t("nav_why_us")}
               </a>
               <a href="#faq" className="hover:text-neutral-900 transition">
-                FAQs
+                {t("nav_faq")}
               </a>
             </nav>
           </div>
@@ -267,18 +267,18 @@ export default function ShopDirectoryClient({ artisans }: Props) {
             {/* Eyebrow Pill */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-stone-200/80 shadow-2xs text-[#8B4513] text-xs font-bold uppercase tracking-wider mb-6">
               <Sparkles size={13} className="text-[#C85A32]" />
-              <span>Direct From Rural Weavers • Zero Commission</span>
+              <span>{t("hero_eyebrow")}</span>
             </div>
 
             {/* Headline */}
             <h1 className={`text-4xl sm:text-5xl md:text-6xl xl:text-7xl font-extrabold text-neutral-900 mb-6 leading-[1.12] tracking-tight ${playfair.className}`}>
-              Empowering Rural Weavers. <br />
-              <span className="text-[#C85A32] italic font-serif">Global Digital Sovereignty.</span>
+              {t("hero_headline_1")} <br />
+              <span className="text-[#C85A32] italic font-serif">{t("hero_headline_2")}</span>
             </h1>
 
             {/* Subheadline */}
             <p className="text-base sm:text-lg md:text-xl text-neutral-600 font-light mb-8 max-w-2xl leading-relaxed">
-              Connect with skilled artisans from West Bengal and beyond. Find unique handcrafted pieces that tell a story in their native voice.
+              {t("hero_subheadline")}
             </p>
 
             {/* Action Buttons */}
@@ -288,7 +288,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                 onClick={scrollToDirectory}
                 className="w-full sm:w-auto px-8 py-4 rounded-full bg-[#C85A32] hover:bg-[#B34D27] text-white font-bold text-sm shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 group"
               >
-                <span>Start Shopping</span>
+                <span>{t("hero_start_shopping")}</span>
                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
               </button>
 
@@ -296,7 +296,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                 href="/studio"
                 className="w-full sm:w-auto px-8 py-4 rounded-full bg-transparent hover:bg-neutral-900/5 text-neutral-900 border-2 border-neutral-900 font-bold text-sm transition text-center"
               >
-                Become an Artisan
+                {t("hero_become_artisan")}
               </Link>
             </div>
 
@@ -304,17 +304,17 @@ export default function ShopDirectoryClient({ artisans }: Props) {
             <div className="inline-flex flex-wrap items-center justify-center lg:justify-start gap-4 sm:gap-6 px-6 py-3.5 rounded-full bg-white/80 backdrop-blur-md border border-stone-200/90 shadow-2xs text-xs sm:text-sm font-semibold text-neutral-700">
               <div className="flex items-center gap-1.5">
                 <Users size={16} className="text-[#C85A32]" />
-                <span><strong className="text-neutral-900">10K+</strong> Artisans</span>
+                <span><strong className="text-neutral-900">10K+</strong> {t("hero_stat_artisans")}</span>
               </div>
               <span className="text-stone-300 hidden sm:inline">|</span>
               <div className="flex items-center gap-1.5">
                 <Package size={16} className="text-[#2E5A36]" />
-                <span><strong className="text-neutral-900">50K+</strong> Products</span>
+                <span><strong className="text-neutral-900">50K+</strong> {t("hero_stat_products")}</span>
               </div>
               <span className="text-stone-300 hidden sm:inline">|</span>
               <div className="flex items-center gap-1.5">
                 <Globe2 size={16} className="text-[#3B82F6]" />
-                <span><strong className="text-neutral-900">120+</strong> Countries</span>
+                <span><strong className="text-neutral-900">120+</strong> {t("hero_stat_countries")}</span>
               </div>
             </div>
           </div>
@@ -348,13 +348,13 @@ export default function ShopDirectoryClient({ artisans }: Props) {
       <section id="artisan-directory" className="py-20 md:py-28 w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20 scroll-mt-20">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <span className="text-[#C85A32] uppercase tracking-widest text-xs font-bold mb-2 block">
-            Loom Directory
+            {t("directory_badge")}
           </span>
           <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold text-neutral-900 mb-4 ${playfair.className}`}>
-            Meet Our Talented Artisans
+            {t("directory_title")}
           </h2>
           <p className="text-neutral-600 text-sm sm:text-base leading-relaxed">
-            Discover master weavers, listen to their heritage stories, and support rural artisan clusters directly.
+            {t("directory_sub")}
           </p>
 
           {/* Integrated Search Bar with Native Voice Recognition */}
@@ -365,7 +365,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
               </div>
               <input
                 type="text"
-                placeholder={isListening ? t("voice_search_listening") : "Search by artisan, region, or craft..."}
+                placeholder={isListening ? t("voice_search_listening") : t("search_placeholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={`w-full pl-11 sm:pl-12 pr-12 py-3.5 sm:py-4 bg-white border rounded-full text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:border-transparent shadow-sm transition-all text-sm font-medium ${
@@ -409,7 +409,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                       : "bg-white text-stone-600 border border-stone-200 hover:border-stone-400 hover:bg-stone-50"
                   }`}
                 >
-                  {craft}
+                  {craft === "All" ? t("filter_all") : t(`filter_${craft.toLowerCase()}`, craft)}
                 </button>
               ))}
             </div>
@@ -419,8 +419,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
         {/* Dynamic Artisan Cards Grid */}
         {filteredArtisans.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-stone-200 p-8 max-w-lg mx-auto">
-            <p className="text-base font-semibold text-neutral-700">No artisans found matching your query</p>
-            <p className="text-xs text-neutral-400 mt-1">Try another craft or search term</p>
+            <p className="text-base font-semibold text-neutral-700">{t("no_artisans_found")}</p>
             <button
               onClick={() => {
                 setSearchQuery("");
@@ -428,7 +427,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
               }}
               className="mt-4 px-4 py-2 bg-neutral-900 text-white rounded-full text-xs font-bold hover:bg-neutral-800 transition"
             >
-              Reset Search & Filters
+              {t("reset_filters", "Reset Search & Filters")}
             </button>
           </div>
         ) : (
@@ -469,7 +468,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                         {productCount > 0 ? (
                           <>
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            <span>{productCount} {productCount === 1 ? "Creation" : t("creations_count")}</span>
+                            <span>{productCount} {productCount === 1 ? t("creation", "Creation") : t("creations_count")}</span>
                           </>
                         ) : (
                           <>
@@ -500,14 +499,14 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                       </div>
 
                       <div className="inline-block px-3 py-0.5 bg-[#FAF8F5] border border-stone-200 text-stone-700 text-[11px] font-bold tracking-wider uppercase rounded-full">
-                        {craftTag}
+                        {t(`filter_${craftTag.toLowerCase()}`, craftTag)}
                       </div>
                     </div>
                   </div>
 
                   {/* Card Footer action bar */}
                   <div className="px-6 py-3.5 bg-stone-50 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-[#C85A32]">
-                    <span>Explore Weaver Storefront</span>
+                    <span>{t("explore_weaver_storefront", "Explore Weaver Storefront")}</span>
                     <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                   </div>
                 </Link>

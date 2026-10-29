@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Sparkles, ArrowRight } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
+import { useLanguage } from "@/context/LanguageContext";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -87,6 +88,7 @@ const HANDPICKED_TREASURES: TreasureItem[] = [
 
 export default function TreasuresCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { t } = useLanguage();
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const handleScroll = (direction: "left" | "right") => {
@@ -113,13 +115,13 @@ export default function TreasuresCarousel() {
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E5DFD3] text-[#78350F] text-xs font-bold tracking-wider uppercase mb-2">
               <Sparkles size={12} />
-              <span>Curated Heritage</span>
+              <span>{t("treasures_curated", "Curated Heritage")}</span>
             </div>
             <h2 className={`text-2xl sm:text-3xl md:text-4xl text-neutral-900 font-bold ${playfair.className}`}>
-              Handpicked Artisanal Treasures
+              {t("treasures_title", "Handpicked Artisanal Treasures")}
             </h2>
             <p className="text-sm md:text-base text-neutral-600 mt-1 max-w-xl">
-              Authentic handloom creations directly sourced from master weaver clusters in West Bengal.
+              {t("treasures_sub", "Authentic handloom creations directly sourced from master weaver clusters in West Bengal.")}
             </p>
           </div>
 
@@ -192,7 +194,7 @@ export default function TreasuresCarousel() {
                   <div className="pt-3 border-t border-stone-100 flex items-center justify-between mt-2">
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-700 bg-stone-100/90 px-2.5 py-1 rounded-full border border-stone-200/70">
                       <Sparkles size={11} className="text-[#C85A32]" />
-                      <span>Direct from Loom</span>
+                      <span>{t("direct_from_loom", "Direct from Loom")}</span>
                     </span>
 
                     <button
@@ -200,7 +202,7 @@ export default function TreasuresCarousel() {
                       onClick={scrollToDirectory}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#C85A32]/10 hover:bg-[#C85A32] text-[#C85A32] hover:text-white text-xs font-bold transition-all group-hover:translate-x-0.5"
                     >
-                      <span>View Weavers</span>
+                      <span>{t("view_weavers", "View Weavers")}</span>
                       <ArrowRight size={13} />
                     </button>
                   </div>
@@ -217,7 +219,7 @@ export default function TreasuresCarousel() {
             onClick={scrollToDirectory}
             className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-stone-50 text-neutral-900 border border-stone-300 rounded-full text-xs sm:text-sm font-bold shadow-sm hover:shadow transition transform hover:-translate-y-0.5 active:translate-y-0"
           >
-            <span>Explore All Categories & Looms</span>
+            <span>{t("explore_all_categories", "Explore All Categories & Looms")}</span>
             <ArrowRight size={15} className="text-[#C85A32]" />
           </button>
         </div>
