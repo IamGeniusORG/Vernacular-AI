@@ -210,24 +210,25 @@ export default function ShopDirectoryClient({ artisans }: Props) {
           <div className="flex items-center gap-6 min-w-0">
             <Link
               href="/shop"
-              className="flex items-center gap-2.5 group min-w-0"
+              className="flex items-center gap-2.5 sm:gap-3 group min-w-0"
               title="Vernacular AI Home"
             >
+              {/* Logo on the left side of Vernacular AI */}
+              <div className="relative h-8 sm:h-9 w-auto aspect-[1423/874] shrink-0 flex items-center">
+                <Image
+                  src="/brand-hero.png"
+                  alt="Vernacular AI Logo"
+                  width={58}
+                  height={36}
+                  className="h-full w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
+                  priority
+                />
+              </div>
               <span
                 className={`text-lg sm:text-xl md:text-2xl font-extrabold text-neutral-900 tracking-tight truncate block ${playfair.className}`}
               >
                 Vernacular AI
               </span>
-              <div className="relative h-7 sm:h-8 w-auto aspect-[1423/874] shrink-0 overflow-hidden rounded-md flex items-center">
-                <Image
-                  src="/brand-hero.png"
-                  alt="Vernacular AI Logo"
-                  width={52}
-                  height={32}
-                  className="h-full w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
-                  priority
-                />
-              </div>
             </Link>
 
             {/* Quick Anchor Navigation Links */}
@@ -318,46 +319,20 @@ export default function ShopDirectoryClient({ artisans }: Props) {
             </div>
           </div>
 
-          {/* Right Column: Hero Brand Showcase */}
-          <div className="lg:col-span-5 flex items-center justify-center w-full">
-            <div className="relative w-full max-w-[500px] rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-white/95 via-[#FDFBF7]/90 to-[#F6F2EC]/80 backdrop-blur-md border border-stone-200/80 shadow-2xl overflow-hidden group">
-              {/* Soft decorative ambient accents */}
-              <div className="absolute -top-10 -right-10 w-44 h-44 bg-[#C85A32]/10 rounded-full blur-2xl pointer-events-none"></div>
-              <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-[#2E5A36]/10 rounded-full blur-2xl pointer-events-none"></div>
+          {/* Right Column: Hero Brand Art (Blends seamlessly into canvas, no hovering box, bigger scale) */}
+          <div className="lg:col-span-5 flex items-center justify-center w-full relative">
+            {/* Ambient soft glow directly beneath the art to merge with weave background */}
+            <div className="absolute w-[90%] h-[90%] bg-gradient-to-tr from-[#C85A32]/10 via-transparent to-[#2E5A36]/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
 
-              {/* Top Pill / Badge */}
-              <div className="flex items-center justify-between gap-2 mb-4 relative z-10">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/90 border border-stone-200 text-[11px] font-bold text-neutral-700 shadow-2xs">
-                  <Sparkles size={12} className="text-[#C85A32]" />
-                  <span>Official Brandmark</span>
-                </div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400">
-                  Bengal Handloom AI
-                </span>
-              </div>
-
-              {/* Logo Artwork */}
-              <div className="relative w-full aspect-[1423/874] overflow-hidden rounded-2xl bg-[#FAF8F5]/60 border border-stone-200/60 flex items-center justify-center p-3 sm:p-4 shadow-inner">
-                <Image
-                  src="/brand-hero.png"
-                  alt="Vernacular AI - Official Brand Artwork"
-                  width={710}
-                  height={437}
-                  className="w-full h-auto max-h-[320px] object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-700 ease-out"
-                  priority
-                />
-              </div>
-
-              {/* Caption Footer */}
-              <div className="mt-4 pt-3 border-t border-stone-200/70 flex items-center justify-between text-xs text-neutral-600 font-medium relative z-10">
-                <span className="flex items-center gap-1.5 text-neutral-700 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Direct-from-Loom Protocol
-                </span>
-                <span className="text-[#8B4513] font-bold text-[11px] uppercase tracking-wider">
-                  Zero Commission
-                </span>
-              </div>
+            <div className="relative w-full max-w-[560px] lg:max-w-[640px] xl:max-w-[720px] flex items-center justify-center transition-transform duration-700 hover:scale-[1.02]">
+              <Image
+                src="/brand-hero.png"
+                alt="Vernacular AI - Empowering Rural Weavers"
+                width={850}
+                height={522}
+                className="w-full h-auto object-contain mix-blend-multiply select-none pointer-events-none"
+                priority
+              />
             </div>
           </div>
         </div>

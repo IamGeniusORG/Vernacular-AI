@@ -227,13 +227,10 @@ export default function BuyerProfilePage() {
         <header className="px-6 py-4 border-b border-stone-200 bg-white/70 backdrop-blur-sm flex items-center justify-between">
           <Link
             href="/shop"
-            className="flex items-center gap-2 group min-w-0"
+            className="flex items-center gap-2.5 group min-w-0"
             title="Vernacular AI Home"
           >
-            <span className={`text-xl font-bold text-neutral-900 ${playfair.className}`}>
-              Vernacular AI
-            </span>
-            <div className="relative h-7 w-auto aspect-[1423/874] shrink-0 overflow-hidden rounded-md flex items-center">
+            <div className="relative h-7 sm:h-8 w-auto aspect-[1423/874] shrink-0 flex items-center">
               <Image
                 src="/brand-hero.png"
                 alt="Vernacular AI Logo"
@@ -243,6 +240,9 @@ export default function BuyerProfilePage() {
                 priority
               />
             </div>
+            <span className={`text-xl font-bold text-neutral-900 ${playfair.className}`}>
+              Vernacular AI
+            </span>
           </Link>
           <Link
             href="/login"
