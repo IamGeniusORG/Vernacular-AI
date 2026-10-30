@@ -59,25 +59,35 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price INTEGER;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS audio_url TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS in_stock BOOLEAN DEFAULT TRUE;
 
--- Storage Buckets & Policies for artisan assets
+-- Storage Buckets & Policies for artisan assets & product audio
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('artisan-assets', 'artisan-assets', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('product-audio', 'product-audio', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
 DROP POLICY IF EXISTS "Public Read Artisan Assets" ON storage.objects;
 CREATE POLICY "Public Read Artisan Assets" 
 ON storage.objects FOR SELECT 
-USING (bucket_id = 'artisan-assets');
+USING (bucket_id = 'artisan-assets' OR bucket_id = 'product-audio');
 
 DROP POLICY IF EXISTS "Artisans can upload assets" ON storage.objects;
 CREATE POLICY "Artisans can upload assets" 
 ON storage.objects FOR INSERT 
-WITH CHECK (bucket_id = 'artisan-assets');
+WITH CHECK (
+    (bucket_id = 'artisan-assets' OR bucket_id = 'product-audio')
+    AND auth.role() = 'authenticated'
+);
 
 DROP POLICY IF EXISTS "Artisans can update assets" ON storage.objects;
 CREATE POLICY "Artisans can update assets" 
 ON storage.objects FOR UPDATE 
-USING (bucket_id = 'artisan-assets');
+USING (
+    (bucket_id = 'artisan-assets' OR bucket_id = 'product-audio')
+    AND auth.role() = 'authenticated'
+);
 
 -- Index for fast artisan lookups
 CREATE INDEX IF NOT EXISTS idx_products_artisan_id ON products(artisan_id);
@@ -96,17 +106,17 @@ DROP POLICY IF EXISTS "Products are viewable by everyone" ON public.products;
 CREATE POLICY "Products are viewable by everyone" ON public.products 
     FOR SELECT USING (true);
 
--- 3. Allow artisans to insert their own products
+-- 3. Allow verified artisans to insert only their own products
 DROP POLICY IF EXISTS "Artisans can insert products" ON public.products;
 CREATE POLICY "Artisans can insert products" ON public.products 
-    FOR INSERT WITH CHECK (true);
+    FOR INSERT WITH CHECK (auth.uid() = artisan_id);
 
--- 4. Allow artisans to update their own products
+-- 4. Allow verified artisans to update only their own products
 DROP POLICY IF EXISTS "Artisans can update own products" ON public.products;
 CREATE POLICY "Artisans can update own products" ON public.products 
     FOR UPDATE USING (auth.uid() = artisan_id);
 
--- 5. Allow artisans to delete their own products
+-- 5. Allow verified artisans to delete only their own products
 DROP POLICY IF EXISTS "Artisans can delete own products" ON public.products;
 CREATE POLICY "Artisans can delete own products" ON public.products 
     FOR DELETE USING (auth.uid() = artisan_id);
@@ -116,7 +126,12 @@ DROP POLICY IF EXISTS "Artisans are viewable by everyone" ON public.artisans;
 CREATE POLICY "Artisans are viewable by everyone" ON public.artisans 
     FOR SELECT USING (true);
 
--- 7. Allow artisans to update own profile
+-- 7. Allow verified artisans to insert only their own profile
+DROP POLICY IF EXISTS "Artisans can insert own profile" ON public.artisans;
+CREATE POLICY "Artisans can insert own profile" ON public.artisans 
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- 8. Allow verified artisans to update only their own profile
 DROP POLICY IF EXISTS "Artisans can update own profile" ON public.artisans;
 CREATE POLICY "Artisans can update own profile" ON public.artisans 
     FOR UPDATE USING (auth.uid() = id);

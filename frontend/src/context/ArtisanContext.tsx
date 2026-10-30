@@ -208,11 +208,16 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     if (newAvatarUrl !== undefined) payload.avatar_url = newAvatarUrl.trim();
     if (newBannerUrl !== undefined) payload.banner_url = newBannerUrl.trim();
 
-    // 1. Update via Backend API (service_role)
+    // 1. Update via Backend API with Supabase session auth token
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
       await fetch(`${API_BASE}/api/v1/artisans/${artisanId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload),
       });
     } catch (err) {

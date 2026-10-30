@@ -84,13 +84,28 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS — allow all origins so Vercel preview/production domains and local dev are never blocked
+# Explicit CORS origins for production and local environments
+frontend_env = os.getenv("FRONTEND_URL", "https://vernacular-storefront.onrender.com").rstrip("/")
+raw_allowed = os.getenv("ALLOWED_ORIGINS", "")
+default_origins = [
+    "https://vernacular-storefront.onrender.com",
+    "https://vernacular-ai-mw9i.onrender.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    frontend_env,
+]
+if raw_allowed:
+    default_origins.extend([o.strip() for o in raw_allowed.split(",") if o.strip()])
+
+allowed_origins = list(dict.fromkeys([o for o in default_origins if o]))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
 
 # Keep-Alive & Health Check endpoints (placed at top for fast ping responses)

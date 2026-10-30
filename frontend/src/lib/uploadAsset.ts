@@ -89,14 +89,22 @@ export async function uploadArtisanAsset(
     };
   }
 
-  // 2. Try Backend Service-Role API Endpoint first
+  // 2. Try Backend Service-Role API Endpoint first with session authorization
   try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers: Record<string, string> = {};
+    if (session?.access_token) {
+      headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+
     const formData = new FormData();
     formData.append("file", uploadFile);
     formData.append("asset_type", assetType);
 
     const res = await fetch(`${API_BASE}/api/v1/artisans/${artisanId}/upload-asset`, {
       method: "POST",
+      headers,
       body: formData,
     });
 

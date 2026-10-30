@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useRef } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { X, CheckCircle, Loader2, LogOut, Copy, Camera, UploadCloud, ImageIcon } from "lucide-react";
 import { useArtisan } from "@/context/ArtisanContext";
@@ -222,10 +222,13 @@ function ProfileDrawerContent({ onClose }: { onClose: () => void }) {
               className="h-24 w-full rounded-xl overflow-hidden bg-stone-100 border border-dashed border-stone-300 relative cursor-pointer hover:opacity-90 transition flex items-center justify-center group"
             >
               {localBannerUrl ? (
-                <img
+                <Image
                   src={localBannerUrl}
                   alt="Store banner preview"
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="320px"
+                  unoptimized
+                  className="object-cover"
                 />
               ) : (
                 <div className="flex flex-col items-center gap-1 text-neutral-400 group-hover:text-neutral-600">

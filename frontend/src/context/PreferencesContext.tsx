@@ -108,11 +108,15 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
           data: { preferred_currency: newCurr },
         });
 
-        // 2. Backend API sync (service_role)
+        // 2. Backend API sync with Supabase session auth token
         try {
+          const authHeaders: Record<string, string> = { "Content-Type": "application/json" };
+          if (session?.access_token) {
+            authHeaders["Authorization"] = `Bearer ${session.access_token}`;
+          }
           await fetch(`${API_BASE}/api/v1/artisans/${userId}`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeaders,
             body: JSON.stringify({ preferred_currency: newCurr }),
           });
         } catch (apiErr) {
@@ -154,11 +158,15 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
           data: { preferred_language: newLang },
         });
 
-        // 2. Backend API sync (service_role)
+        // 2. Backend API sync with Supabase session auth token
         try {
+          const authHeaders: Record<string, string> = { "Content-Type": "application/json" };
+          if (session?.access_token) {
+            authHeaders["Authorization"] = `Bearer ${session.access_token}`;
+          }
           await fetch(`${API_BASE}/api/v1/artisans/${userId}`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeaders,
             body: JSON.stringify({ preferred_language: newLang }),
           });
         } catch (apiErr) {

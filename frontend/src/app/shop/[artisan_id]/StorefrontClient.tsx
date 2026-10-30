@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -341,12 +340,16 @@ export default function StorefrontClient({ products, artisan }: Props) {
                     {/* 4. Inner Grid: Safely places Image on left, Text on right */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-center max-w-6xl mx-auto">
                       
-                      {/* Left Side: Locked Aspect Ratio Image */}
+                      {/* Left Side: Locked Aspect Ratio Image with Next/Image optimization */}
                       <div className="relative w-full aspect-[4/5] md:aspect-[3/4] rounded-2xl overflow-hidden bg-stone-100 shadow-md">
-                        <img 
+                        <Image 
                           src={product.image_url || '/placeholder.jpg'} 
                           alt={productTitle}
-                          className="absolute inset-0 w-full h-full object-cover"
+                          fill
+                          priority
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          unoptimized={Boolean(product.image_url?.startsWith("http"))}
+                          className="object-cover"
                         />
                         {product.in_stock === false && (
                           <div className="absolute top-4 right-4 bg-neutral-900/85 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow z-10">
@@ -464,18 +467,21 @@ export default function StorefrontClient({ products, artisan }: Props) {
                 key={product.id}
                 className="group flex flex-col bg-transparent"
               >
-                {/* Image Container */}
+                {/* Image Container with Next.js Image Optimization */}
                 <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-white border border-stone-200 mb-4">
-                  <img
+                  <Image
                     src={product.image_url}
-                    alt={product.ai_title_en}
-                    className="w-full h-full object-cover object-top transition-transform duration-500 ease-in-out group-hover:scale-105"
+                    alt={product.ai_title_en || product.ai_title_local || "Handloom Creation"}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    unoptimized={Boolean(product.image_url?.startsWith("http"))}
+                    className="object-cover object-top transition-transform duration-500 ease-in-out group-hover:scale-105"
                   />
-                  <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm text-neutral-900 text-sm font-semibold px-3 py-1 rounded-full shadow-sm">
+                  <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm text-neutral-900 text-sm font-semibold px-3 py-1 rounded-full shadow-sm z-10">
                     {destination === "international" ? `$${usdPrice.toFixed(2)} USD` : `₹${displayPrice || 1500}`}
                   </div>
                   {isSoldOut && (
-                    <div className="absolute top-3 right-3 bg-neutral-900/85 backdrop-blur-md text-white text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow">
+                    <div className="absolute top-3 right-3 bg-neutral-900/85 backdrop-blur-md text-white text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow z-10">
                       {t('sold_out')}
                     </div>
                   )}
@@ -512,6 +518,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                         controls 
                         preload="metadata"
                         src={product.audio_url} 
+                        aria-label={`Voice note story of ${product.ai_title_en || 'Handloom Creation'} narrated by artisan ${artisan.full_name}`}
                         className="w-full h-8 rounded-full bg-stone-50 [&::-webkit-media-controls-panel]:bg-stone-50"
                       >
                         <source src={product.audio_url} type="audio/webm" />
@@ -576,6 +583,9 @@ export default function StorefrontClient({ products, artisan }: Props) {
                             console.error("PayPal Checkout Error:", err);
                             showToast("PayPal transaction error. Please try again.");
                           }}
+                          onCancel={() => {
+                            showToast("PayPal transaction cancelled.");
+                          }}
                         />
                       </div>
                     </div>
@@ -624,6 +634,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
             {/* Close Button */}
             <button
               onClick={() => setActiveUpiProduct(null)}
+              aria-label="Close UPI QR Code modal"
               className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition"
             >
               <X size={20} />
@@ -691,6 +702,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
             {/* Close Button */}
             <button
               onClick={() => setPaypalSuccessOrder(null)}
+              aria-label="Close Order Confirmation modal"
               className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition"
             >
               <X size={20} />

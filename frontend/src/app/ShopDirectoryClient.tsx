@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -461,13 +460,16 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                   className="group block bg-white rounded-3xl overflow-hidden border border-stone-200/90 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative flex flex-col justify-between"
                 >
                   <div>
-                    {/* Top Half: Cover Banner */}
+                    {/* Top Half: Cover Banner with Next/Image optimization */}
                     <div className="h-44 w-full relative overflow-hidden bg-stone-100">
                       {coverImage ? (
-                        <img
+                        <Image
                           src={coverImage}
-                          alt={artisan.full_name}
-                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                          alt={artisan.full_name || "Master Weaver"}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                          unoptimized={Boolean(coverImage.startsWith("http"))}
+                          className="object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
                         />
                       ) : (
                         <>

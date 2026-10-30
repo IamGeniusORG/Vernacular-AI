@@ -1,11 +1,12 @@
 import asyncio
 import urllib.parse
 import uuid
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Header
 from pydantic import BaseModel
 from typing import List, Optional
 
 from app.core.supabase_client import supabase
+from app.core.auth import get_current_user_id, verify_artisan_owner
 from app.services.ai_service import generate_product_listing
 from app.services.storage_service import upload_image, save_product, upload_audio
 from app.schemas.product import BatchProductResponse, GeneratedProduct
@@ -49,8 +50,14 @@ async def _process_single_image(
     image_bytes = await image_file.read()
     image_mime = image_file.content_type or "image/jpeg"
 
-    # 1. Upload image to Supabase Storage CDN
-    image_url = upload_image(image_bytes, image_mime)
+    if len(image_bytes) < 100:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Uploaded photo '{image_file.filename}' is corrupted or empty. Please upload a clear photo.",
+        )
+
+    # 1. Upload image to Supabase Storage CDN asynchronously
+    image_url = await asyncio.to_thread(upload_image, image_bytes, image_mime)
 
     # 2. Call Gemini AI with this image + shared audio
     ai_data = await generate_product_listing(
@@ -60,8 +67,8 @@ async def _process_single_image(
         audio_mime=audio_mime,
     )
 
-    # 3. Persist to Supabase DB (products table)
-    saved = save_product(artisan_id, image_url, audio_url, ai_data)
+    # 3. Persist to Supabase DB (products table) asynchronously
+    saved = await asyncio.to_thread(save_product, artisan_id, image_url, audio_url, ai_data)
     product_id = str(saved.get("id", ""))
     effective_price = saved.get("price") or saved.get("price_inr") or ai_data.get("price_inr")
     effective_usd = saved.get("price_usd") or ai_data.get("suggested_usd_price")
@@ -90,19 +97,42 @@ async def generate_listing(
     artisan_id: uuid.UUID = Form(...),
     images: List[UploadFile] = File(...),
     audio: UploadFile = File(...),
+    authorization: Optional[str] = Header(None),
 ):
+    # Strict authentication: ensure the caller is authorized for this artisan_id
+    await verify_artisan_owner(str(artisan_id), authorization)
+
+    # Pre-flight check: images
     if not images:
-        raise HTTPException(status_code=400, detail="At least one image is required.")
+        raise HTTPException(status_code=422, detail="At least one product image is required.")
+
+    for i, img in enumerate(images):
+        mime = (img.content_type or "").lower()
+        if not mime.startswith("image/"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"File '{img.filename or f'image_{i+1}'}' is not a supported image format. Please upload JPEG, PNG, or WebP.",
+            )
+
+    # Pre-flight check: audio
+    try:
+        audio_bytes = await audio.read()
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to read audio file: {e}")
+
+    if not audio_bytes or len(audio_bytes) < 512:
+        raise HTTPException(
+            status_code=422,
+            detail="Voice note description is too short or silent. Please speak clearly while holding the microphone for at least 3 seconds.",
+        )
+
+    audio_mime = audio.content_type or "audio/webm"
 
     try:
-        # Read audio once — shared across all image AI calls
-        audio_bytes = await audio.read()
-        audio_mime = audio.content_type or "audio/webm"
+        # Upload audio to product-audio bucket asynchronously
+        audio_url = await asyncio.to_thread(upload_audio, audio_bytes, audio_mime)
 
-        # Upload audio to product-audio bucket once
-        audio_url = upload_audio(audio_bytes, audio_mime)
-
-        # Process all images concurrently
+        # Process all images concurrently without blocking the event loop
         tasks = [
             _process_single_image(img, audio_bytes, audio_mime, str(artisan_id), audio_url)
             for img in images
@@ -114,9 +144,13 @@ async def generate_listing(
             products=list(products),
             count=len(products),
         )
-
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=502,
+            detail=f"Catalog generation failed: {str(e)}",
+        )
 
 
 @router.get("/shop/{artisan_id}")
@@ -136,7 +170,24 @@ async def get_artisan_products(artisan_id: str):
 
 
 @router.patch("/{product_id}/price")
-async def update_product_price(product_id: str, update: PriceUpdate):
+async def update_product_price(
+    product_id: str,
+    update: PriceUpdate,
+    authorization: Optional[str] = Header(None)
+):
+    caller_id = await get_current_user_id(authorization)
+
+    if caller_id != "service-role-admin":
+        prod_res = supabase.table("products").select("artisan_id").eq("id", product_id).execute()
+        if not prod_res.data:
+            raise HTTPException(status_code=404, detail="Product not found")
+        prod_owner = str(prod_res.data[0].get("artisan_id", ""))
+        if prod_owner.lower() != caller_id.lower():
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden: You can only update prices for your own creations.",
+            )
+
     try:
         val = update.price if update.price is not None else update.price_inr
         patch_data = {}

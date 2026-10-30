@@ -1,6 +1,8 @@
 import uuid
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from typing import Optional
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header
 from app.core.supabase_client import supabase
+from app.core.auth import verify_artisan_owner
 
 router = APIRouter()
 
@@ -73,8 +75,9 @@ async def get_artisan(artisan_id: str):
 
 
 @router.patch("/{artisan_id}")
-async def update_artisan(artisan_id: str, payload: dict):
-    """Update artisan or buyer profile fields (user_role, full_name, district, whatsapp_number, upi_id, paypal_email, avatar_url, banner_url, preferred_currency, preferred_language)."""
+async def update_artisan(artisan_id: str, payload: dict, authorization: Optional[str] = Header(None)):
+    """Update artisan or buyer profile fields with strict authentication check."""
+    await verify_artisan_owner(artisan_id, authorization)
     try:
         allowed_keys = [
             "full_name",
@@ -126,9 +129,11 @@ async def update_artisan(artisan_id: str, payload: dict):
 async def upload_artisan_asset(
     artisan_id: str,
     file: UploadFile = File(...),
-    asset_type: str = Form("avatar")
+    asset_type: str = Form("avatar"),
+    authorization: Optional[str] = Header(None)
 ):
-    """Upload an artisan profile avatar or cover banner image to the artisan-assets bucket."""
+    """Upload an artisan profile avatar or cover banner image to the artisan-assets bucket with authentication check."""
+    await verify_artisan_owner(artisan_id, authorization)
     try:
         content = await file.read()
         mime_type = file.content_type or "image/jpeg"

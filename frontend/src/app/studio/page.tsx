@@ -483,11 +483,16 @@ export default function Home() {
         dbErr = retry.error;
       }
 
-      // 2. Also patch backend API to guarantee sync
+      // 2. Also patch backend API to guarantee sync with session authorization
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
         await fetch(`${API_BASE}/api/v1/products/${product.product_id}/price`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ price: finalPrice, price_inr: finalPrice, price_usd: finalUsd }),
         });
       } catch (e) {
@@ -749,7 +754,17 @@ export default function Home() {
     formData.append("audio", audioBlob, audioFilename);
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/products/generate`, { method: "POST", body: formData });
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch(`${API_BASE}/api/v1/products/generate`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
       const data = await res.json();
       if (data.status === "success") {
         setResults(data.products);
@@ -1435,12 +1450,27 @@ export default function Home() {
                   {audioMode === "record" ? (
                     <div className="flex flex-col items-center gap-3">
                       <button
+                        type="button"
+                        aria-label={isRecording ? "Recording voice note. Release to stop." : "Hold to record spoken handloom description"}
+                        aria-pressed={isRecording}
                         onMouseDown={startRecording}
                         onMouseUp={stopRecording}
                         onMouseLeave={stopRecording}
                         onTouchStart={startRecording}
                         onTouchEnd={stopRecording}
-                        className={`w-18 h-18 w-20 h-20 rounded-full flex items-center justify-center text-white transition-all select-none shadow-xl ${isRecording ? "bg-red-500 scale-95 shadow-red-400/50" : audioBlob ? "bg-emerald-500" : "bg-indigo-600 hover:bg-indigo-700"}`}
+                        onKeyDown={(e) => {
+                          if ((e.key === " " || e.key === "Enter") && !isRecording) {
+                            e.preventDefault();
+                            startRecording();
+                          }
+                        }}
+                        onKeyUp={(e) => {
+                          if ((e.key === " " || e.key === "Enter") && isRecording) {
+                            e.preventDefault();
+                            stopRecording();
+                          }
+                        }}
+                        className={`w-18 h-18 w-20 h-20 rounded-full flex items-center justify-center text-white transition-all select-none shadow-xl cursor-pointer focus:outline-none focus:ring-4 focus:ring-indigo-300 ${isRecording ? "bg-red-500 scale-95 shadow-red-400/50" : audioBlob ? "bg-emerald-500" : "bg-indigo-600 hover:bg-indigo-700"}`}
                       >
                         {isRecording ? <AudioLines size={34} className="animate-pulse" /> : <Mic size={34} />}
                       </button>
