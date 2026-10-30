@@ -13,6 +13,7 @@ import Marquee from "@/components/Marquee";
 import UniversalAvatar from "@/components/UniversalAvatar";
 import UserDropdown from "@/components/UserDropdown";
 import LanguageToggle from "@/components/LanguageToggle";
+import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 import { createClient } from "@/utils/supabase/client";
 
 // Modular Landing Page Components
@@ -255,8 +256,10 @@ export default function ShopDirectoryClient({ artisans }: Props) {
         </div>
       </header>
 
-      {/* ── 1. The Hero Section (Soft Warm Beige/Green Gradient, uses full canvas height and width) ── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#F5F2EB] via-[#EFEBE4] to-[#FAF8F5] min-h-[72vh] lg:min-h-[80vh] flex flex-col justify-center py-16 md:py-24 2xl:py-32 px-4 sm:px-8 md:px-12 2xl:px-20 border-b border-stone-200/60 w-full">
+      {/* ── Main Content Wrapped with Global Language Transition ── */}
+      <LanguageTransitionWrapper as="main" className="w-full relative">
+        {/* ── 1. The Hero Section (Soft Warm Beige/Green Gradient, uses full canvas height and width) ── */}
+        <section className="relative overflow-hidden bg-gradient-to-b from-[#F5F2EB] via-[#EFEBE4] to-[#FAF8F5] min-h-[72vh] lg:min-h-[80vh] flex flex-col justify-center py-16 md:py-24 2xl:py-32 px-4 sm:px-8 md:px-12 2xl:px-20 border-b border-stone-200/60 w-full">
         {/* Soft Ambient Radial Accents */}
         <div className="absolute top-0 left-1/4 w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] bg-[#2E5A36]/5 rounded-full blur-3xl pointer-events-none -translate-y-1/2"></div>
         <div className="absolute bottom-0 right-1/4 w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] bg-[#C85A32]/5 rounded-full blur-3xl pointer-events-none translate-y-1/2"></div>
@@ -536,6 +539,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
 
       {/* ── 7. Footer Integration (Newsletter, Global CTA Banner, 4-Col Links) ── */}
       <LandingFooter />
-    </div>
+    </LanguageTransitionWrapper>
+  </div>
   );
 }

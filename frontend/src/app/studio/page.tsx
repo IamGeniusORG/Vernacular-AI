@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
 import { useLanguage } from "@/context/LanguageContext";
 import LanguageToggle from "@/components/LanguageToggle";
+import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 import { QRCodeCanvas } from "qrcode.react";
 import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
@@ -842,7 +843,7 @@ export default function Home() {
           </div>
         </header>
 
-        <main className="max-w-md mx-auto px-6 py-16 text-center">
+        <LanguageTransitionWrapper as="main" className="max-w-md mx-auto px-6 py-16 text-center">
           <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-4 shadow-sm">
             <ShoppingBag size={28} />
           </div>
@@ -875,7 +876,7 @@ export default function Home() {
               Switch Account or Log In as Artisan
             </Link>
           </div>
-        </main>
+        </LanguageTransitionWrapper>
 
         <footer className="py-6 text-center text-xs text-neutral-400 border-t border-stone-200 bg-white">
           Vernacular AI E-Commerce Enabler • 100% Direct Weaver Platform
@@ -901,8 +902,9 @@ export default function Home() {
           </div>
         </header>
 
-        {/* ── Segmented Navigation Control ── */}
-        <div className="px-5 pt-3 pb-2 bg-white border-b border-slate-100 z-10 shrink-0">
+        {/* ── Segmented Navigation Control & Studio Body Wrapped with Language Transition ── */}
+        <LanguageTransitionWrapper className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="px-5 pt-3 pb-2 bg-white border-b border-slate-100 z-10 shrink-0">
           <div className="flex bg-slate-100 p-1 rounded-xl">
             <button
               onClick={() => setActiveTab("craft")}
@@ -1651,6 +1653,7 @@ export default function Home() {
             </button>
           </div>
         )}
+        </LanguageTransitionWrapper>
 
         {/* ── Toast ── */}
         {toastMsg && (

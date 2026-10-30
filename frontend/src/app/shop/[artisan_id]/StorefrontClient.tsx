@@ -15,6 +15,7 @@ import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import UniversalAvatar from "@/components/UniversalAvatar";
 import UserDropdown from "@/components/UserDropdown";
 import LanguageToggle from "@/components/LanguageToggle";
+import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 import { usePreferences } from "@/context/PreferencesContext";
 
 const playfair = Playfair_Display({ 
@@ -190,8 +191,10 @@ export default function StorefrontClient({ products, artisan }: Props) {
           </div>
         </header>
 
-        {/* ── Breadcrumb Navigation ── */}
-        <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 pb-0">
+        {/* ── Main Content Wrapped with Global Language Transition ── */}
+        <LanguageTransitionWrapper as="main" className="w-full relative">
+          {/* ── Breadcrumb Navigation ── */}
+          <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 pb-0">
           <Link
             href="/shop"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500 hover:text-amber-800 transition group"
@@ -760,12 +763,13 @@ export default function StorefrontClient({ products, artisan }: Props) {
         </div>
       )}
 
-      {/* ── Toast ── */}
-      {toastMsg && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-sm font-medium px-5 py-3 rounded-full shadow-xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <MessageCircle size={16} className="text-white/80 shrink-0" /> {toastMsg}
-        </div>
-      )}
+        {/* ── Toast ── */}
+        {toastMsg && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-sm font-medium px-5 py-3 rounded-full shadow-xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <MessageCircle size={16} className="text-white/80 shrink-0" /> {toastMsg}
+          </div>
+        )}
+      </LanguageTransitionWrapper>
     </div>
   </PayPalScriptProvider>
   );

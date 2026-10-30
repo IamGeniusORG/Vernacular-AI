@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 import { LanguageProvider } from "@/context/LanguageContext";
 import { PreferencesProvider } from "@/context/PreferencesContext";
 import { ArtisanProvider } from "@/context/ArtisanContext";
+import { LanguageTransitionProvider } from "@/components/LanguageTransitionProvider";
 import BackendKeepAlive from "@/components/BackendKeepAlive";
 
 export const metadata: Metadata = {
@@ -94,8 +95,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <LanguageProvider>
           <PreferencesProvider>
             <ArtisanProvider>
-              {children}
-              <BackendKeepAlive />
+              <LanguageTransitionProvider>
+                {children}
+                <BackendKeepAlive />
+              </LanguageTransitionProvider>
             </ArtisanProvider>
           </PreferencesProvider>
         </LanguageProvider>

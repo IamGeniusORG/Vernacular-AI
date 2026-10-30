@@ -7,6 +7,7 @@ import { Playfair_Display } from "next/font/google";
 import { Loader2, ShoppingBag, Sparkles } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import LanguageToggle from "@/components/LanguageToggle";
+import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -67,11 +68,14 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] flex flex-col items-center justify-center p-4 relative font-sans">
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 z-20" data-no-lang-transition>
         <LanguageToggle />
       </div>
 
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-stone-200">
+      <LanguageTransitionWrapper
+        as="main"
+        className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-stone-200"
+      >
         {/* Header Banner */}
         <div className="bg-neutral-900 px-8 py-10 text-center text-white">
           <h1 className={`text-3xl mb-2 tracking-tight ${playfair.className}`}>
@@ -213,7 +217,7 @@ function LoginContent() {
             Secure 1-Tap authentication powered by Supabase Auth
           </p>
         </div>
-      </div>
+      </LanguageTransitionWrapper>
     </div>
   );
 }

@@ -23,6 +23,7 @@ import {
 import UniversalAvatar from "@/components/UniversalAvatar";
 import UserDropdown from "@/components/UserDropdown";
 import LanguageToggle from "@/components/LanguageToggle";
+import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 import { usePreferences } from "@/context/PreferencesContext";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -258,7 +259,7 @@ export default function BuyerProfilePage() {
           </div>
         </header>
 
-        <main className="max-w-md mx-auto px-6 py-16 text-center">
+        <LanguageTransitionWrapper as="main" className="max-w-md mx-auto px-6 py-16 text-center">
           <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-4 shadow-sm">
             <User size={30} />
           </div>
@@ -274,7 +275,7 @@ export default function BuyerProfilePage() {
           >
             {t("sign_in_to_continue")}
           </button>
-        </main>
+        </LanguageTransitionWrapper>
 
         <footer className="py-6 text-center text-xs text-neutral-400">
           Vernacular AI E-Commerce Enabler • 100% Direct Weaver Platform
@@ -318,7 +319,7 @@ export default function BuyerProfilePage() {
       </header>
 
       {/* ── Main Container ── */}
-      <main className="max-w-4xl mx-auto px-4 md:px-8 pt-8">
+      <LanguageTransitionWrapper as="main" className="max-w-4xl mx-auto px-4 md:px-8 pt-8">
         {/* Title Banner */}
         <div className="mb-8">
           <span className="text-amber-800 uppercase tracking-widest text-xs font-bold mb-1.5 block">
@@ -640,7 +641,7 @@ export default function BuyerProfilePage() {
             </div>
           </section>
         </div>
-      </main>
+      </LanguageTransitionWrapper>
     </div>
   );
 }

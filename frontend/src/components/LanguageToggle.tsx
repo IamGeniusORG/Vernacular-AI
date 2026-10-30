@@ -14,6 +14,7 @@ export default function LanguageToggle() {
 
   return (
     <div
+      data-no-lang-transition
       className="flex bg-stone-200/80 rounded-full p-1 shadow-inner relative border border-stone-300/70 select-none"
       role="group"
       aria-label="Language Selector"
