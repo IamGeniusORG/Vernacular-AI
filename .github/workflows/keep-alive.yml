@@ -2,8 +2,8 @@ name: Keep-Alive Server Heartbeat
 
 on:
   schedule:
-    # Runs every 12 minutes (Render spins down after 15 minutes of inactivity)
-    - cron: '*/12 * * * *'
+    # Runs every 5 minutes (Render spins down after 15 minutes of inactivity)
+    - cron: '*/5 * * * *'
   workflow_dispatch: # Allows manual trigger from GitHub Actions UI
 
 jobs:
@@ -13,20 +13,21 @@ jobs:
     steps:
       - name: Send Keep-Alive Ping to Backend & Frontend
         env:
-          BACKEND_URL: ${{ secrets.BACKEND_URL || 'https://vernacular-storefront.onrender.com' }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL || 'https://vernacular-storefront.onrender.com' }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL || 'https://vernacular-ai-mw9i.onrender.com' }}
         run: |
           echo "Starting Keep-Alive ping at $(date -u)"
           
-          # Target endpoints to keep Render services warm
           TARGET_URLS=(
             "${BACKEND_URL}/health"
             "${BACKEND_URL}/api/v1/health"
-            "${BACKEND_URL}/api/health"
+            "${FRONTEND_URL}/health"
+            "${FRONTEND_URL}/api/health"
           )
           
           for url in "${TARGET_URLS[@]}"; do
             echo "Pinging $url..."
-            RESPONSE=$(curl -s -L -w "\nHTTP_STATUS:%{http_code}\nTIME:%{time_total}s" --max-time 60 "$url" || true)
+            RESPONSE=$(curl -s -L -w "\nHTTP_STATUS:%{http_code}\nTIME:%{time_total}s" --max-time 45 "$url" || true)
             echo "$RESPONSE"
           done
           

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "https://vernacular-ai-mw9i.onrender.com";
 
 export async function GET() {
   const start = Date.now();
@@ -11,7 +12,8 @@ export async function GET() {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    // Allow up to 45s in case Render backend is cold-starting
+    const timeout = setTimeout(() => controller.abort(), 45000);
     const res = await fetch(`${API_BASE}/health`, {
       cache: "no-store",
       signal: controller.signal,

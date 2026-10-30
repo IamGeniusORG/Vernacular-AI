@@ -3,7 +3,11 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Zap, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" && window.location.hostname !== "localhost"
+    ? "https://vernacular-ai-mw9i.onrender.com"
+    : "http://127.0.0.1:8000");
 
 export default function BackendKeepAlive() {
   const [status, setStatus] = useState<"idle" | "waking" | "online" | "failed">("idle");
