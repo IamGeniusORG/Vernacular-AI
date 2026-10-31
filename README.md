@@ -6,6 +6,7 @@
 [![PayPal](https://img.shields.io/badge/PayPal-Developer%20Platform%20SDK-00457C?style=flat&logo=paypal)](https://developer.paypal.com/)
 [![Gemini AI](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-4285F4?style=flat&logo=google)](https://deepmind.google/technologies/gemini/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database%20%7C%20Auth%20%7C%20Storage-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
+[![PWA Ready](https://img.shields.io/badge/PWA-Installable%20%7C%20Offline%20Mode-blue?style=flat&logo=pwa)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0+-38B2AC?style=flat&logo=tailwind-css)](https://tailwindcss.com/)
 [![Seva First Innovation Challenge](https://img.shields.io/badge/Hackathon-Seva%20First%20Innovation%20Challenge-orange)](#)
@@ -34,20 +35,21 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
 ## 🌟 Core Feature Suite
 
 ### 1. Multimodal Voice & Vision AI Cataloging (`/studio`)
-* **Zero-Typing Camera Studio:** Artisans upload photos of their saree or textile and speak naturally in their native dialect.
+* **Zero-Typing Camera Studio:** Artisans snap a photo of their handloom textile and speak naturally in their native dialect (Bengali, Hindi, or English).
 * **Google Gemini 2.5 Flash Multimodal Engine:** Simultaneously inspects the garment photograph and spoken audio waveform to synthesize:
   * Bilingual titles and descriptions (English + native Bengali/Hindi script).
   * Automated craft classification (weave technique, fabric, regional motif).
   * Fair domestic market valuation range in INR (`suggested_price_range`).
   * International boutique USD valuation (`suggested_usd_price`) and heritage narrative (`export_description`).
 * **Supabase Media Storage CDN:** Automated compression and public delivery of product photos, weaver voice recordings, and profile assets.
+* **Smart Edge Background Processing:** Background removal powered by lightweight `rembg-cpu` using `u2netp` (only ~4.7MB) with PIL compression and a 3.5s timeout circuit breaker, avoiding server memory exhaustion on restricted hosting environments.
 
 ### 2. Dual-Checkout Storefront UI (`/shop/[artisan_id]`)
 * **Shipping Destination Toggle:** Shoppers choose their purchasing context:
   `[ 🇮🇳 Domestic (INR) ]  |  [ 🌍 International (USD) ]`
 * **🇮🇳 Domestic Mode:**
   * Displays domestic INR price (`₹1,800`).
-  * **Instant UPI Pay Modal (0% Fee):** Generates dynamic, standard Indian banking QR codes (`qrcode.react`) and mobile deep links (`upi://pay?pa=...`) launching GPay, PhonePe, Paytm, or BHIM.
+  * **Instant UPI Pay Modal (0% Fee):** Dynamically displays the artisan's real merchant QR code or synthesizes banking QR codes (`qrcode.react`) and mobile deep links (`upi://pay?pa=...`) launching GPay, PhonePe, Paytm, or BHIM.
   * **WhatsApp 1-Tap Commerce:** Direct WhatsApp conversation link with pre-filled item details and phone number normalization.
 * **🌍 International Export Mode:**
   * Displays international USD price (`$45.00`) and the AI-generated heritage export narrative.
@@ -57,30 +59,49 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
 * **Voice of the Weaver Audio Player:** Streams the artisan's original native voice note alongside the AI-translated text, establishing authenticity and emotional connection.
 * **Masterpiece Showcase Carousel:** Randomized, infinitely sliding carousel highlighting the breadth of the weaver's portfolio.
 
-### 3. Artisan Profile & Storefront Branding Studio (`/studio`)
-* **Dedicated "Profile & Branding" Tab:** New top-level navigation inside Studio allowing weavers to customize their identity without technical friction.
+### 3. Direct Patronage & "Tip the Artisan" Protocol
+* **Direct Weaver Micro-Patronage:** Shoppers and cultural patrons can tip artisans directly from the public storefront and checkout modal with zero platform deduction.
+* **Dual-Currency Support:**
+  * **Domestic (INR):** Direct scan of the artisan's real UPI QR code or 1-tap mobile app launch (`upi://pay`). Enforces a strict minimum tip of ₹10 with an explicit badge and input validation.
+  * **International (USD):** Secondary standalone PayPal `createOrder` integration utilizing `shipping_preference: "NO_SHIPPING"`, enabling friction-free tipping without requesting physical delivery addresses.
+* **Patron Transparency Ledger:** Tips are logged to the Supabase `tips` table with patron names, currency, and payment method via `POST /api/v1/artisans/{artisan_id}/tip`.
+
+### 4. Real Artisan Payment QR Code Integration
+* **In-Studio Payment QR Upload:** Artisans upload screenshots of their personal PhonePe, Google Pay, Paytm, or BHIM QR codes in `/studio` (Branding Tab & Profile Drawer) with client-side canvas compression.
+* **Supabase Storage Pipeline:** Uploads to the `artisan-assets` bucket and links directly to `qr_code_url` on the artisan profile.
+* **Missing QR Fallback Protection:** If an artisan has not yet configured their QR or UPI ID, storefront actions display a polite toast notification (*"The artisan haven't added their payment QR yet. Try again later!"*) and provide a helpful pending notice card instead of rendering broken demo codes.
+
+### 5. Artisan Profile & Storefront Branding Studio (`/studio`)
+* **Dedicated "Profile & Branding" Tab:** Top-level navigation inside Studio allowing weavers to customize their identity without technical friction.
 * **Client-Compressed Drag-and-Drop Uploaders:**
   * **Profile Avatar:** Square photo uploader with client canvas compression and a 2MB limit.
   * **Storefront Cover Banner:** 16:9 landscape banner uploader displaying at the top of their public storefront and marketplace cards.
-  * **Service-Role Asset Pipeline:** Backed by `POST /api/v1/artisans/{artisan_id}/upload-asset` with automatic direct Supabase Storage (`artisan-assets` bucket) fallback.
-* **Optimistic Directory Card Preview:** Live interactive preview card mirroring the public marketplace card that updates instantaneously as the weaver edits their name, avatar, or banner.
+  * **Payment QR Code:** Real merchant QR uploader with live preview and replacement options.
+  * **Clean UPI ID:** Real UPI ID input without fake or hardcoded demo values.
+* **Optimistic Directory Card Preview:** Live interactive preview card mirroring the public marketplace card that updates instantaneously as the weaver edits their profile.
 * **Slide-Out Profile Drawer:** Slide-out drawer accessible from any page to update WhatsApp contact, domestic UPI ID, international PayPal email, and download high-resolution shop QR codes.
 
-### 4. Reusable Deterministic `<ArtisanAvatar />` Component
-* **Dynamic Palette Hashing:** Computes a deterministic integer hash from the artisan's display name to assign one of 12 vibrant Tailwind color gradients (replacing plain black circles).
-* **Graceful Remote Fallback:** Renders user-uploaded avatars via `next/image` with circular clipping and smooth error handling fallback to initials.
+### 6. Conversational Voice Search with Gemini AI (`/shop`)
+* **Voice-First Search Bar:** Buyers click the microphone icon to search using conversational natural language (e.g., *"Show me red silk sarees from Nadia"*).
+* **Continuous Web Speech API:** Speech-to-text recognition with visual pulse feedback and automatic silence boundary detection.
+* **Gemini 2.5 Flash Intent Extraction:** Backed by `POST /api/v1/products/search-intent`, which prompts Gemini to return strict JSON search parameters (`color`, `material`, `region`, `max_price`).
+* **Reactive Directory Filtering:** Instant client-side filtering across the artisan catalog without full page refreshes.
 
-### 5. Production-Hardened Authentication on Render
-* **PKCE OAuth Code Exchange:** Route Handler (`src/app/auth/callback/route.ts`) exchanges authorization codes using Supabase SSR client and explicitly binds all session cookies to outgoing `NextResponse.redirect` headers.
-* **Reverse-Proxy HTTPS Origin Resolution:** Dynamically inspects `x-forwarded-host`, `host`, and `x-forwarded-proto` to prevent cookie dropping or protocol mismatches on Render.
-* **Multi-Tier Reactivity:** `ArtisanContext` and `ShopDirectoryClient` employ active `supabase.auth.onAuthStateChange` listeners with optimistic `user_metadata` population, eliminating "logged out" UI flashes.
-* **Clean Top-Level Navigation:** `window.location.replace()` in `/auth/sync` bypasses stale client-side router caches after login.
+### 7. PWA Offline Studio Mode & Auto-Sync (`/studio`)
+* **Progressive Web App (PWA):** Native Web App Manifest (`manifest.json`) and Service Worker (`sw.js`) enabling installability on Android, iOS, and desktop.
+* **1-Tap App Install Prompt:** Contextual install button in the Studio navigation bar.
+* **Unified Mobile APK:** Compatible with lightweight Trusted Web Activity (TWA) / WebView APK wrappers distributed in GitHub Releases, ensuring automatic, zero-rebuild over-the-air updates.
+* **IndexedDB Offline Queue (`idb-keyval`):** When rural artisans work with spotty cellular connectivity, draft photos and voice notes are stored safely in local browser storage.
+* **Auto-Sync Manager:** Detects `navigator.onLine` and automatically flushes queued drafts to the FastAPI backend upon network restoration.
 
-### 6. Discovery Marketplace & Vernacular Voice Search (`/shop`)
-* **Live Native Voice Search:** Spoken search in Bengali, Hindi, or English using the Web Speech API with an animated sound-wave indicator.
-* **Regional Craft Filter Pills:** 1-tap filtering across traditional craft styles (Jamdani, Taant, Baluchari, Khadi, Silk).
-* **Dynamic Visual Banners:** Artisan cards prioritize custom `banner_url` cover photos with automatic fallback to their latest creation photo.
-* **Live Storefront Data:** Route segment configs (`revalidate = 0`, `dynamic = "force-dynamic"`) prevent stale cached data across deployments.
+### 8. Visitor Telemetry & Analytics
+* **Non-Blocking Telemetry:** Light-weight asynchronous view logging (`POST /api/v1/analytics/view`) recording traffic origin (Domestic vs. International).
+* **Supabase Telemetry Ledger:** Stores aggregated visitor sessions in the `product_views` table for artisan performance insights.
+
+### 9. Privacy, Compliance & Production Hardening
+* **Multi-Lingual Cookie Consent:** Privacy-compliant cookie banner (`CookieConsent.tsx`) supporting English, Hindi, and Bengali with local state persistence.
+* **Streamlined Onboarding Flow:** Fixed role-lock race conditions during Google 1-Tap OAuth sign-up, ensuring newly registered weavers transition directly into their active Studio dashboard without infinite setup loops.
+* **PKCE OAuth Code Exchange:** Route Handler (`src/app/auth/callback/route.ts`) explicitly binds session cookies to outgoing `NextResponse.redirect` headers with reverse-proxy host resolution on Render.
 
 ---
 
@@ -88,42 +109,47 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
 
 ```mermaid
 flowchart TD
-    subgraph Client ["Client Layer (Next.js 16 App Router)"]
+    subgraph Client ["Client Layer (Next.js 16 App Router & PWA)"]
         A["Shopper / Global Collector / Rural Artisan"] --> B["Responsive Web UI (Tailwind CSS 4)"]
-        B --> C["/shop (Discovery Marketplace & Voice Search)"]
-        B --> D["/shop/:artisan_id (Storefront: Hero Banner, UPI & PayPal)"]
+        B --> C["/shop (Discovery Marketplace & Gemini Voice Search)"]
+        B --> D["/shop/:artisan_id (Storefront, Real UPI QR, PayPal & Tips)"]
         B --> E["/studio (Multimodal AI Studio, Catalog & Branding)"]
-        B --> F["/login & /auth/sync (Google 1-Tap OAuth & Cookie Sync)"]
+        B --> F["/login & /auth/sync (Google OAuth & Session Sync)"]
+        E -. Offline Mode .-> SW["Service Worker & IndexedDB Queue (idb-keyval)"]
+        SW -. Auto-Sync on Reconnect .-> G
     end
 
-    subgraph Payments ["Dual-Commerce Payment Layer"]
-        D -- Domestic (INR) --> P1["Direct UPI QR & WhatsApp (0% Fee)"]
-        D -- International (USD) --> P2["PayPal React SDK (@paypal/react-paypal-js)"]
+    subgraph Payments ["Dual-Commerce & Patronage Layer"]
+        D -- Domestic Purchase (0% Fee) --> P1["Direct Merchant UPI QR & WhatsApp"]
+        D -- International Export --> P2["PayPal React SDK (Standard Purchase)"]
+        D -- Direct Tip / Patronage --> P3["Tip Weaver (UPI QR / PayPal NO_SHIPPING)"]
     end
 
     subgraph Backend ["Backend API Layer (FastAPI)"]
         G["FastAPI Server (Uvicorn)"]
         G --> H["/api/v1/products/generate (Multimodal Gemini AI)"]
-        G --> I["/api/v1/artisans (Directory & Profile Sync)"]
-        G --> J["/api/v1/artisans/:id/upload-asset (Avatar & Banner Storage)"]
-        G --> K["/api/v1/products/:id/price (Inventory & Stock Updates)"]
-        G --> L["/api/v1/health (Keep-Alive Health Check)"]
+        G --> I["/api/v1/products/search-intent (Voice Query to JSON Filters)"]
+        G --> J["/api/v1/artisans (Directory & Profile Sync)"]
+        G --> K["/api/v1/artisans/:id/upload-asset (Avatar, Banner & QR Code)"]
+        G --> L["/api/v1/artisans/:id/tip (Micro-Patronage Logging)"]
+        G --> M["/api/v1/analytics/view (Non-Blocking Telemetry)"]
+        G --> N["/api/v1/health (Keep-Alive Health Check)"]
     end
 
     subgraph Cloud ["Cloud, AI & Database Infrastructure"]
-        M["Supabase Auth (Google OAuth 2.0 with SSR Cookies)"]
-        N["Supabase PostgreSQL (artisans & products tables)"]
-        O["Supabase Storage CDN (product-images, product-audio, artisan-assets)"]
-        P["Google Gemini 2.5 Flash (via OpenRouter API)"]
-        Q["PayPal Developer Platform (Sandbox APIs)"]
+        O["Supabase Auth (Google OAuth 2.0 with SSR Cookies)"]
+        P["Supabase PostgreSQL (artisans, products, tips, product_views)"]
+        Q["Supabase Storage CDN (product-images, product-audio, artisan-assets)"]
+        R["Google Gemini 2.5 Flash (via OpenRouter API)"]
+        S["PayPal Developer Platform (Sandbox APIs)"]
     end
 
     C & D & E & F <--> G
-    C & D & E & F <--> M
-    P2 <--> Q
-    G <--> N
-    G <--> O
+    C & D & E & F <--> O
+    P2 & P3 <--> S
     G <--> P
+    G <--> Q
+    G <--> R
 ```
 
 ---
@@ -135,8 +161,9 @@ flowchart TD
 ├── backend/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── artisans.py          # Artisan registration, directory retrieval & asset uploads
-│   │   │   └── products.py          # Multimodal batch generation & inventory pricing endpoints
+│   │   │   ├── analytics.py         # Visitor telemetry & view analytics endpoint
+│   │   │   ├── artisans.py          # Artisan registration, profile sync, QR uploads & tip logging
+│   │   │   └── products.py          # Multimodal Gemini cataloging, voice search intent & pricing
 │   │   ├── core/
 │   │   │   ├── config.py            # Pydantic BaseSettings environment loader
 │   │   │   └── supabase_client.py   # Service-role Supabase client
@@ -146,7 +173,7 @@ flowchart TD
 │   │       ├── ai_service.py        # Gemini 2.5 Flash prompt for dual-pricing & export narrative
 │   │       └── storage_service.py   # Supabase Storage asset uploader & DB persister
 │   ├── main.py                      # FastAPI entrypoint with regex CORS middleware
-│   ├── schema.sql                   # Database schema definitions & bucket RLS policies
+│   ├── schema.sql                   # Database schema (artisans, products, tips, product_views)
 │   ├── auth_trigger.sql             # PostgreSQL trigger syncing auth.users to public.artisans
 │   ├── requirements.txt             # Pinned backend dependencies
 │   ├── .env.example                 # Environment template for backend
@@ -155,7 +182,8 @@ flowchart TD
 ├── frontend/
 │   ├── public/
 │   │   ├── icons/                   # Valid 192x192 & 512x512 PWA icons
-│   │   └── manifest.json            # PWA manifest
+│   │   ├── manifest.json            # PWA manifest for mobile installability
+│   │   └── sw.js                    # Native Service Worker for offline asset caching
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── auth/
@@ -164,19 +192,21 @@ flowchart TD
 │   │   │   ├── login/page.tsx       # Dynamic redirectTo Google 1-Tap sign-in interface
 │   │   │   ├── shop/
 │   │   │   │   ├── page.tsx         # Discovery Marketplace (force-dynamic, revalidate=0)
-│   │   │   │   └── [artisan_id]/    # Storefront (Hero Banner, Voice Audio & PayPal SDK)
-│   │   │   ├── studio/page.tsx      # Multimodal AI studio, Catalog & Branding Studio
-│   │   │   ├── ShopDirectoryClient  # Client component for voice search & category filters
-│   │   │   ├── layout.tsx           # Root layout with fonts & context providers
+│   │   │   │   └── [artisan_id]/    # Storefront (Hero Banner, Real QR, PayPal & Tip modal)
+│   │   │   ├── studio/page.tsx      # Multimodal AI studio, Offline Queue & Branding Studio
+│   │   │   ├── ShopDirectoryClient  # Voice-first search bar with Gemini intent extraction
+│   │   │   ├── layout.tsx           # Root layout with fonts, PWA meta & context providers
 │   │   │   └── page.tsx             # Root route (redirects to /shop)
 │   │   ├── components/
 │   │   │   ├── ArtisanAvatar.tsx    # Deterministic hashed gradient avatar component
+│   │   │   ├── CookieConsent.tsx    # Trilingual GDPR/ePrivacy compliant cookie notice
 │   │   │   ├── Marquee.tsx          # Animated direct-to-weaver announcement ticker
 │   │   │   ├── ProfileDrawer.tsx    # Slide-out drawer for branding, UPI, PayPal & QR
 │   │   │   └── LanguageToggle.tsx   # Floating multi-lingual switcher (EN/HI/BN)
 │   │   ├── context/
-│   │   │   ├── ArtisanContext.tsx   # Global session, role, avatar, banner & profile state
-│   │   │   └── LanguageContext.tsx  # Multi-language dictionary provider
+│   │   │   ├── ArtisanContext.tsx   # Global session, role, avatar, banner & QR state
+│   │   │   ├── LanguageContext.tsx  # Multi-language dictionary provider
+│   │   │   └── PreferencesContext.tsx# Domestic / International preference manager
 │   │   ├── i18n/
 │   │   │   └── dictionaries.ts      # English, Hindi, and Bengali localization strings
 │   │   ├── lib/
@@ -185,7 +215,7 @@ flowchart TD
 │   │   └── utils/
 │   │       └── supabase/            # Client, Server, and Middleware Supabase SSR SDKs
 │   ├── next.config.mjs              # Next.js config with Supabase & Google image domains
-│   ├── package.json                 # Dependencies (Next 16, @paypal/react-paypal-js, Tailwind 4)
+│   ├── package.json                 # Dependencies (Next 16, @paypal/react-paypal-js, Tailwind 4, idb-keyval)
 │   ├── .env.example                 # Environment template for frontend
 │   └── .gitignore                   # Frontend-specific ignore rules
 │
@@ -209,15 +239,17 @@ flowchart TD
 
 1. In your Supabase project's **SQL Editor**, execute [`backend/schema.sql`](file:///C:/Users/IamTeddy/OneDrive/Desktop/IamGenius/Seva%20Innovation%20Challenge%20Project/Vernacular%20AI%20E-Commerce%20Enabler/backend/schema.sql):
    ```sql
-   -- Provisions artisans and products tables with columns:
-   -- upi_id, whatsapp_number, paypal_email, avatar_url, banner_url,
-   -- price_usd, suggested_usd_price, export_description
+   -- Provisions tables & columns:
+   -- public.artisans (upi_id, qr_code_url, whatsapp_number, paypal_email, avatar_url, banner_url)
+   -- public.products (price, price_usd, suggested_usd_price, export_description, tags)
+   -- public.tips (artisan_id, amount, currency, payment_method, patron_name, order_id)
+   -- public.product_views (artisan_id, country, viewed_at)
    ```
 2. Execute [`backend/auth_trigger.sql`](file:///C:/Users/IamTeddy/OneDrive/Desktop/IamGenius/Seva%20Innovation%20Challenge%20Project/Vernacular%20AI%20E-Commerce%20Enabler/backend/auth_trigger.sql) to auto-provision profile rows on sign-up with Google avatar sync.
 3. In **Storage**, ensure the following public buckets are created with public read access enabled:
    * `product-images` (garment photographs)
    * `product-audio` (spoken voice notes)
-   * `artisan-assets` (custom profile avatars and cover banners)
+   * `artisan-assets` (custom profile avatars, cover banners, and merchant payment QR codes)
 4. In **Authentication > Providers > Google**, enable Google OAuth and configure redirect URLs:
    * `http://localhost:3000/auth/callback` (Local development)
    * `https://vernacular-storefront.onrender.com/auth/callback` (Production)
@@ -352,11 +384,14 @@ Both frontend and backend are live on [Render](https://render.com/):
 |---|---|---|
 | **Artisan Onboarding** | Days (tax IDs, English portals, SKU forms) | **< 60 seconds** (voice note + camera snap) |
 | **Cataloging & Pricing** | Manual copywriting & currency conversion | **Automated Dual-Pricing** by Gemini 2.5 Flash (INR + USD) |
-| **Profile & Store Branding** | Complex web builders & manual image tools | **In-App Drag-and-Drop Studio** with live card preview & compression |
+| **Profile & Store Branding** | Complex web builders & manual image tools | **In-App Drag-and-Drop Studio** with live card preview & real QR upload |
 | **Platform Commission** | 20% to 45% (middlemen, fees, listing costs) | **0% Platform Fee** (100% direct to artisan) |
-| **Domestic Payments** | Delayed bank transfers (7–14 days) | **Instant Direct UPI QR** (0% transaction fee) |
+| **Direct Patronage / Tips** | None or high platform cut | **100% Zero-Cut Tipping** (UPI QR / PayPal `NO_SHIPPING`, min ₹10) |
+| **Domestic Payments** | Delayed bank transfers (7–14 days) | **Instant Direct UPI QR** (PhonePe/GPay/Paytm with missing QR notice) |
 | **Global Export Payments** | High barrier, unavailable for rural weavers | **Seamless PayPal React SDK** with sandbox USD payments |
+| **Offline Village Resilience** | Requires continuous high-speed cellular data | **PWA + IndexedDB Queue** (auto-flushes to backend on reconnect) |
 | **Linguistic Inclusion** | English only | **Trilingual Voice & UI** (Bengali, Hindi, English) |
+| **Buyer Discovery & Search** | Manual keyword typing in English | **Conversational Voice Search** (Gemini AI strict JSON filtering) |
 | **Cultural Provenance** | Generic mass-manufactured textile description | **Authentic Heritage Story** with audio snippet player |
 
 ---
