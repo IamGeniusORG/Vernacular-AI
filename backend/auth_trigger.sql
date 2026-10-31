@@ -21,8 +21,12 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'preferred_language', 'en')
   )
   ON CONFLICT (id) DO UPDATE SET
-    full_name = COALESCE(public.artisans.full_name, EXCLUDED.full_name),
-    avatar_url = COALESCE(public.artisans.avatar_url, EXCLUDED.avatar_url),
+    full_name = COALESCE(EXCLUDED.full_name, public.artisans.full_name),
+    user_role = CASE 
+      WHEN EXCLUDED.user_role = 'artisan' THEN 'artisan' 
+      ELSE COALESCE(public.artisans.user_role, EXCLUDED.user_role, 'customer')
+    END,
+    avatar_url = COALESCE(EXCLUDED.avatar_url, public.artisans.avatar_url),
     preferred_currency = COALESCE(public.artisans.preferred_currency, EXCLUDED.preferred_currency),
     preferred_language = COALESCE(public.artisans.preferred_language, EXCLUDED.preferred_language);
   RETURN new;

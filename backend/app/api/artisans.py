@@ -113,9 +113,14 @@ async def update_artisan(artisan_id: str, payload: dict, authorization: Optional
         except Exception as auth_err:
             print(f"Notice: Supabase admin auth user metadata sync skipped: {auth_err}")
 
-        # 2. Update database row with defensive fallback for pending SQL migrations
+        # 2. Update or insert database row with defensive fallback for pending SQL migrations
         try:
-            result = supabase.table("artisans").update(allowed).eq("id", artisan_id).execute()
+            existing = supabase.table("artisans").select("id").eq("id", artisan_id).execute()
+            if not existing.data:
+                insert_payload = {"id": artisan_id, **allowed}
+                result = supabase.table("artisans").insert(insert_payload).execute()
+            else:
+                result = supabase.table("artisans").update(allowed).eq("id", artisan_id).execute()
             return {"status": "success", "artisan": result.data[0] if result.data else None}
         except Exception as db_err:
             err_str = str(db_err)
@@ -126,7 +131,7 @@ async def update_artisan(artisan_id: str, payload: dict, authorization: Optional
                     if k not in ["preferred_currency", "preferred_language", "avatar_url", "banner_url"]
                 }
                 if safe_payload:
-                    result = supabase.table("artisans").update(safe_payload).eq("id", artisan_id).execute()
+                    result = supabase.table("artisans").upsert({"id": artisan_id, **safe_payload}).execute()
                     return {"status": "success", "artisan": result.data[0] if result.data else None}
                 return {"status": "success", "notice": "stored_in_auth_metadata"}
             raise db_err

@@ -18,6 +18,7 @@ import { ArtisanProvider } from "@/context/ArtisanContext";
 import { LanguageTransitionProvider } from "@/components/LanguageTransitionProvider";
 import BackendKeepAlive from "@/components/BackendKeepAlive";
 import PwaRegister from "@/components/PwaRegister";
+import CookieConsent from "@/components/CookieConsent";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -100,6 +101,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 {children}
                 <BackendKeepAlive />
                 <PwaRegister />
+                <CookieConsent />
               </LanguageTransitionProvider>
             </ArtisanProvider>
           </PreferencesProvider>

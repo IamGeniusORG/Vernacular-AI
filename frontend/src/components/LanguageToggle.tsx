@@ -3,7 +3,11 @@
 import { useLanguage } from "@/context/LanguageContext";
 import { Language } from "@/i18n/dictionaries";
 
-export default function LanguageToggle() {
+interface LanguageToggleProps {
+  compact?: boolean;
+}
+
+export default function LanguageToggle({ compact = false }: LanguageToggleProps) {
   const { activeLanguage, setLanguage } = useLanguage();
 
   const options: { id: Language; label: string; name: string }[] = [
@@ -15,7 +19,9 @@ export default function LanguageToggle() {
   return (
     <div
       data-no-lang-transition
-      className="flex bg-stone-200/80 rounded-full p-1 shadow-inner relative border border-stone-300/70 select-none"
+      className={`flex bg-stone-200/80 rounded-full shadow-inner relative border border-stone-300/70 select-none ${
+        compact ? "p-0.5" : "p-1"
+      }`}
       role="group"
       aria-label="Language Selector"
     >
@@ -29,7 +35,11 @@ export default function LanguageToggle() {
             title={option.name}
             aria-label={`Switch language to ${option.name}`}
             aria-pressed={isActive}
-            className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 z-10 cursor-pointer ${
+            className={`relative rounded-full flex items-center justify-center font-bold transition-all duration-300 z-10 cursor-pointer ${
+              compact
+                ? "w-6 h-6 text-xs"
+                : "w-7 h-7 sm:w-8 sm:h-8 text-xs sm:text-sm"
+            } ${
               isActive
                 ? "text-white shadow-sm"
                 : "text-neutral-700 hover:text-neutral-950 hover:bg-stone-300/40"

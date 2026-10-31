@@ -41,6 +41,12 @@ function LoginContent() {
     try {
       if (typeof window !== "undefined") {
         localStorage.setItem("intended_role", selectedRole);
+        localStorage.setItem("user_role", selectedRole);
+        try {
+          document.cookie = `intended_role=${encodeURIComponent(selectedRole)}; path=/; max-age=3600; SameSite=Lax`;
+        } catch {
+          // ignore
+        }
       }
 
       const callbackUrl = `${window.location.origin}/auth/callback?role=${encodeURIComponent(selectedRole)}`;

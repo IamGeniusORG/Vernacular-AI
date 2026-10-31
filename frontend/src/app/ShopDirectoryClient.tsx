@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Search, MapPin, Mic, MicOff, ArrowRight, Sparkles, Users, Package, Globe2, X, Loader2 } from "lucide-react";
@@ -40,7 +40,9 @@ interface SpeechRecognitionResultItem {
 }
 
 interface SpeechRecognitionResultList {
+  length: number;
   [index: number]: {
+    isFinal?: boolean;
     [index: number]: SpeechRecognitionResultItem;
   };
 }
@@ -58,6 +60,7 @@ interface ISpeechRecognition {
   onerror: (err: unknown) => void;
   onend: () => void;
   start: () => void;
+  stop: () => void;
 }
 
 type SpeechRecognitionCtor = new () => ISpeechRecognition;
@@ -78,8 +81,22 @@ export default function ShopDirectoryClient({ artisans }: Props) {
   const [isListening, setIsListening] = useState(false);
   const [voiceIntent, setVoiceIntent] = useState<VoiceSearchIntent | null>(null);
   const [isParsingIntent, setIsParsingIntent] = useState(false);
+  const recognitionRef = useRef<ISpeechRecognition | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentTranscriptRef = useRef<string>("");
   const { artisanId, userRole, refreshProfile } = useArtisan();
   const { activeLanguage, t } = useLanguage();
+
+  useEffect(() => {
+    return () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+    };
+  }, []);
 
   // Active listener for Supabase Auth state changes to guarantee instant UI reactivity
   useEffect(() => {
@@ -146,7 +163,17 @@ export default function ShopDirectoryClient({ artisans }: Props) {
 
   const handleVoiceSearch = () => {
     if (isListening) {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
       setIsListening(false);
+      const text = currentTranscriptRef.current.trim();
+      if (text) {
+        parseVoiceQuery(text);
+      }
       return;
     }
 
@@ -163,35 +190,67 @@ export default function ShopDirectoryClient({ artisans }: Props) {
 
     try {
       const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      currentTranscriptRef.current = "";
+
       const langMap: Record<string, string> = {
         en: "en-IN",
         bn: "bn-IN",
         hi: "hi-IN",
       };
       recognition.lang = langMap[activeLanguage] || "en-IN";
-      recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.continuous = true;
+      recognition.interimResults = true;
 
       recognition.onstart = () => {
         setIsListening(true);
+        // Safety timeout: 7 seconds total window
+        silenceTimerRef.current = setTimeout(() => {
+          try {
+            recognition.stop();
+          } catch {}
+        }, 7000);
       };
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        const transcript = event.results?.[0]?.[0]?.transcript || "";
-        if (transcript) {
-          setSearchQuery(transcript);
-          parseVoiceQuery(transcript);
+        let finalTranscript = "";
+        let interimTranscript = "";
+
+        for (let i = 0; i < event.results.length; i++) {
+          const item = event.results[i];
+          if (item.isFinal) {
+            finalTranscript += item[0].transcript + " ";
+          } else {
+            interimTranscript += item[0].transcript;
+          }
         }
-        setIsListening(false);
+
+        const text = (finalTranscript + interimTranscript).trim();
+        if (text) {
+          setSearchQuery(text);
+          currentTranscriptRef.current = text;
+        }
+
+        // On speech activity: pause 1.6s after speech to finalize and parse
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          try {
+            recognition.stop();
+          } catch {}
+        }, 1600);
       };
 
       recognition.onerror = (err: unknown) => {
-        console.warn("Speech recognition error:", err);
-        setIsListening(false);
+        console.warn("Speech recognition notice:", err);
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        const queryToParse = currentTranscriptRef.current.trim();
+        if (queryToParse) {
+          parseVoiceQuery(queryToParse);
+        }
       };
 
       recognition.start();

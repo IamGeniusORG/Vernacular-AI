@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const cookieStore = await cookies();
-    const targetPath = role ? `/auth/sync?role=${encodeURIComponent(role)}` : `/auth/sync`;
+    const cookieRole = request.cookies.get("intended_role")?.value;
+    const effectiveRole = role || cookieRole || "customer";
+    const targetPath = effectiveRole ? `/auth/sync?role=${encodeURIComponent(effectiveRole)}` : `/auth/sync`;
     const targetUrl = `${origin}${targetPath}`;
 
     // Create the redirect response upfront so all Supabase session cookies are attached directly
@@ -68,6 +70,14 @@ export async function GET(request: NextRequest) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!exchangeError) {
+      if (effectiveRole) {
+        response.cookies.set("user_role", effectiveRole, {
+          path: "/",
+          sameSite: "lax",
+          secure: isHttps || process.env.NODE_ENV === "production",
+          maxAge: 60 * 60 * 24 * 30, // 30 days
+        });
+      }
       console.log(`[auth/callback] Code exchange successful. Forwarding session cookies to: ${targetUrl}`);
       return response;
     }

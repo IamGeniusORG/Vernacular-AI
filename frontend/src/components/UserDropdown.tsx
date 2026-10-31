@@ -19,9 +19,10 @@ import { useLanguage } from "@/context/LanguageContext";
 interface UserDropdownProps {
   className?: string;
   onOpenProfileDrawer?: () => void;
+  compact?: boolean;
 }
 
-export default function UserDropdown({ className = "", onOpenProfileDrawer }: UserDropdownProps) {
+export default function UserDropdown({ className = "", onOpenProfileDrawer, compact = false }: UserDropdownProps) {
   const router = useRouter();
   const { t } = useLanguage();
   const {
@@ -98,21 +99,23 @@ export default function UserDropdown({ className = "", onOpenProfileDrawer }: Us
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center gap-2 p-1 pl-1.5 pr-2 rounded-full border border-stone-200/90 hover:border-stone-300 bg-white/80 hover:bg-white active:scale-95 transition shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+        className={`flex items-center rounded-full border border-stone-200/90 hover:border-stone-300 bg-white/80 hover:bg-white active:scale-95 transition shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 ${
+          compact ? "p-0.5 pl-1 pr-1.5 gap-1.5" : "p-1 pl-1.5 pr-2 gap-2"
+        }`}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
         <UniversalAvatar
           name={displayName}
           avatarUrl={avatarUrl}
-          size="sm"
+          size={compact ? "xs" : "sm"}
           showBorder
         />
         <span className="hidden sm:inline-block text-xs font-semibold text-neutral-800 max-w-[120px] truncate">
           {displayName}
         </span>
         <ChevronDown
-          size={14}
+          size={compact ? 12 : 14}
           className={`text-neutral-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
           }`}

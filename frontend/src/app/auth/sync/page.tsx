@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useArtisan } from "@/context/ArtisanContext";
 import { Playfair_Display } from "next/font/google";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, ArrowRight } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
 const playfair = Playfair_Display({
@@ -18,23 +18,67 @@ function AuthSyncContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
-  const { setUserRole, refreshProfile } = useArtisan();
-  const [syncStatus, setSyncStatus] = useState("Syncing your profile...");
+  const { setUserRole } = useArtisan();
+  const [syncStatus, setSyncStatus] = useState("Authenticating...");
+  const [showManualButton, setShowManualButton] = useState(false);
+  const [targetDestination, setTargetDestination] = useState<string>("/shop");
 
   useEffect(() => {
     let mounted = true;
+    let safetyTimer: NodeJS.Timeout | null = null;
+    let manualButtonTimer: NodeJS.Timeout | null = null;
 
     async function syncProfile() {
+      // 1. Resolve intended role immediately from all available sources
+      const paramRole = searchParams.get("role");
+      const storedIntended = typeof window !== "undefined" ? localStorage.getItem("intended_role") : null;
+      const storedRole = typeof window !== "undefined" ? localStorage.getItem("user_role") : null;
+      const isArtisan = paramRole === "artisan" || storedIntended === "artisan" || storedRole === "artisan";
+      const resolvedRole = isArtisan ? "artisan" : "customer";
+      const dest = isArtisan ? "/studio" : "/shop";
+
+      if (mounted) {
+        setTargetDestination(dest);
+        setSyncStatus(isArtisan ? "Setting up your Artisan Studio..." : "Preparing Discovery Marketplace...");
+      }
+
+      // Pre-seed localStorage so client context never defaults to 'customer' if 'artisan' was chosen
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("user_role", resolvedRole);
+        } catch {
+          // ignore
+        }
+      }
+      setUserRole(resolvedRole);
+
+      // Show manual fallback button after 2.0s so users are never trapped
+      manualButtonTimer = setTimeout(() => {
+        if (mounted) setShowManualButton(true);
+      }, 2000);
+
+      // Bulletproof Safety Guard: auto-redirect after 2.8s max even if any API stalls
+      safetyTimer = setTimeout(() => {
+        if (mounted) {
+          console.warn("[AuthSync] Safety timer fired — redirecting to destination:", dest);
+          if (typeof window !== "undefined") {
+            window.location.replace(dest);
+          } else {
+            router.replace(dest);
+          }
+        }
+      }, 2800);
+
       try {
-        // 1. Check if the URL has an error_description or error from Supabase/Google
+        // 2. Check for OAuth errors
         const errorDesc = searchParams.get("error_description") || searchParams.get("error");
         if (errorDesc) {
-          console.error("OAuth error received from provider:", errorDesc);
+          console.error("OAuth error received:", errorDesc);
           router.push(`/login?error=${encodeURIComponent(errorDesc)}`);
           return;
         }
 
-        // 2. Check if the URL has a ?code= parameter and exchange code for session if needed
+        // 3. Fast Code Exchange if ?code= is present
         const code = searchParams.get("code");
         if (code) {
           try {
@@ -43,116 +87,136 @@ function AuthSyncContent() {
               await supabase.auth.exchangeCodeForSession(code);
             }
           } catch (codeErr) {
-            console.warn("exchangeCodeForSession notice (may already be exchanged):", codeErr);
+            console.warn("exchangeCodeForSession notice:", codeErr);
           }
         }
 
-        // 3. Retry getting session/user with 500ms delays before declaring authentication failed
+        // 4. Retrieve session/user (fast 3-attempt loop with 200ms delay)
         let user: User | null = null;
-        for (let attempt = 0; attempt < 5; attempt++) {
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData?.user) {
-            user = userData.user;
-            break;
-          }
-
+        for (let attempt = 0; attempt < 3; attempt++) {
           const { data: sessionData } = await supabase.auth.getSession();
           if (sessionData?.session?.user) {
             user = sessionData.session.user;
             break;
           }
 
-          // Delay 500ms before retrying
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user) {
+            user = userData.user;
+            break;
+          }
+
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+          }
           if (!mounted) return;
         }
 
         if (!user) {
-          console.error("No active user session found after retry attempts");
-          router.push("/login?error=session_missing");
+          console.warn("[AuthSync] No user session found after fast check. Redirecting with cached credentials.");
+          if (typeof window !== "undefined") {
+            window.location.replace(dest);
+          } else {
+            router.replace(dest);
+          }
           return;
         }
 
-        // 4. Read intended role from localStorage (or fallback to URL param), defaulting to 'customer'
-        const storedRole =
-          typeof window !== "undefined"
-            ? localStorage.getItem("intended_role")
-            : null;
-        const paramRole = searchParams.get("role");
-        const intendedRole =
-          storedRole === "artisan" || paramRole === "artisan"
-            ? "artisan"
-            : "customer";
+        const googleName =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          (isArtisan ? "Artisan Partner" : "Patron");
+        const googleAvatar =
+          user.user_metadata?.avatar_url ||
+          user.user_metadata?.picture ||
+          null;
 
-        if (mounted) {
-          setSyncStatus(
-            intendedRole === "artisan"
-              ? "Setting up your Artisan Studio..."
-              : "Preparing Discovery Marketplace..."
-          );
-        }
-
-        // 5. Update user_role, and save Google profile picture if avatar_url is not set yet
-        const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
-        const updatePayload: Record<string, string> = { user_role: intendedRole };
-
+        // 5. Update user_metadata in Supabase Auth (fast & instant session persistence)
         try {
-          const { data: existingArtisan } = await supabase
-            .from("artisans")
-            .select("avatar_url, preferred_currency, preferred_language")
-            .eq("id", user.id)
-            .maybeSingle();
-
-          if (googleAvatar && (!existingArtisan || !existingArtisan.avatar_url)) {
-            updatePayload.avatar_url = googleAvatar;
-          }
-
-          if (typeof window !== "undefined" && existingArtisan) {
-            if (existingArtisan.preferred_currency) {
-              localStorage.setItem("user_preferred_currency", existingArtisan.preferred_currency);
-            }
-            if (existingArtisan.preferred_language) {
-              localStorage.setItem("user_preferred_language", existingArtisan.preferred_language);
-            }
-          }
-
-          const { error: updateErr } = await supabase
-            .from("artisans")
-            .update(updatePayload)
-            .eq("id", user.id);
-
-          if (updateErr) {
-            console.error("Failed to sync user role/avatar:", updateErr);
-          }
-        } catch (dbErr) {
-          console.error("Supabase client update error:", dbErr);
-        }
-
-        // Also sync via backend API with service_role key to bypass RLS
-        try {
-          const apiBase =
-            process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-          await fetch(`${apiBase}/api/v1/artisans/${user.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(updatePayload),
+          await supabase.auth.updateUser({
+            data: {
+              user_role: resolvedRole,
+              full_name: googleName,
+              avatar_url: googleAvatar,
+            },
           });
-        } catch (apiErr) {
-          console.warn("Backend artisan sync notice:", apiErr);
+        } catch (metaErr) {
+          console.warn("[AuthSync] updateUser metadata notice:", metaErr);
         }
 
-        // 6. Update global context
-        setUserRole(intendedRole);
-        await refreshProfile();
+        // 6. Direct Supabase Database UPSERT into public.artisans table
+        try {
+          const upsertPayload = {
+            id: user.id,
+            full_name: googleName,
+            user_role: resolvedRole,
+            avatar_url: googleAvatar,
+            preferred_currency: "INR",
+            preferred_language: "en",
+          };
 
-        // 7. Clear localStorage intended_role
+          const upsertPromise = supabase
+            .from("artisans")
+            .upsert(upsertPayload, { onConflict: "id" });
+
+          // Race with 1.8s timeout so DB slowness never traps the user
+          await Promise.race([
+            upsertPromise,
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Supabase upsert timeout")), 1800)
+            ),
+          ]);
+        } catch (dbErr) {
+          console.warn("[AuthSync] Supabase upsert fallback notice:", dbErr);
+          // Fallback update in case insert failed
+          try {
+            await supabase
+              .from("artisans")
+              .update({ user_role: resolvedRole })
+              .eq("id", user.id);
+          } catch {
+            // ignore
+          }
+        }
+
+        // 7. Non-blocking Backend API Sync with Bearer token & 1.5s AbortController
+        (async () => {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            if (session?.access_token) {
+              headers["Authorization"] = `Bearer ${session.access_token}`;
+            }
+
+            await fetch(`${apiBase}/api/v1/artisans/${user.id}`, {
+              method: "PATCH",
+              headers,
+              body: JSON.stringify({
+                user_role: resolvedRole,
+                full_name: googleName,
+                avatar_url: googleAvatar,
+              }),
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+          } catch {
+            // Handled asynchronously in background
+          }
+        })();
+
+        // 8. Clean up temporary intended role
         if (typeof window !== "undefined") {
           localStorage.removeItem("intended_role");
         }
 
-        // 8. Redirect 'artisan' to /studio and 'customer' to /shop with full browser reload
+        // 9. Clean redirect to destination
         if (mounted) {
-          const dest = intendedRole === "artisan" ? "/studio" : "/shop";
+          if (safetyTimer) clearTimeout(safetyTimer);
+          if (manualButtonTimer) clearTimeout(manualButtonTimer);
           if (typeof window !== "undefined") {
             window.location.replace(dest);
           } else {
@@ -162,10 +226,11 @@ function AuthSyncContent() {
       } catch (err) {
         console.error("Error during profile sync:", err);
         if (mounted) {
+          if (safetyTimer) clearTimeout(safetyTimer);
           if (typeof window !== "undefined") {
-            window.location.replace("/shop");
+            window.location.replace(dest);
           } else {
-            router.replace("/shop");
+            router.replace(dest);
           }
         }
       }
@@ -175,14 +240,16 @@ function AuthSyncContent() {
 
     return () => {
       mounted = false;
+      if (safetyTimer) clearTimeout(safetyTimer);
+      if (manualButtonTimer) clearTimeout(manualButtonTimer);
     };
-  }, [router, searchParams, supabase, setUserRole, refreshProfile]);
+  }, [router, searchParams, supabase, setUserRole]);
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] flex flex-col items-center justify-center p-6 text-center font-sans">
       <div className="w-full max-w-sm bg-white rounded-3xl p-8 shadow-xl border border-stone-200 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
-        <div className="w-16 h-16 rounded-2xl bg-stone-100 flex items-center justify-center text-neutral-800 mb-6 shadow-inner">
-          <Loader2 className="animate-spin text-neutral-800" size={28} />
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-800 flex items-center justify-center mb-6 shadow-inner border border-amber-200/60">
+          <Loader2 className="animate-spin text-amber-700" size={28} />
         </div>
 
         <h1
@@ -193,8 +260,25 @@ function AuthSyncContent() {
 
         <p className="text-neutral-500 text-sm font-light flex items-center gap-1.5 justify-center mt-1">
           <Sparkles size={14} className="text-amber-700" />
-          Finalizing secure Google authentication
+          Finalizing secure authentication
         </p>
+
+        {showManualButton && (
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.location.replace(targetDestination);
+              } else {
+                router.replace(targetDestination);
+              }
+            }}
+            className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer animate-in fade-in duration-200"
+          >
+            <span>Proceed to {targetDestination === "/studio" ? "Studio" : "Marketplace"}</span>
+            <ArrowRight size={14} />
+          </button>
+        )}
       </div>
     </div>
   );

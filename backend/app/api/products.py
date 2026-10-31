@@ -70,8 +70,8 @@ async def _process_single_image(
             detail=f"Uploaded photo '{image_file.filename}' is corrupted or empty. Please upload a clear photo.",
         )
 
-    # Smart background removal with u2netp and 3.5s timeout circuit breaker
-    processed_bytes = await remove_background_with_fallback(image_bytes, timeout_seconds=3.5)
+    # Smart background removal with lightweight u2netp (640px) and 8.0s timeout circuit breaker
+    processed_bytes = await remove_background_with_fallback(image_bytes, timeout_seconds=8.0)
 
     # 1. Upload processed studio image to Supabase Storage CDN asynchronously
     image_url = await asyncio.to_thread(upload_image, processed_bytes, "image/jpeg")

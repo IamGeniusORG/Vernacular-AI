@@ -60,7 +60,25 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
   const [paypalEmail, setPaypalEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
-  const [userRole, setUserRole] = useState("customer");
+  const [userRole, setUserRoleState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("user_role") || localStorage.getItem("intended_role");
+      if (cached === "artisan" || cached === "customer") return cached;
+    }
+    return "customer";
+  });
+
+  const setUserRole = useCallback((role: string) => {
+    setUserRoleState(role);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("user_role", role);
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
 
@@ -78,17 +96,21 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       console.warn("Client-side Supabase select error:", err);
     }
 
-    // 2. Fallback to Backend API (uses service_role key to bypass RLS)
+    // 2. Fallback to Backend API with circuit breaker timeout (uses service_role key to bypass RLS)
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
       const res = await fetch(`${API_BASE}/api/v1/artisans/${userId}`, {
         cache: "no-store",
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const json = await res.json();
         return json.artisan ?? null;
       }
     } catch (err) {
-      console.error("Backend API profile lookup error:", err);
+      console.warn("Backend API profile lookup notice:", err);
     }
 
     return null;
@@ -110,9 +132,18 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         user.user_metadata?.picture ||
         "";
 
-      // 1. Optimistic immediate population from OAuth session metadata
+      // 1. Optimistic immediate population from OAuth session metadata & storage
+      const cachedRole =
+        typeof window !== "undefined"
+          ? localStorage.getItem("user_role") || localStorage.getItem("intended_role")
+          : null;
+      const metaRole = user.user_metadata?.user_role || (cachedRole === "artisan" ? "artisan" : null);
+
       setProfileName((prev) => prev || metaName);
       setAvatarUrl((prev) => prev || metaAvatar);
+      if (metaRole) {
+        setUserRole(metaRole);
+      }
 
       // 2. Overlay persistent database profile
       const profile = await fetchProfileData(user.id);
@@ -124,7 +155,9 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         setPaypalEmail(profile.paypal_email || "");
         if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
         if (profile.banner_url) setBannerUrl(profile.banner_url);
-        if (profile.user_role) setUserRole(profile.user_role);
+        if (profile.user_role) {
+          setUserRole(profile.user_role);
+        }
       }
     }
 
@@ -180,7 +213,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [supabase, fetchProfileData]);
+  }, [supabase, fetchProfileData, setUserRole]);
 
   const saveProfile = async (
     newName: string,
@@ -252,6 +285,14 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("user_role");
+        localStorage.removeItem("intended_role");
+      } catch {
+        // ignore
+      }
+    }
     setArtisanId(null);
     setProfileName("");
     setProfilePhone("");
@@ -264,12 +305,23 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshProfile = async () => {
+    let currentId = artisanId;
+    let currentUser = null;
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
     if (session?.user) {
-      const profile = await fetchProfileData(session.user.id);
+      currentId = session.user.id;
+      currentUser = session.user;
+    }
+
+    if (currentUser?.user_metadata?.user_role) {
+      setUserRole(currentUser.user_metadata.user_role);
+    }
+
+    if (currentId) {
+      const profile = await fetchProfileData(currentId);
       if (profile) {
         setProfileName(profile.full_name || "New Artisan");
         setProfilePhone(cleanPhone(profile.phone_number));
@@ -278,7 +330,9 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         setPaypalEmail(profile.paypal_email || "");
         setAvatarUrl(profile.avatar_url || "");
         setBannerUrl(profile.banner_url || "");
-        setUserRole(profile.user_role || "customer");
+        if (profile.user_role) {
+          setUserRole(profile.user_role);
+        }
       }
     }
   };

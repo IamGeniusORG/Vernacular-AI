@@ -66,13 +66,26 @@ async def keep_alive_loop():
             # Sleep 5 minutes (300 seconds) — well within Render's 15-minute idle threshold
             await asyncio.sleep(300)
 
+async def _warmup_models():
+    """Pre-warm lightweight AI models in background to eliminate first-request latency."""
+    await asyncio.sleep(2)
+    try:
+        from app.services.image_service import _get_rembg_session
+        await asyncio.to_thread(_get_rembg_session)
+        print("[Warmup] u2netp background removal model pre-warmed successfully!")
+    except Exception as e:
+        print(f"[Warmup] Model warm-up notice: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start background keep-alive task on server boot
+    # Start background keep-alive task and model warm-up on server boot
     task = asyncio.create_task(keep_alive_loop())
+    warmup_task = asyncio.create_task(_warmup_models())
     yield
     # Graceful shutdown
     task.cancel()
+    warmup_task.cancel()
     try:
         await task
     except asyncio.CancelledError:

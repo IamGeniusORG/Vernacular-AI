@@ -84,6 +84,7 @@ export default function Home() {
     setAvatarUrl,
     setBannerUrl,
     userRole,
+    setUserRole,
     saveProfile,
     logout,
     isLoading: authLoading
@@ -98,6 +99,52 @@ export default function Home() {
 
   // Dedicated state handles customer accounts gracefully below without silent redirects
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isActivatingArtisan, setIsActivatingArtisan] = useState(false);
+
+  const handleActivateArtisanRole = async () => {
+    if (!artisanId) return;
+    setIsActivatingArtisan(true);
+    try {
+      setUserRole("artisan");
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("user_role", "artisan");
+        } catch {
+          // ignore
+        }
+      }
+      await supabase.auth.updateUser({ data: { user_role: "artisan" } });
+      await supabase.from("artisans").upsert(
+        {
+          id: artisanId,
+          user_role: "artisan",
+          full_name: profileName || "Artisan Partner",
+        },
+        { onConflict: "id" }
+      );
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
+        await fetch(`${API_BASE}/api/v1/artisans/${artisanId}`, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ user_role: "artisan" }),
+        });
+      } catch {
+        // ignore
+      }
+      showToast("Artisan Studio successfully activated!");
+      router.refresh();
+    } catch (err) {
+      console.error("Activate artisan error:", err);
+      showToast("Activated as Artisan!");
+    } finally {
+      setIsActivatingArtisan(false);
+    }
+  };
   
   // Local state for the input fields in the modal
   const [localName, setLocalName] = useState("");
@@ -145,6 +192,74 @@ export default function Home() {
     refreshQueueCount,
     triggerSync,
   } = useOfflineSync(authToken, handleSyncComplete);
+
+  // Native PWA Installation State
+  interface BeforeInstallPromptEvent extends Event {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+  }
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true
+    );
+  });
+  const [showInstallBanner, setShowInstallBanner] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      return localStorage.getItem("vernacular_install_dismissed") !== "true";
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setIsAppInstalled(true);
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallPwa = async () => {
+    if (deferredPrompt) {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        setIsAppInstalled(true);
+        setShowInstallBanner(false);
+        showToast("Studio App installed successfully!");
+      }
+      setDeferredPrompt(null);
+    } else {
+      showToast("To Install: Tap browser menu (⋮ or Share) ➔ 'Add to Home Screen'");
+    }
+  };
+
+  const handleDismissInstallBanner = () => {
+    setShowInstallBanner(false);
+    try {
+      localStorage.setItem("vernacular_install_dismissed", "true");
+    } catch {
+      // ignore
+    }
+  };
 
   // Global Reach Analytics State
   interface AnalyticsData {
@@ -1014,6 +1129,19 @@ export default function Home() {
             You are signed in as a valued patron. The Studio features (voice catalog generation, direct UPI payout setup, and workshop branding) are reserved for verified weaver accounts.
           </p>
           <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              disabled={isActivatingArtisan}
+              onClick={handleActivateArtisanRole}
+              className="w-full py-3.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 active:scale-[0.98] text-white rounded-xl text-xs sm:text-sm font-bold transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isActivatingArtisan ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Sparkles size={16} />
+              )}
+              <span>I am an Artisan — Activate Weaver Studio</span>
+            </button>
             <Link
               href="/profile"
               className="w-full py-3 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs sm:text-sm font-semibold transition shadow-md"
@@ -1046,18 +1174,61 @@ export default function Home() {
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 md:p-6 font-sans">
       <main className="w-full min-h-screen md:min-h-0 md:h-[880px] md:max-w-[410px] bg-white md:rounded-[2.5rem] md:shadow-2xl flex flex-col relative overflow-hidden border-0 md:border-[8px] md:border-slate-800">
 
-        {/* ── Header ── */}
-        <header className="px-5 pt-8 pb-4 flex items-center justify-between border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-20">
-          <div className="flex-1 min-w-0 mr-3">
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight truncate">
+        {/* ── Mobile-Optimized Artisan Header ── */}
+        <header className="px-3.5 sm:px-5 pt-3.5 sm:pt-6 pb-2.5 flex items-center justify-between border-b border-slate-100 bg-white/95 backdrop-blur-md sticky top-0 z-20 gap-2">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Studio Active" />
+            <h1 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 tracking-tight truncate">
               {t('header_title')}
             </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <LanguageToggle />
-            <UserDropdown onOpenProfileDrawer={() => setIsProfileOpen(true)} />
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {!isAppInstalled && (
+              <button
+                type="button"
+                onClick={handleInstallPwa}
+                className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 rounded-full text-[11px] sm:text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+                title="Install Studio App on phone"
+              >
+                <Download size={12} className="shrink-0 text-amber-700" />
+                <span>Install</span>
+              </button>
+            )}
+            <LanguageToggle compact />
+            <UserDropdown compact onOpenProfileDrawer={() => setIsProfileOpen(true)} />
           </div>
         </header>
+
+        {/* ── Native PWA Install Banner for Rural Artisans ── */}
+        {!isAppInstalled && showInstallBanner && (
+          <div className="w-full bg-gradient-to-r from-amber-600 to-amber-700 text-white px-3.5 py-2 flex items-center justify-between text-xs font-medium shadow-xs shrink-0 z-20">
+            <div className="flex items-center gap-2 min-w-0 pr-2">
+              <div className="p-1 bg-white/20 rounded-md shrink-0">
+                <Download size={13} className="text-white" />
+              </div>
+              <span className="truncate text-[11px] sm:text-xs">
+                <strong className="font-bold">Install Studio App:</strong> Works 100% offline in rural looms
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleInstallPwa}
+                className="bg-white text-amber-900 px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs hover:bg-amber-50 transition cursor-pointer"
+              >
+                Install
+              </button>
+              <button
+                type="button"
+                onClick={handleDismissInstallBanner}
+                className="p-1 hover:bg-white/20 rounded-full transition cursor-pointer text-white/80 hover:text-white"
+                aria-label="Dismiss banner"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Offline Status & Background Queue Status Banner ── */}
         {!isOnline && (
@@ -1093,60 +1264,64 @@ export default function Home() {
 
         {/* ── Segmented Navigation Control & Studio Body Wrapped with Language Transition ── */}
         <LanguageTransitionWrapper className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="px-3 sm:px-5 pt-3 pb-2 bg-white border-b border-slate-100 z-10 shrink-0">
-          <div className="flex bg-slate-100 p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab("craft")}
-              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
-                activeTab === "craft"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              <Sparkles size={12} className={activeTab === "craft" ? "text-amber-500" : ""} />
-              {t('tab_add_craft')}
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab("catalog");
-                fetchInventory();
-              }}
-              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
-                activeTab === "catalog"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              <ShoppingBag size={12} className={activeTab === "catalog" ? "text-indigo-600" : ""} />
-              {t('tab_my_catalog')}
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab("insights");
-                fetchAnalytics();
-              }}
-              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
-                activeTab === "insights"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              <BarChart3 size={12} className={activeTab === "insights" ? "text-emerald-600" : ""} />
-              Insights
-            </button>
-            <button
-              onClick={() => setActiveTab("branding")}
-              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
-                activeTab === "branding"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              <User size={12} className={activeTab === "branding" ? "text-amber-600" : ""} />
-              Profile
-            </button>
+          <div className="px-3 sm:px-5 pt-2 pb-2 bg-white border-b border-slate-100 z-10 shrink-0">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 px-0.5 bg-slate-100/90 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setActiveTab("craft")}
+                className={`shrink-0 flex-1 min-w-[76px] py-1.5 px-2.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  activeTab === "craft"
+                    ? "bg-white text-slate-900 shadow-xs font-bold"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Sparkles size={13} className={activeTab === "craft" ? "text-amber-500" : ""} />
+                <span>{t('tab_add_craft')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("catalog");
+                  fetchInventory();
+                }}
+                className={`shrink-0 flex-1 min-w-[76px] py-1.5 px-2.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  activeTab === "catalog"
+                    ? "bg-white text-slate-900 shadow-xs font-bold"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <ShoppingBag size={13} className={activeTab === "catalog" ? "text-indigo-600" : ""} />
+                <span>{t('tab_my_catalog')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("insights");
+                  fetchAnalytics();
+                }}
+                className={`shrink-0 flex-1 min-w-[76px] py-1.5 px-2.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  activeTab === "insights"
+                    ? "bg-white text-slate-900 shadow-xs font-bold"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <BarChart3 size={13} className={activeTab === "insights" ? "text-emerald-600" : ""} />
+                <span>Insights</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("branding")}
+                className={`shrink-0 flex-1 min-w-[76px] py-1.5 px-2.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  activeTab === "branding"
+                    ? "bg-white text-slate-900 shadow-xs font-bold"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <User size={13} className={activeTab === "branding" ? "text-amber-600" : ""} />
+                <span>Profile</span>
+              </button>
+            </div>
           </div>
-        </div>
 
         {/* ── Scrollable Body ── */}
         <div className="flex-1 overflow-y-auto px-5 py-5 pb-36">

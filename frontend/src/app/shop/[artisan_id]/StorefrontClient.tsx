@@ -47,8 +47,8 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
   // Tip / Direct Patronage State
   const [isTipModalOpen, setIsTipModalOpen] = useState(false);
-  const [tipCurrency, setTipCurrency] = useState<"INR" | "USD">(currency === "USD" ? "USD" : "INR");
-  const [tipPreset, setTipPreset] = useState<number>(currency === "USD" ? 5 : 250);
+  const [tipCurrency, setTipCurrency] = useState<"INR" | "USD">("INR");
+  const [tipPreset, setTipPreset] = useState<number>(250);
   const [customTip, setCustomTip] = useState<string>("");
   const [patronName, setPatronName] = useState<string>("");
   const [tipSuccess, setTipSuccess] = useState<{ amount: string; method: string } | null>(null);
@@ -699,10 +699,11 @@ export default function StorefrontClient({ products, artisan }: Props) {
           {t("powered_by")} <span className="text-neutral-600 font-medium">Vernacular AI</span>
         </p>
       </footer>
+      </LanguageTransitionWrapper>
 
       {/* ── Zero-Commission UPI Checkout Modal ── */}
       {activeUpiProduct && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 flex flex-col items-center animate-in zoom-in-95 duration-200 relative">
             
             {/* Close Button */}
@@ -786,8 +787,8 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
       {/* ── Direct Patronage "Tip the Weaver" Modal ── */}
       {isTipModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 flex flex-col items-center animate-in zoom-in-95 duration-200 relative max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 flex flex-col items-center animate-in zoom-in-95 duration-200 relative max-h-[92vh] overflow-y-auto z-[101]">
             {/* Close Button */}
             <button
               onClick={() => {
@@ -943,18 +944,35 @@ export default function StorefrontClient({ products, artisan }: Props) {
                 {/* Payment Action depending on Currency */}
                 {tipCurrency === "INR" ? (
                   <div className="w-full flex flex-col items-center">
-                    {/* UPI QR Canvas */}
-                    <div className="p-3 bg-white border border-stone-200 rounded-2xl shadow-inner mb-3">
+                    {/* UPI QR Canvas Container */}
+                    <div className="p-3 bg-white border-2 border-stone-200 rounded-2xl shadow-inner mb-3 flex items-center justify-center">
                       <QRCodeCanvas
                         value={tipUpiUri}
-                        size={150}
+                        size={160}
                         bgColor={"#ffffff"}
                         fgColor={"#171717"}
                         level={"M"}
                       />
                     </div>
+
+                    {/* Artisan UPI ID Display & Copy */}
+                    <div className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 flex items-center justify-between mb-3 text-left">
+                      <div className="min-w-0 pr-2">
+                        <span className="block text-[9px] text-stone-400 uppercase font-bold tracking-wider">{t("artisan_upi_id", "Artisan UPI ID")}</span>
+                        <span className="text-xs font-semibold text-stone-800 truncate block font-mono">{upiId}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyUpi(upiId)}
+                        className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-200 rounded-lg transition shrink-0"
+                        title="Copy UPI ID"
+                      >
+                        {copiedUpi ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                      </button>
+                    </div>
+
                     <p className="text-[11px] text-neutral-500 mb-3 text-center">
-                      Scan or tap below to tip <span className="font-bold text-neutral-900">₹{effectiveTipAmount}</span> via any UPI app
+                      Scan or tap below to tip <span className="font-bold text-neutral-900">₹{effectiveTipAmount}</span> directly to {artisan.full_name}
                     </p>
 
                     {/* Pay via UPI App button */}
@@ -1032,7 +1050,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
       {/* ── International PayPal Order Success Modal ── */}
       {paypalSuccessOrder && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-stone-200 flex flex-col items-center text-center animate-in zoom-in-95 duration-200 relative">
             {/* Close Button */}
             <button
@@ -1116,7 +1134,6 @@ export default function StorefrontClient({ products, artisan }: Props) {
             <MessageCircle size={16} className="text-white/80 shrink-0" /> {toastMsg}
           </div>
         )}
-      </LanguageTransitionWrapper>
     </div>
   </PayPalScriptProvider>
   );
