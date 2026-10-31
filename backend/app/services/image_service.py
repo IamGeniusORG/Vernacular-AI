@@ -1,7 +1,6 @@
 import io
 import asyncio
 from typing import Optional
-from PIL import Image
 
 _rembg_session = None
 
@@ -21,36 +20,46 @@ def _get_rembg_session():
 
 
 def _remove_bg_sync(image_bytes: bytes) -> bytes:
-    """Synchronous CPU worker for background removal."""
+    """Synchronous CPU worker for background removal with full fallback protection."""
+    try:
+        from PIL import Image
+    except ImportError:
+        print("Notice: Pillow not installed. Preserving raw image.")
+        return image_bytes
+
     session = _get_rembg_session()
     if session is None:
         return image_bytes
 
-    from rembg import remove
+    try:
+        from rembg import remove
 
-    # 1. Open input image with PIL and resize if excessively huge to conserve RAM
-    input_img = Image.open(io.BytesIO(image_bytes))
-    max_dim = 1200
-    if max(input_img.size) > max_dim:
-        input_img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+        # 1. Open input image with PIL and resize if excessively huge to conserve RAM
+        input_img = Image.open(io.BytesIO(image_bytes))
+        max_dim = 1200
+        if max(input_img.size) > max_dim:
+            input_img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 
-    # 2. Convert to RGBA bytes
-    buf = io.BytesIO()
-    input_img.save(buf, format="PNG")
-    png_bytes = buf.getvalue()
+        # 2. Convert to RGBA bytes
+        buf = io.BytesIO()
+        input_img.save(buf, format="PNG")
+        png_bytes = buf.getvalue()
 
-    # 3. Extract transparent foreground using u2netp
-    nobg_bytes = remove(png_bytes, session=session)
-    nobg_img = Image.open(io.BytesIO(nobg_bytes)).convert("RGBA")
+        # 3. Extract transparent foreground using u2netp
+        nobg_bytes = remove(png_bytes, session=session)
+        nobg_img = Image.open(io.BytesIO(nobg_bytes)).convert("RGBA")
 
-    # 4. Paste over boutique warm cream e-commerce background (#F9F8F6 / RGB 249, 248, 246)
-    clean_bg = Image.new("RGBA", nobg_img.size, (249, 248, 246, 255))
-    composite = Image.alpha_composite(clean_bg, nobg_img).convert("RGB")
+        # 4. Paste over boutique warm cream e-commerce background (#F9F8F6 / RGB 249, 248, 246)
+        clean_bg = Image.new("RGBA", nobg_img.size, (249, 248, 246, 255))
+        composite = Image.alpha_composite(clean_bg, nobg_img).convert("RGB")
 
-    # 5. Compress to JPEG
-    output_buf = io.BytesIO()
-    composite.save(output_buf, format="JPEG", quality=90, optimize=True)
-    return output_buf.getvalue()
+        # 5. Compress to JPEG
+        output_buf = io.BytesIO()
+        composite.save(output_buf, format="JPEG", quality=90, optimize=True)
+        return output_buf.getvalue()
+    except Exception as e:
+        print(f"Notice: Background removal processing fallback: {e}")
+        return image_bytes
 
 
 async def remove_background_with_fallback(image_bytes: bytes, timeout_seconds: float = 3.5) -> bytes:
