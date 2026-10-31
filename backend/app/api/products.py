@@ -7,8 +7,9 @@ from typing import List, Optional
 
 from app.core.supabase_client import supabase
 from app.core.auth import get_current_user_id, verify_artisan_owner
-from app.services.ai_service import generate_product_listing
+from app.services.ai_service import generate_product_listing, parse_search_intent
 from app.services.storage_service import upload_image, save_product, upload_audio
+from app.services.image_service import remove_background_with_fallback
 from app.schemas.product import BatchProductResponse, GeneratedProduct
 
 router = APIRouter()
@@ -19,6 +20,19 @@ class PriceUpdate(BaseModel):
     price: Optional[int] = None
     price_usd: Optional[float] = None
     suggested_usd_price: Optional[float] = None
+
+
+class SearchIntentRequest(BaseModel):
+    query: str
+    language: Optional[str] = "en"
+
+
+@router.post("/search-intent")
+async def get_search_intent(req: SearchIntentRequest):
+    """Semantic conversational search parser using Gemini Flash."""
+    intent = await parse_search_intent(req.query, req.language or "en")
+    return {"status": "success", "intent": intent}
+
 
 
 def _build_whatsapp_link(product: dict, product_id: str) -> str:
@@ -56,13 +70,16 @@ async def _process_single_image(
             detail=f"Uploaded photo '{image_file.filename}' is corrupted or empty. Please upload a clear photo.",
         )
 
-    # 1. Upload image to Supabase Storage CDN asynchronously
-    image_url = await asyncio.to_thread(upload_image, image_bytes, image_mime)
+    # Smart background removal with u2netp and 3.5s timeout circuit breaker
+    processed_bytes = await remove_background_with_fallback(image_bytes, timeout_seconds=3.5)
 
-    # 2. Call Gemini AI with this image + shared audio
+    # 1. Upload processed studio image to Supabase Storage CDN asynchronously
+    image_url = await asyncio.to_thread(upload_image, processed_bytes, "image/jpeg")
+
+    # 2. Call Gemini AI with the studio image + shared audio
     ai_data = await generate_product_listing(
-        image_bytes=image_bytes,
-        image_mime=image_mime,
+        image_bytes=processed_bytes,
+        image_mime="image/jpeg",
         audio_bytes=audio_bytes,
         audio_mime=audio_mime,
     )

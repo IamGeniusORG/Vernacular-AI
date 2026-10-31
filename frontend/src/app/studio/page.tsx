@@ -5,7 +5,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Mic, CheckCircle, Check, Share2, Loader2, Sparkles,
   ImagePlus, AudioLines, UploadCloud, AlertCircle, X, Plus, LogOut, User, Copy, Download, ShoppingBag,
-  Trash2, RefreshCw, Camera, ExternalLink, ImageIcon
+  Trash2, RefreshCw, Camera, ExternalLink, ImageIcon,
+  BarChart3, TrendingUp, Globe2, WifiOff, Heart, Eye
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -22,6 +23,7 @@ import UniversalAvatar from "@/components/UniversalAvatar";
 import UserDropdown from "@/components/UserDropdown";
 import { uploadArtisanAsset } from "@/lib/uploadAsset";
 import { revalidateArtisanProfile } from "@/app/actions/revalidate";
+import { useOfflineSync, enqueueListing, fileToBase64, QueuedListing } from "@/lib/offlineQueue";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -31,6 +33,14 @@ function parseNumericSuggestedPrice(range?: string | null): number {
   if (!match) return 1500;
   const val = parseInt(match[0].replace(/,/g, ""), 10);
   return isNaN(val) || val <= 0 ? 1500 : val;
+}
+
+function generateOfflineId(): string {
+  return "offline-" + Date.now();
+}
+
+function getTimestamp(): number {
+  return Date.now();
 }
 
 const playfair = Playfair_Display({
@@ -80,6 +90,12 @@ export default function Home() {
   } = useArtisan();
   const supabase = createClient();
 
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  }, []);
+
   // Dedicated state handles customer accounts gracefully below without silent redirects
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
@@ -96,8 +112,8 @@ export default function Home() {
   const modalAvatarInputRef = useRef<HTMLInputElement>(null);
   const modalBannerInputRef = useRef<HTMLInputElement>(null);
 
-  // Studio Navigation Tabs: "craft" | "catalog" | "branding"
-  const [activeTab, setActiveTab] = useState<"craft" | "catalog" | "branding">("craft");
+  // Studio Navigation Tabs: "craft" | "catalog" | "branding" | "insights"
+  const [activeTab, setActiveTab] = useState<"craft" | "catalog" | "branding" | "insights">("craft");
   const [products, setProducts] = useState<Product[]>([]);
   const inventory = products;
   const setInventory = setProducts;
@@ -108,6 +124,38 @@ export default function Home() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
+
+  // Offline Synchronization & PWA State
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.access_token) setAuthToken(session.access_token);
+    });
+  }, [supabase]);
+
+  const handleSyncComplete = useCallback((res: { synced: number; failed: number }) => {
+    showToast(`Synced ${res.synced} offline creation(s)!`);
+  }, [showToast]);
+
+  const {
+    isOnline,
+    queueCount,
+    isSyncing,
+    refreshQueueCount,
+    triggerSync,
+  } = useOfflineSync(authToken, handleSyncComplete);
+
+  // Global Reach Analytics State
+  interface AnalyticsData {
+    total_views: number;
+    unique_countries: number;
+    top_countries: Array<{ country: string; views: number; percentage: number }>;
+    recent_views: Array<{ country: string; city: string; created_at: string }>;
+    tips_summary: { count: number; total_inr: number; total_usd: number };
+  }
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
   // Profile & Branding Dedicated Tab State
   const [brandingName, setBrandingName] = useState("");
@@ -457,6 +505,23 @@ export default function Home() {
     fetchMyCatalog();
   }, [user?.id, artisanId, fetchMyCatalog]);
 
+  const fetchAnalytics = useCallback(async () => {
+    const targetUserId = user?.id || artisanId;
+    if (!targetUserId) return;
+    setIsLoadingAnalytics(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/analytics/artisan/${targetUserId}`);
+      if (res.ok) {
+        const json = await res.json();
+        setAnalytics(json);
+      }
+    } catch (e) {
+      console.warn("Analytics fetch error:", e);
+    } finally {
+      setIsLoadingAnalytics(false);
+    }
+  }, [user?.id, artisanId]);
+
   // Save single generated product price override
   const handleSaveProductPrice = async (product: GeneratedProduct) => {
     setIsSavingProductPrice((prev) => ({ ...prev, [product.product_id]: true }));
@@ -664,7 +729,6 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [results, setResults] = useState<GeneratedProduct[] | null>(null);
   const [sharingId, setSharingId] = useState<string | null>(null);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -746,6 +810,53 @@ export default function Home() {
       return;
     }
 
+    // PWA Offline Studio Check: If offline, queue draft locally in IndexedDB
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setLoadingMsg("Rural Offline Mode: Saving draft to phone...");
+      try {
+        const queuedImages = await Promise.all(
+          images.map(async (img) => ({
+            name: img.name,
+            type: img.type,
+            base64: await fileToBase64(img),
+          }))
+        );
+
+        let queuedAudio = undefined;
+        if (audioBlob) {
+          queuedAudio = {
+            name: (audioBlob as File).name || "recording.webm",
+            type: audioBlob.type || "audio/webm",
+            base64: await fileToBase64(audioBlob),
+          };
+        }
+
+        const offlineItem: QueuedListing = {
+          id: generateOfflineId(),
+          artisanId: currentArtisanId,
+          images: queuedImages,
+          audio: queuedAudio,
+          language: "en",
+          timestamp: getTimestamp(),
+        };
+
+        await enqueueListing(offlineItem);
+        await refreshQueueCount();
+
+        showToast("Saved offline! Listing will auto-sync once connected.");
+        setImages([]);
+        setImagePreviews([]);
+        setAudioBlob(null);
+      } catch (queueErr) {
+        console.error("Offline save error:", queueErr);
+        setErrorMsg("Failed to save draft offline.");
+      } finally {
+        setIsLoading(false);
+        setLoadingMsg("");
+      }
+      return;
+    }
+
     const formData = new FormData();
     formData.append("artisan_id", currentArtisanId);
     images.forEach((img) => formData.append("images", img));
@@ -780,6 +891,42 @@ export default function Home() {
       }
     } catch (err) {
       console.error("API error:", err);
+      // Auto-fallback: if connection dropped during upload, save to offline queue
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        try {
+          const queuedImages = await Promise.all(
+            images.map(async (img) => ({
+              name: img.name,
+              type: img.type,
+              base64: await fileToBase64(img),
+            }))
+          );
+          const queuedAudio = audioBlob
+            ? {
+                name: (audioBlob as File).name || "recording.webm",
+                type: audioBlob.type || "audio/webm",
+                base64: await fileToBase64(audioBlob),
+              }
+            : undefined;
+
+          await enqueueListing({
+            id: generateOfflineId(),
+            artisanId: currentArtisanId,
+            images: queuedImages,
+            audio: queuedAudio,
+            language: "en",
+            timestamp: getTimestamp(),
+          });
+          await refreshQueueCount();
+          showToast("Network dropped. Saved draft to offline queue!");
+          setImages([]);
+          setImagePreviews([]);
+          setAudioBlob(null);
+          return;
+        } catch {
+          // ignore
+        }
+      }
       setErrorMsg("Failed to connect to the backend. Is it running?");
     } finally {
       setIsLoading(false);
@@ -818,11 +965,6 @@ export default function Home() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
     setSharingId(null);
     showToast("Opening WhatsApp...");
-  };
-
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
   };
 
   const reset = () => {
@@ -917,19 +1059,51 @@ export default function Home() {
           </div>
         </header>
 
+        {/* ── Offline Status & Background Queue Status Banner ── */}
+        {!isOnline && (
+          <div className="w-full bg-amber-600 text-white text-[11px] font-semibold py-1.5 px-4 flex items-center justify-between shrink-0 shadow-xs z-30">
+            <div className="flex items-center gap-1.5 truncate">
+              <WifiOff size={13} className="shrink-0" />
+              <span className="truncate">Offline Mode: Creations save locally</span>
+            </div>
+            {queueCount > 0 && (
+              <span className="bg-amber-800 px-2 py-0.5 rounded-full text-[10px] shrink-0 font-bold">
+                {queueCount} queued
+              </span>
+            )}
+          </div>
+        )}
+        {isOnline && queueCount > 0 && (
+          <div className="w-full bg-emerald-600 text-white text-[11px] font-semibold py-1.5 px-4 flex items-center justify-between shrink-0 shadow-xs z-30">
+            <div className="flex items-center gap-1.5 truncate">
+              <RefreshCw size={13} className={isSyncing ? "animate-spin shrink-0" : "shrink-0"} />
+              <span className="truncate">
+                {isSyncing ? "Syncing offline creations..." : `${queueCount} offline creation(s) ready`}
+              </span>
+            </div>
+            <button
+              onClick={() => triggerSync()}
+              disabled={isSyncing}
+              className="bg-emerald-800 hover:bg-emerald-900 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition cursor-pointer shrink-0"
+            >
+              {isSyncing ? "Syncing..." : "Sync Now"}
+            </button>
+          </div>
+        )}
+
         {/* ── Segmented Navigation Control & Studio Body Wrapped with Language Transition ── */}
         <LanguageTransitionWrapper className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="px-5 pt-3 pb-2 bg-white border-b border-slate-100 z-10 shrink-0">
+          <div className="px-3 sm:px-5 pt-3 pb-2 bg-white border-b border-slate-100 z-10 shrink-0">
           <div className="flex bg-slate-100 p-1 rounded-xl">
             <button
               onClick={() => setActiveTab("craft")}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                 activeTab === "craft"
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              <Sparkles size={14} className={activeTab === "craft" ? "text-amber-500" : ""} />
+              <Sparkles size={12} className={activeTab === "craft" ? "text-amber-500" : ""} />
               {t('tab_add_craft')}
             </button>
             <button
@@ -937,25 +1111,39 @@ export default function Home() {
                 setActiveTab("catalog");
                 fetchInventory();
               }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                 activeTab === "catalog"
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              <ShoppingBag size={14} className={activeTab === "catalog" ? "text-indigo-600" : ""} />
+              <ShoppingBag size={12} className={activeTab === "catalog" ? "text-indigo-600" : ""} />
               {t('tab_my_catalog')}
             </button>
             <button
+              onClick={() => {
+                setActiveTab("insights");
+                fetchAnalytics();
+              }}
+              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
+                activeTab === "insights"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <BarChart3 size={12} className={activeTab === "insights" ? "text-emerald-600" : ""} />
+              Insights
+            </button>
+            <button
               onClick={() => setActiveTab("branding")}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                 activeTab === "branding"
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              <User size={14} className={activeTab === "branding" ? "text-amber-600" : ""} />
-              Branding
+              <User size={12} className={activeTab === "branding" ? "text-amber-600" : ""} />
+              Profile
             </button>
           </div>
         </div>
@@ -1363,6 +1551,152 @@ export default function Home() {
                   </button>
                 )}
               </div>
+            </div>
+          ) : activeTab === "insights" ? (
+            /* ════════════════════ INSIGHTS & ANALYTICS VIEW ════════════════════ */
+            <div className="space-y-4 pb-12">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900">
+                    Business Insights & Global Reach
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Real-time visitor analytics & patronage metrics
+                  </p>
+                </div>
+                <button
+                  onClick={fetchAnalytics}
+                  disabled={isLoadingAnalytics}
+                  className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 transition active:scale-95"
+                >
+                  <RefreshCw size={12} className={isLoadingAnalytics ? "animate-spin" : ""} />
+                  Refresh
+                </button>
+              </div>
+
+              {isLoadingAnalytics && !analytics ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
+                  <Loader2 className="animate-spin text-slate-400" size={28} />
+                  <p className="text-xs font-medium">Loading store insights...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Metric Cards Grid */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {/* Total Views Card */}
+                    <div className="p-3.5 bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-2xl shadow-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Store Impressions</span>
+                        <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                          <Eye size={12} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-black text-slate-900">
+                        {analytics?.total_views || 0}
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Global page impressions</p>
+                    </div>
+
+                    {/* Global Countries Card */}
+                    <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-2xl shadow-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Countries</span>
+                        <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                          <Globe2 size={12} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-black text-slate-900">
+                        {analytics?.unique_countries || 0}
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Distinct territories</p>
+                    </div>
+
+                    {/* Patronage Tips INR Card */}
+                    <div className="p-3.5 bg-gradient-to-br from-rose-50 to-white border border-rose-100 rounded-2xl shadow-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">Domestic Tips</span>
+                        <div className="w-6 h-6 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+                          <Heart size={12} className="fill-rose-600" />
+                        </div>
+                      </div>
+                      <div className="text-xl font-black text-slate-900">
+                        ₹{analytics?.tips_summary?.total_inr || 0}
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Via UPI patronage</p>
+                    </div>
+
+                    {/* Patronage Tips USD Card */}
+                    <div className="p-3.5 bg-gradient-to-br from-amber-50 to-white border border-amber-100 rounded-2xl shadow-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Export Tips</span>
+                        <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+                          <Heart size={12} className="fill-amber-600" />
+                        </div>
+                      </div>
+                      <div className="text-xl font-black text-slate-900">
+                        ${analytics?.tips_summary?.total_usd || 0}
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Via PayPal patrons</p>
+                    </div>
+                  </div>
+
+                  {/* Top Countries Distribution */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 flex items-center gap-1.5">
+                      <TrendingUp size={13} className="text-indigo-600" /> Top Visitor Geographies
+                    </h3>
+                    {analytics?.top_countries && analytics.top_countries.length > 0 ? (
+                      <div className="space-y-2.5">
+                        {analytics.top_countries.map((c, i) => (
+                          <div key={i} className="space-y-1">
+                            <div className="flex justify-between text-xs font-semibold text-slate-700">
+                              <span>{c.country}</span>
+                              <span className="text-slate-500">{c.views} ({c.percentage}%)</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-indigo-500 to-amber-500 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${Math.max(8, c.percentage)}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 py-3 text-center">
+                        No visitor data yet. Real-time impressions will appear here as buyers visit your store.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Recent Activity Log */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 flex items-center gap-1.5">
+                      <Globe2 size={13} className="text-emerald-600" /> Recent Global Visits
+                    </h3>
+                    {analytics?.recent_views && analytics.recent_views.length > 0 ? (
+                      <div className="divide-y divide-slate-100 text-xs">
+                        {analytics.recent_views.map((v, i) => (
+                          <div key={i} className="py-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              <span className="font-semibold text-slate-800">{v.country}</span>
+                              {v.city && v.city !== "Unknown" && (
+                                <span className="text-slate-400">({v.city})</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {new Date(v.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 py-2 text-center">No recent visits recorded.</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : !results ? (
 

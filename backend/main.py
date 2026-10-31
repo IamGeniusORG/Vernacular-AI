@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.products import router as products_router
 from app.api.artisans import router as artisans_router
+from app.api.analytics import router as analytics_router
 
 start_time = time.time()
 keep_alive_stats = {
@@ -126,3 +127,4 @@ async def health_check():
 
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(artisans_router, prefix="/api/v1/artisans", tags=["Artisans"])
+app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])

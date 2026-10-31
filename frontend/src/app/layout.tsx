@@ -17,6 +17,7 @@ import { PreferencesProvider } from "@/context/PreferencesContext";
 import { ArtisanProvider } from "@/context/ArtisanContext";
 import { LanguageTransitionProvider } from "@/components/LanguageTransitionProvider";
 import BackendKeepAlive from "@/components/BackendKeepAlive";
+import PwaRegister from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -98,6 +99,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <LanguageTransitionProvider>
                 {children}
                 <BackendKeepAlive />
+                <PwaRegister />
               </LanguageTransitionProvider>
             </ArtisanProvider>
           </PreferencesProvider>

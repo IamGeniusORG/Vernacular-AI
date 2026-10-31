@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShoppingBag, MessageCircle, BadgeCheck, Camera, Zap, X, Copy, Check, ArrowLeft, Volume2, Globe } from "lucide-react";
+import { ShoppingBag, MessageCircle, BadgeCheck, Camera, Zap, X, Copy, Check, ArrowLeft, Volume2, Globe, Heart } from "lucide-react";
 import { Product, Artisan } from "@/lib/api";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -44,6 +44,16 @@ export default function StorefrontClient({ products, artisan }: Props) {
     productTitle: string;
     amount: string;
   } | null>(null);
+
+  // Tip / Direct Patronage State
+  const [isTipModalOpen, setIsTipModalOpen] = useState(false);
+  const [tipCurrency, setTipCurrency] = useState<"INR" | "USD">(currency === "USD" ? "USD" : "INR");
+  const [tipPreset, setTipPreset] = useState<number>(currency === "USD" ? 5 : 250);
+  const [customTip, setCustomTip] = useState<string>("");
+  const [patronName, setPatronName] = useState<string>("");
+  const [tipSuccess, setTipSuccess] = useState<{ amount: string; method: string } | null>(null);
+  const [isRecordingTip, setIsRecordingTip] = useState(false);
+
   const { artisanId } = useArtisan();
   const { t } = useLanguage();
   const isOwner = artisanId === artisan.id;
@@ -76,6 +86,24 @@ export default function StorefrontClient({ products, artisan }: Props) {
     }, 3000);
     return () => clearInterval(interval);
   }, [shuffledProducts.length]);
+
+  // Non-blocking visitor analytics tracking
+  useEffect(() => {
+    if (!artisan?.id) return;
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+    try {
+      fetch(`${backendUrl}/api/v1/analytics/view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          artisan_id: artisan.id,
+          country: destination === "international" ? "International" : "India",
+        }),
+      }).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }, [artisan?.id, destination]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -139,6 +167,42 @@ export default function StorefrontClient({ products, artisan }: Props) {
   const upiTitle = activeUpiProduct ? (activeUpiProduct.ai_title_en || activeUpiProduct.ai_title_local || "Handloom Creation") : "Handloom Creation";
   const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(artisan.full_name)}&am=${upiPrice}&cu=INR&tn=${encodeURIComponent(upiTitle)}`;
 
+  // Direct Patronage Tip Calculations
+  const effectiveTipAmount = customTip && !isNaN(Number(customTip)) && Number(customTip) > 0
+    ? Number(customTip)
+    : tipPreset;
+  const tipUpiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(artisan.full_name)}&am=${effectiveTipAmount}&cu=INR&tn=${encodeURIComponent('Patronage Tip for ' + artisan.full_name)}`;
+
+  const handleRecordTip = async (method: "upi" | "paypal", orderId?: string) => {
+    setIsRecordingTip(true);
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      await fetch(`${backendUrl}/api/v1/artisans/${artisan.id}/tip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: effectiveTipAmount,
+          currency: tipCurrency,
+          payment_method: method,
+          patron_name: patronName.trim() || "Anonymous Patron",
+          order_id: orderId,
+        }),
+      });
+      setTipSuccess({
+        amount: tipCurrency === "INR" ? `₹${effectiveTipAmount}` : `$${effectiveTipAmount.toFixed(2)} USD`,
+        method: method.toUpperCase(),
+      });
+    } catch (err) {
+      console.error("Tip record error:", err);
+      setTipSuccess({
+        amount: tipCurrency === "INR" ? `₹${effectiveTipAmount}` : `$${effectiveTipAmount.toFixed(2)} USD`,
+        method: method.toUpperCase(),
+      });
+    } finally {
+      setIsRecordingTip(false);
+    }
+  };
+
   return (
     <PayPalScriptProvider
       options={{
@@ -146,7 +210,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
         currency: "USD",
         components: "buttons",
       }}
-      deferLoading={destination !== "international"}
+      deferLoading={destination !== "international" && !(isTipModalOpen && tipCurrency === "USD")}
     >
       <div className="min-h-screen bg-[#F9F8F6] font-sans text-neutral-800">
 
@@ -249,15 +313,25 @@ export default function StorefrontClient({ products, artisan }: Props) {
                 </div>
               </div>
 
-              {isOwner && (
-                <Link
-                  href="/studio"
-                  className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-neutral-800 rounded-full text-xs font-semibold flex items-center gap-1.5 transition border border-stone-200 shadow-sm"
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTipModalOpen(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-amber-600 to-[#C85A32] text-white hover:from-amber-700 hover:to-[#b04a25] rounded-full text-xs font-bold flex items-center gap-1.5 transition shadow-sm hover:shadow active:scale-95 cursor-pointer"
                 >
-                  <Camera size={13} />
-                  <span>{t("customize_profile")}</span>
-                </Link>
-              )}
+                  <Heart size={14} className="fill-white text-white" />
+                  <span>{t("tip_weaver", "Support the Weaver (Tip)")}</span>
+                </button>
+                {isOwner && (
+                  <Link
+                    href="/studio"
+                    className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-neutral-800 rounded-full text-xs font-semibold flex items-center gap-1.5 transition border border-stone-200 shadow-sm"
+                  >
+                    <Camera size={13} />
+                    <span>{t("customize_profile")}</span>
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -691,6 +765,267 @@ export default function StorefrontClient({ products, artisan }: Props) {
               <Zap size={16} className="text-amber-400 fill-amber-400 shrink-0" />
               {t('pay_via_upi_app')}
             </a>
+
+            {/* Direct Tip Link */}
+            <div className="mt-3 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveUpiProduct(null);
+                  setIsTipModalOpen(true);
+                }}
+                className="text-xs text-[#C85A32] hover:underline font-semibold inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Heart size={12} className="fill-[#C85A32]" />
+                <span>Want to support the weaver with a direct tip instead?</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Direct Patronage "Tip the Weaver" Modal ── */}
+      {isTipModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 flex flex-col items-center animate-in zoom-in-95 duration-200 relative max-h-[92vh] overflow-y-auto">
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setIsTipModalOpen(false);
+                setTipSuccess(null);
+              }}
+              aria-label="Close tip modal"
+              className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition"
+            >
+              <X size={20} />
+            </button>
+
+            {tipSuccess ? (
+              /* Success Celebration State */
+              <div className="flex flex-col items-center text-center py-4">
+                <div className="w-16 h-16 rounded-full bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-600 mb-4 animate-bounce">
+                  <Heart size={32} className="fill-rose-600" />
+                </div>
+                <h3 className={`text-2xl font-bold text-neutral-900 mb-1 ${playfair.className}`}>
+                  Patronage Received!
+                </h3>
+                <p className="text-xs text-neutral-500 mb-4">
+                  100% of your <span className="font-bold text-neutral-800">{tipSuccess.amount}</span> tip directly empowers {artisan.full_name} and sustains handloom heritage.
+                </p>
+                <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 mb-5">
+                  <div className="flex justify-between py-1 border-b border-amber-200/60">
+                    <span className="text-amber-700">Artisan:</span>
+                    <span className="font-bold">{artisan.full_name}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-amber-200/60">
+                    <span className="text-amber-700">Method:</span>
+                    <span className="font-bold">{tipSuccess.method}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-amber-700">Patron:</span>
+                    <span className="font-bold">{patronName || "Anonymous Patron"}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTipModalOpen(false);
+                    setTipSuccess(null);
+                  }}
+                  className="w-full py-3 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition"
+                >
+                  Close & Explore Creations
+                </button>
+              </div>
+            ) : (
+              /* Active Tip Form */
+              <div className="w-full flex flex-col items-center">
+                {/* Header Badge */}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-800 border border-rose-200 rounded-full text-[11px] font-bold tracking-wide uppercase mb-3">
+                  <Heart size={12} className="text-rose-600 fill-rose-500 shrink-0" />
+                  <span>Direct Artisan Patronage</span>
+                </div>
+
+                <h3 className={`text-xl font-bold text-neutral-900 text-center mb-1 ${playfair.className}`}>
+                  Support {artisan.full_name}
+                </h3>
+                <p className="text-xs text-neutral-500 text-center mb-4">
+                  Empower rural craftsmanship with a zero-deduction tip.
+                </p>
+
+                {/* Currency Toggle */}
+                <div className="w-full grid grid-cols-2 gap-1 bg-stone-100 p-1 rounded-xl mb-4 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTipCurrency("INR");
+                      setTipPreset(250);
+                      setCustomTip("");
+                    }}
+                    className={`py-2 rounded-lg transition ${
+                      tipCurrency === "INR"
+                        ? "bg-white text-neutral-900 shadow-sm"
+                        : "text-neutral-500 hover:text-neutral-800"
+                    }`}
+                  >
+                    🇮🇳 UPI (INR)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTipCurrency("USD");
+                      setTipPreset(5);
+                      setCustomTip("");
+                    }}
+                    className={`py-2 rounded-lg transition ${
+                      tipCurrency === "USD"
+                        ? "bg-white text-neutral-900 shadow-sm"
+                        : "text-neutral-500 hover:text-neutral-800"
+                    }`}
+                  >
+                    🌍 PayPal (USD)
+                  </button>
+                </div>
+
+                {/* Preset Tip Buttons */}
+                <div className="w-full grid grid-cols-4 gap-2 mb-3">
+                  {(tipCurrency === "INR" ? [100, 250, 500, 1000] : [2, 5, 10, 25]).map((amt) => {
+                    const isSelected = !customTip && tipPreset === amt;
+                    return (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => {
+                          setTipPreset(amt);
+                          setCustomTip("");
+                        }}
+                        className={`py-2 rounded-xl text-xs font-bold border transition ${
+                          isSelected
+                            ? "bg-[#C85A32] text-white border-[#C85A32] shadow-sm"
+                            : "bg-white text-neutral-700 border-stone-200 hover:border-stone-400 hover:bg-stone-50"
+                        }`}
+                      >
+                        {tipCurrency === "INR" ? `₹${amt}` : `$${amt}`}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Tip Input */}
+                <div className="w-full mb-3">
+                  <label className="block text-[11px] font-semibold text-neutral-500 mb-1">
+                    Or Enter Custom Amount ({tipCurrency})
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder={`e.g. ${tipCurrency === "INR" ? "300" : "15"}`}
+                    value={customTip}
+                    onChange={(e) => setCustomTip(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-[#C85A32]"
+                  />
+                </div>
+
+                {/* Patron Name Input */}
+                <div className="w-full mb-4">
+                  <label className="block text-[11px] font-semibold text-neutral-500 mb-1">
+                    Your Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Priya Sharma (or leave blank)"
+                    value={patronName}
+                    onChange={(e) => setPatronName(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#C85A32]"
+                  />
+                </div>
+
+                {/* Payment Action depending on Currency */}
+                {tipCurrency === "INR" ? (
+                  <div className="w-full flex flex-col items-center">
+                    {/* UPI QR Canvas */}
+                    <div className="p-3 bg-white border border-stone-200 rounded-2xl shadow-inner mb-3">
+                      <QRCodeCanvas
+                        value={tipUpiUri}
+                        size={150}
+                        bgColor={"#ffffff"}
+                        fgColor={"#171717"}
+                        level={"M"}
+                      />
+                    </div>
+                    <p className="text-[11px] text-neutral-500 mb-3 text-center">
+                      Scan or tap below to tip <span className="font-bold text-neutral-900">₹{effectiveTipAmount}</span> via any UPI app
+                    </p>
+
+                    {/* Pay via UPI App button */}
+                    <a
+                      href={tipUpiUri}
+                      className="w-full py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-neutral-800 transition active:scale-[0.99] shadow-sm mb-2 text-center"
+                    >
+                      <Zap size={14} className="text-amber-400 fill-amber-400" />
+                      Pay ₹{effectiveTipAmount} via UPI App
+                    </a>
+
+                    {/* Confirm Sent Tip Button */}
+                    <button
+                      type="button"
+                      disabled={isRecordingTip}
+                      onClick={() => handleRecordTip("upi")}
+                      className="w-full py-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition"
+                    >
+                      {isRecordingTip ? "Recording..." : "I've Sent This Tip (Record)"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-full flex flex-col items-center">
+                    <p className="text-[11px] text-neutral-500 mb-3 text-center">
+                      Tip <span className="font-bold text-neutral-900">${effectiveTipAmount.toFixed(2)} USD</span> securely with PayPal
+                    </p>
+                    <div className="w-full relative z-10">
+                      <PayPalButtons
+                        style={{
+                          layout: "vertical",
+                          height: 38,
+                          shape: "rect",
+                          color: "gold",
+                          tagline: false,
+                        }}
+                        createOrder={(data, actions) => {
+                          return actions.order.create({
+                            intent: "CAPTURE",
+                            application_context: {
+                              shipping_preference: "NO_SHIPPING",
+                            },
+                            purchase_units: [
+                              {
+                                description: `Direct Patronage Tip for ${artisan.full_name}`,
+                                amount: {
+                                  currency_code: "USD",
+                                  value: effectiveTipAmount.toFixed(2),
+                                },
+                              },
+                            ],
+                          });
+                        }}
+                        onApprove={async (data, actions) => {
+                          if (actions.order) {
+                            const details = await actions.order.capture();
+                            await handleRecordTip("paypal", details.id || data.orderID);
+                          }
+                        }}
+                        onError={(err) => {
+                          console.error("PayPal Tip Error:", err);
+                          showToast("PayPal tip error. Please try again.");
+                        }}
+                        onCancel={() => {
+                          showToast("PayPal tip was cancelled.");
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

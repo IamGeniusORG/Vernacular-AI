@@ -135,3 +135,54 @@ CREATE POLICY "Artisans can insert own profile" ON public.artisans
 DROP POLICY IF EXISTS "Artisans can update own profile" ON public.artisans;
 CREATE POLICY "Artisans can update own profile" ON public.artisans 
     FOR UPDATE USING (auth.uid() = id);
+
+-- =============================================
+-- 9. Tips / Direct Patronage Table
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.tips (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    artisan_id UUID NOT NULL REFERENCES public.artisans(id) ON DELETE CASCADE,
+    patron_name TEXT DEFAULT 'Anonymous Patron',
+    amount NUMERIC NOT NULL CHECK (amount > 0),
+    currency TEXT NOT NULL CHECK (currency IN ('INR', 'USD')),
+    payment_method TEXT NOT NULL CHECK (payment_method IN ('upi', 'paypal')),
+    order_id TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tips_artisan_id ON public.tips(artisan_id, created_at DESC);
+ALTER TABLE public.tips ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Artisans can view own tips" ON public.tips;
+CREATE POLICY "Artisans can view own tips" ON public.tips 
+    FOR SELECT USING (auth.uid() = artisan_id);
+
+DROP POLICY IF EXISTS "Public can record tips" ON public.tips;
+CREATE POLICY "Public can record tips" ON public.tips 
+    FOR INSERT WITH CHECK (true);
+
+-- =============================================
+-- 10. Global Reach Analytics (Product Views) Table
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.product_views (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    artisan_id UUID NOT NULL REFERENCES public.artisans(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES public.products(id) ON DELETE CASCADE,
+    country TEXT DEFAULT 'India',
+    country_code TEXT DEFAULT 'IN',
+    city TEXT DEFAULT 'Kolkata',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_views_artisan_created ON public.product_views(artisan_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_product_views_country ON public.product_views(artisan_id, country_code);
+ALTER TABLE public.product_views ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Artisans can view own analytics" ON public.product_views;
+CREATE POLICY "Artisans can view own analytics" ON public.product_views 
+    FOR SELECT USING (auth.uid() = artisan_id);
+
+DROP POLICY IF EXISTS "Public can record product views" ON public.product_views;
+CREATE POLICY "Public can record product views" ON public.product_views 
+    FOR INSERT WITH CHECK (true);
+

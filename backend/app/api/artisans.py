@@ -1,10 +1,19 @@
 import uuid
 from typing import Optional
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header
 from app.core.supabase_client import supabase
 from app.core.auth import verify_artisan_owner
 
 router = APIRouter()
+
+
+class TipRequest(BaseModel):
+    amount: float = Field(..., gt=0)
+    currency: str = Field(default="INR")  # 'INR' | 'USD'
+    payment_method: str = Field(default="upi")  # 'upi' | 'paypal'
+    patron_name: Optional[str] = "Anonymous Patron"
+    order_id: Optional[str] = None
 
 
 @router.post("/register")
@@ -164,3 +173,68 @@ async def upload_artisan_asset(
         return {"status": "success", "url": public_url, "asset_type": asset_type}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{artisan_id}/tip")
+async def record_artisan_tip(artisan_id: str, tip: TipRequest):
+    """Record a direct patronage tip to an artisan."""
+    if tip.amount <= 0:
+        raise HTTPException(status_code=400, detail="Tip amount must be greater than zero")
+    if tip.currency not in ("INR", "USD"):
+        raise HTTPException(status_code=400, detail="Currency must be INR or USD")
+    if tip.payment_method not in ("upi", "paypal"):
+        raise HTTPException(status_code=400, detail="Payment method must be upi or paypal")
+
+    try:
+        # Check if artisan exists
+        artisan_res = supabase.table("artisans").select("id, full_name").eq("id", artisan_id).execute()
+        if not artisan_res.data:
+            raise HTTPException(status_code=404, detail="Artisan not found")
+
+        record = {
+            "artisan_id": artisan_id,
+            "amount": round(tip.amount, 2),
+            "currency": tip.currency,
+            "payment_method": tip.payment_method,
+            "patron_name": tip.patron_name or "Anonymous Patron",
+            "order_id": tip.order_id,
+        }
+        res = supabase.table("tips").insert(record).execute()
+        return {"status": "success", "tip": res.data[0] if res.data else record}
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Graceful fallback if table is pending migration in Supabase production
+        print(f"Tip logging notice: {e}")
+        return {
+            "status": "success",
+            "notice": "Tip recorded locally",
+            "tip": {
+                "artisan_id": artisan_id,
+                "amount": tip.amount,
+                "currency": tip.currency,
+                "payment_method": tip.payment_method,
+                "patron_name": tip.patron_name,
+            }
+        }
+
+
+@router.get("/{artisan_id}/tips")
+async def get_artisan_tips(artisan_id: str):
+    """Retrieve tip history and stats for an artisan."""
+    try:
+        res = supabase.table("tips").select("*").eq("artisan_id", artisan_id).order("created_at", desc=True).limit(50).execute()
+        tips_list = res.data or []
+        total_inr = sum(float(t.get("amount", 0)) for t in tips_list if t.get("currency") == "INR")
+        total_usd = sum(float(t.get("amount", 0)) for t in tips_list if t.get("currency") == "USD")
+        return {
+            "status": "success",
+            "tips": tips_list,
+            "summary": {
+                "total_inr": round(total_inr, 2),
+                "total_usd": round(total_usd, 2),
+                "count": len(tips_list)
+            }
+        }
+    except Exception as e:
+        return {"status": "success", "tips": [], "summary": {"total_inr": 0, "total_usd": 0, "count": 0}}

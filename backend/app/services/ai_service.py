@@ -104,3 +104,78 @@ async def generate_product_listing(
             }
 
         return parsed
+
+
+SEARCH_SYSTEM_PROMPT = (
+    "You are a conversational search query parser for Vernacular AI, an Indian handloom marketplace. "
+    "Parse the user's spoken voice search query which may be in English, Bengali, Hindi, or mixed vernacular. "
+    "Extract structured e-commerce filter parameters into a strict JSON object with these exact keys: "
+    "1. 'craft': one of ['Jamdani', 'Taant', 'Silk', 'Khadi', 'Baluchari'] if identified, else null. "
+    "2. 'region': e.g., 'Nadia', 'Murshidabad', 'Hooghly', 'Birbhum', 'Shantipur', 'Phulia', or null. "
+    "3. 'max_price': integer maximum budget in INR (e.g. 3500) if the user mentioned a budget or price limit, else null. "
+    "4. 'color': main color keyword in English (e.g., 'Red', 'Blue', 'White', 'Black', 'Yellow', 'Green') or null. "
+    "5. 'keywords': list of 1-3 descriptive keywords (e.g. ['cotton', 'wedding', 'summer']). "
+    "Output ONLY valid JSON. No markdown fences."
+)
+
+
+async def parse_search_intent(query: str, language: str = "en") -> dict:
+    """Parse spoken voice queries into structured marketplace filter intent."""
+    if not query or not query.strip():
+        return {"craft": None, "region": None, "max_price": None, "color": None, "keywords": []}
+
+    headers = {
+        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+        "HTTP-Referer": "https://vernacular-storefront.onrender.com",
+        "X-Title": "Vernacular AI Voice Search",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": MODEL,
+        "response_format": {"type": "json_object"},
+        "max_tokens": 250,
+        "messages": [
+            {"role": "system", "content": SEARCH_SYSTEM_PROMPT},
+            {"role": "user", "content": f"Language: {language}\nSpoken Query: {query}"},
+        ],
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(OPENROUTER_URL, headers=headers, json=payload, timeout=15.0)
+            if response.status_code == 200:
+                data = response.json()
+                content = data["choices"][0]["message"]["content"].strip()
+                for fence in ("```json", "```"):
+                    if content.startswith(fence):
+                        content = content[len(fence):]
+                if content.endswith("```"):
+                    content = content[:-3]
+                parsed = json.loads(content.strip())
+                return {
+                    "craft": parsed.get("craft"),
+                    "region": parsed.get("region"),
+                    "max_price": parsed.get("max_price"),
+                    "color": parsed.get("color"),
+                    "keywords": parsed.get("keywords") or [],
+                }
+        except Exception as e:
+            print(f"Notice: Gemini intent parsing fallback: {e}")
+
+    # Fallback heuristic parser
+    q_lower = query.lower()
+    craft = None
+    for c in ["Jamdani", "Taant", "Silk", "Khadi", "Baluchari"]:
+        if c.lower() in q_lower:
+            craft = c
+            break
+
+    region = None
+    for r in ["Nadia", "Murshidabad", "Hooghly", "Birbhum", "Shantipur", "Phulia"]:
+        if r.lower() in q_lower:
+            region = r
+            break
+
+    return {"craft": craft, "region": region, "max_price": None, "color": None, "keywords": [query.strip()]}
+

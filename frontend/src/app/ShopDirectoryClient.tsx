@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, MapPin, Mic, MicOff, ArrowRight, Sparkles, Users, Package, Globe2 } from "lucide-react";
+import { Search, MapPin, Mic, MicOff, ArrowRight, Sparkles, Users, Package, Globe2, X, Loader2 } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -62,10 +62,22 @@ interface ISpeechRecognition {
 
 type SpeechRecognitionCtor = new () => ISpeechRecognition;
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+interface VoiceSearchIntent {
+  craft: string | null;
+  region: string | null;
+  max_price: number | null;
+  color: string | null;
+  keywords: string[];
+}
+
 export default function ShopDirectoryClient({ artisans }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCraft, setSelectedCraft] = useState("All");
   const [isListening, setIsListening] = useState(false);
+  const [voiceIntent, setVoiceIntent] = useState<VoiceSearchIntent | null>(null);
+  const [isParsingIntent, setIsParsingIntent] = useState(false);
   const { artisanId, userRole, refreshProfile } = useArtisan();
   const { activeLanguage, t } = useLanguage();
 
@@ -89,6 +101,46 @@ export default function ShopDirectoryClient({ artisans }: Props) {
     const el = document.getElementById("artisan-directory");
     if (el) {
       el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const parseVoiceQuery = async (queryText: string) => {
+    if (!queryText.trim()) return;
+    setIsParsingIntent(true);
+    try {
+      const cacheKey = `v_search_${activeLanguage}_${queryText.toLowerCase().trim()}`;
+      const cached = typeof window !== "undefined" ? sessionStorage.getItem(cacheKey) : null;
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setVoiceIntent(parsed);
+        if (parsed.craft) setSelectedCraft(parsed.craft);
+        setIsParsingIntent(false);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/api/v1/products/search-intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: queryText, language: activeLanguage }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.intent) {
+          setVoiceIntent(data.intent);
+          if (data.intent.craft) {
+            setSelectedCraft(data.intent.craft);
+          }
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem(cacheKey, JSON.stringify(data.intent));
+            } catch {}
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Voice search intent parse error:", e);
+    } finally {
+      setIsParsingIntent(false);
     }
   };
 
@@ -128,6 +180,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
         const transcript = event.results?.[0]?.[0]?.transcript || "";
         if (transcript) {
           setSearchQuery(transcript);
+          parseVoiceQuery(transcript);
         }
         setIsListening(false);
       };
@@ -160,7 +213,38 @@ export default function ShopDirectoryClient({ artisans }: Props) {
     const crafts = ["Jamdani", "Taant", "Silk", "Khadi", "Baluchari"];
     const craftTag = crafts[a.id.charCodeAt(0) % crafts.length];
 
-    // Check craft filter
+    // 1. Semantic Voice Intent Filtering
+    if (voiceIntent) {
+      if (voiceIntent.craft && craftTag.toLowerCase() !== voiceIntent.craft.toLowerCase()) {
+        const hasMatchingProduct = a.products?.some(
+          (p) =>
+            p.tags?.some((t) => t.toLowerCase() === voiceIntent.craft!.toLowerCase()) ||
+            p.ai_title_en?.toLowerCase().includes(voiceIntent.craft!.toLowerCase())
+        );
+        if (!hasMatchingProduct) return false;
+      }
+      if (voiceIntent.region && !a.district?.toLowerCase().includes(voiceIntent.region.toLowerCase())) {
+        return false;
+      }
+      if (voiceIntent.max_price !== null && voiceIntent.max_price !== undefined) {
+        const hasBudgetProduct = a.products?.some(
+          (p) => (p.price || p.price_inr || 1500) <= voiceIntent.max_price!
+        );
+        if (!hasBudgetProduct) return false;
+      }
+      if (voiceIntent.color) {
+        const colorLower = voiceIntent.color.toLowerCase();
+        const hasColor = a.products?.some(
+          (p) =>
+            p.ai_title_en?.toLowerCase().includes(colorLower) ||
+            p.ai_desc_en?.toLowerCase().includes(colorLower) ||
+            p.tags?.some((t) => t.toLowerCase().includes(colorLower))
+        );
+        if (!hasColor) return false;
+      }
+    }
+
+    // 2. Selected Craft Tab Filter
     if (selectedCraft !== "All") {
       const targetCraft = selectedCraft.toLowerCase();
       const matchesCraftTag = craftTag.toLowerCase() === targetCraft;
@@ -178,7 +262,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
       }
     }
 
-    // Check search query
+    // 3. Text Search Query
     if (q) {
       const matchesName = a.full_name && a.full_name.toLowerCase().includes(q);
       const matchesDistrict = a.district && a.district.toLowerCase().includes(q);
@@ -411,6 +495,50 @@ export default function ShopDirectoryClient({ artisans }: Props) {
               </p>
             )}
 
+            {/* AI Parsing Intent State */}
+            {isParsingIntent && (
+              <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs animate-pulse">
+                <Loader2 size={13} className="text-amber-600 animate-spin" />
+                <span>AI parsing conversational search...</span>
+              </div>
+            )}
+
+            {/* Active AI Intent Filter Pills */}
+            {voiceIntent && (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                <span className="text-xs font-semibold text-neutral-500 flex items-center gap-1">
+                  <Sparkles size={12} className="text-[#C85A32]" /> AI Extracted:
+                </span>
+                {voiceIntent.craft && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-900 border border-amber-200">
+                    Craft: {voiceIntent.craft}
+                  </span>
+                )}
+                {voiceIntent.region && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-900 border border-blue-200">
+                    Region: {voiceIntent.region}
+                  </span>
+                )}
+                {voiceIntent.color && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-900 border border-purple-200">
+                    Color: {voiceIntent.color}
+                  </span>
+                )}
+                {voiceIntent.max_price && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-900 border border-emerald-200">
+                    Budget: ≤ ₹{voiceIntent.max_price}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setVoiceIntent(null)}
+                  className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-red-600 underline font-medium ml-1 cursor-pointer"
+                >
+                  <X size={12} /> Clear
+                </button>
+              </div>
+            )}
+
             {/* Craft Filter Pills */}
             <div className="flex items-center gap-2 overflow-x-auto max-w-full py-3 px-1 scrollbar-hide mt-3">
               {CRAFT_FILTERS.map((craft) => (
@@ -438,6 +566,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
               onClick={() => {
                 setSearchQuery("");
                 setSelectedCraft("All");
+                setVoiceIntent(null);
               }}
               className="mt-4 px-4 py-2 bg-neutral-900 text-white rounded-full text-xs font-bold hover:bg-neutral-800 transition"
             >
