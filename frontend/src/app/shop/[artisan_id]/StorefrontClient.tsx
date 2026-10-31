@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShoppingBag, MessageCircle, BadgeCheck, Camera, Zap, X, Copy, Check, ArrowLeft, Volume2, Globe, Heart } from "lucide-react";
+import { ShoppingBag, MessageCircle, BadgeCheck, Camera, Zap, X, Copy, Check, ArrowLeft, Volume2, Globe, Heart, AlertCircle } from "lucide-react";
 import { Product, Artisan } from "@/lib/api";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -161,19 +161,32 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
   const gridProducts = products;
 
-  // Active product UPI Details
-  const upiId = artisan.upi_id || "demoartisan@upi";
+  // Active product UPI & Payment Details (Real World, No Demo Fallbacks)
+  const hasRealQr = Boolean(artisan.qr_code_url && artisan.qr_code_url.trim());
+  const hasRealUpi = Boolean(
+    artisan.upi_id &&
+    artisan.upi_id.trim() &&
+    !artisan.upi_id.toLowerCase().includes("demoartisan") &&
+    artisan.upi_id.includes("@")
+  );
+  const hasPaymentConfigured = hasRealQr || hasRealUpi;
+  const upiId = hasRealUpi ? artisan.upi_id!.trim() : "";
   const upiPrice = activeUpiProduct ? (activeUpiProduct.price || activeUpiProduct.price_inr || 1500) : 1500;
   const upiTitle = activeUpiProduct ? (activeUpiProduct.ai_title_en || activeUpiProduct.ai_title_local || "Handloom Creation") : "Handloom Creation";
-  const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(artisan.full_name)}&am=${upiPrice}&cu=INR&tn=${encodeURIComponent(upiTitle)}`;
+  const upiUri = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(artisan.full_name)}&am=${upiPrice}&cu=INR&tn=${encodeURIComponent(upiTitle)}` : "";
 
-  // Direct Patronage Tip Calculations
-  const effectiveTipAmount = customTip && !isNaN(Number(customTip)) && Number(customTip) > 0
-    ? Number(customTip)
+  // Direct Patronage Tip Calculations (Enforces ₹10 Minimum for INR)
+  const parsedCustomTip = customTip && !isNaN(Number(customTip)) ? Number(customTip) : 0;
+  const effectiveTipAmount = parsedCustomTip > 0
+    ? (tipCurrency === "INR" ? Math.max(10, parsedCustomTip) : Math.max(1, parsedCustomTip))
     : tipPreset;
-  const tipUpiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(artisan.full_name)}&am=${effectiveTipAmount}&cu=INR&tn=${encodeURIComponent('Patronage Tip for ' + artisan.full_name)}`;
+  const tipUpiUri = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(artisan.full_name)}&am=${effectiveTipAmount}&cu=INR&tn=${encodeURIComponent('Patronage Tip for ' + artisan.full_name)}` : "";
 
   const handleRecordTip = async (method: "upi" | "paypal", orderId?: string) => {
+    if (tipCurrency === "INR" && effectiveTipAmount < 10) {
+      showToast("Minimum tip amount is ₹10.");
+      return;
+    }
     setIsRecordingTip(true);
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -675,7 +688,13 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
                       {/* Instant UPI Pay Modal Trigger */}
                       <button
-                        onClick={() => setActiveUpiProduct(product)}
+                        onClick={() => {
+                          if (!hasPaymentConfigured) {
+                            showToast("The artisan hasn't added their payment QR yet. Try again later!");
+                            return;
+                          }
+                          setActiveUpiProduct(product);
+                        }}
                         className="w-full py-2.5 bg-amber-50 text-amber-950 border border-amber-300/80 rounded-lg text-xs font-bold tracking-wide flex items-center justify-center gap-1.5 hover:bg-amber-100/90 transition-colors shadow-sm active:scale-[0.99]"
                       >
                         <Zap size={14} className="text-amber-600 fill-amber-500 shrink-0" />
@@ -732,40 +751,72 @@ export default function StorefrontClient({ products, artisan }: Props) {
               <p className="text-xs text-neutral-400 mt-0.5">{t("direct_payment_to")} {artisan.full_name}</p>
             </div>
 
-            {/* QR Code Canvas */}
-            <div className="p-3 bg-white border border-stone-200 rounded-2xl shadow-inner mb-4">
-              <QRCodeCanvas
-                value={upiUri}
-                size={180}
-                bgColor={"#ffffff"}
-                fgColor={"#171717"}
-                level={"M"}
-              />
+            {/* QR Code Container */}
+            <div className="p-3 bg-white border border-stone-200 rounded-2xl shadow-inner mb-4 flex items-center justify-center min-h-[190px]">
+              {hasRealQr ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={artisan.qr_code_url!}
+                  alt={`${artisan.full_name} Payment QR`}
+                  className="w-44 h-44 object-contain rounded-xl"
+                />
+              ) : hasRealUpi ? (
+                <QRCodeCanvas
+                  value={upiUri}
+                  size={180}
+                  bgColor={"#ffffff"}
+                  fgColor={"#171717"}
+                  level={"M"}
+                />
+              ) : (
+                <div className="text-center p-4">
+                  <p className="text-xs text-stone-500">The artisan haven&apos;t added their payment QR yet. Try again later!</p>
+                </div>
+              )}
             </div>
 
             {/* UPI ID Display & Copy */}
-            <div className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between mb-4">
-              <div className="min-w-0 pr-2">
-                <span className="block text-[10px] text-stone-400 uppercase font-bold tracking-wider">{t("artisan_upi_id")}</span>
-                <span className="text-xs font-semibold text-stone-800 truncate block font-mono">{upiId}</span>
+            {hasRealUpi ? (
+              <div className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between mb-4">
+                <div className="min-w-0 pr-2">
+                  <span className="block text-[10px] text-stone-400 uppercase font-bold tracking-wider">{t("artisan_upi_id", "Artisan UPI ID")}</span>
+                  <span className="text-xs font-semibold text-stone-800 truncate block font-mono">{upiId}</span>
+                </div>
+                <button
+                  onClick={() => handleCopyUpi(upiId)}
+                  className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-200 rounded-lg transition shrink-0"
+                  title="Copy UPI ID"
+                >
+                  {copiedUpi ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                </button>
               </div>
-              <button
-                onClick={() => handleCopyUpi(upiId)}
-                className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-200 rounded-lg transition shrink-0"
-                title="Copy UPI ID"
-              >
-                {copiedUpi ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
-              </button>
-            </div>
+            ) : (
+              <div className="w-full bg-amber-50/80 border border-amber-200/80 rounded-xl px-3.5 py-2 text-center mb-4">
+                <span className="text-[11px] font-medium text-amber-900">
+                  Scan the QR code above with any UPI app (GPay, PhonePe, Paytm)
+                </span>
+              </div>
+            )}
 
             {/* Pay via UPI App Deep-link Button */}
-            <a
-              href={upiUri}
-              className="w-full py-3 bg-neutral-900 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 hover:bg-neutral-800 transition active:scale-[0.99] shadow-md text-center"
-            >
-              <Zap size={16} className="text-amber-400 fill-amber-400 shrink-0" />
-              {t('pay_via_upi_app')}
-            </a>
+            {upiUri ? (
+              <a
+                href={upiUri}
+                className="w-full py-3 bg-neutral-900 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 hover:bg-neutral-800 transition active:scale-[0.99] shadow-md text-center"
+              >
+                <Zap size={16} className="text-amber-400 fill-amber-400 shrink-0" />
+                {t('pay_via_upi_app')}
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleBuy(activeUpiProduct)}
+                className="w-full py-3 bg-neutral-900 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 hover:bg-neutral-800 transition active:scale-[0.99] shadow-md text-center"
+              >
+                <MessageCircle size={16} className="shrink-0" />
+                Confirm Order on WhatsApp
+              </button>
+            )}
 
             {/* Direct Tip Link */}
             <div className="mt-3 text-center">
@@ -914,17 +965,29 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
                 {/* Custom Tip Input */}
                 <div className="w-full mb-3">
-                  <label className="block text-[11px] font-semibold text-neutral-500 mb-1">
-                    Or Enter Custom Amount ({tipCurrency})
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-semibold text-neutral-500">
+                      Or Enter Custom Amount ({tipCurrency})
+                    </label>
+                    {tipCurrency === "INR" && (
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full">
+                        Minimum tip: ₹10
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
-                    min="1"
-                    placeholder={`e.g. ${tipCurrency === "INR" ? "300" : "15"}`}
+                    min={tipCurrency === "INR" ? 10 : 1}
+                    placeholder={`e.g. ${tipCurrency === "INR" ? "150 (min ₹10)" : "15"}`}
                     value={customTip}
                     onChange={(e) => setCustomTip(e.target.value)}
                     className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-[#C85A32]"
                   />
+                  {tipCurrency === "INR" && customTip && !isNaN(Number(customTip)) && Number(customTip) > 0 && Number(customTip) < 10 && (
+                    <p className="text-[10px] text-amber-600 font-medium mt-1">
+                      Minimum tip is ₹10
+                    </p>
+                  )}
                 </div>
 
                 {/* Patron Name Input */}
@@ -943,57 +1006,100 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
                 {/* Payment Action depending on Currency */}
                 {tipCurrency === "INR" ? (
-                  <div className="w-full flex flex-col items-center">
-                    {/* UPI QR Canvas Container */}
-                    <div className="p-3 bg-white border-2 border-stone-200 rounded-2xl shadow-inner mb-3 flex items-center justify-center">
-                      <QRCodeCanvas
-                        value={tipUpiUri}
-                        size={160}
-                        bgColor={"#ffffff"}
-                        fgColor={"#171717"}
-                        level={"M"}
-                      />
-                    </div>
-
-                    {/* Artisan UPI ID Display & Copy */}
-                    <div className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 flex items-center justify-between mb-3 text-left">
-                      <div className="min-w-0 pr-2">
-                        <span className="block text-[9px] text-stone-400 uppercase font-bold tracking-wider">{t("artisan_upi_id", "Artisan UPI ID")}</span>
-                        <span className="text-xs font-semibold text-stone-800 truncate block font-mono">{upiId}</span>
+                  !hasPaymentConfigured ? (
+                    <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-5 text-center flex flex-col items-center">
+                      <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mb-2">
+                        <AlertCircle size={24} />
                       </div>
+                      <h4 className="text-sm font-bold text-amber-900 mb-1">
+                        Payment QR Code Pending
+                      </h4>
+                      <p className="text-xs text-amber-800 leading-relaxed mb-3">
+                        The artisan haven&apos;t added their payment QR yet. Try again later!
+                      </p>
                       <button
                         type="button"
-                        onClick={() => handleCopyUpi(upiId)}
-                        className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-200 rounded-lg transition shrink-0"
-                        title="Copy UPI ID"
+                        onClick={() => {
+                          showToast("The artisan haven't added their qr yet try again later");
+                          setIsTipModalOpen(false);
+                        }}
+                        className="px-4 py-2 bg-stone-900 text-white rounded-xl text-xs font-semibold hover:bg-stone-800 transition"
                       >
-                        {copiedUpi ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                        Got it, Try Again Later
                       </button>
                     </div>
+                  ) : (
+                    <div className="w-full flex flex-col items-center">
+                      {/* UPI QR Container: Real QR Image or Dynamic Canvas */}
+                      <div className="p-3 bg-white border-2 border-stone-200 rounded-2xl shadow-inner mb-3 flex items-center justify-center min-h-[170px]">
+                        {hasRealQr ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={artisan.qr_code_url!}
+                            alt={`${artisan.full_name} Payment QR`}
+                            className="w-40 h-40 object-contain rounded-xl"
+                          />
+                        ) : hasRealUpi ? (
+                          <QRCodeCanvas
+                            value={tipUpiUri}
+                            size={160}
+                            bgColor={"#ffffff"}
+                            fgColor={"#171717"}
+                            level={"M"}
+                          />
+                        ) : null}
+                      </div>
 
-                    <p className="text-[11px] text-neutral-500 mb-3 text-center">
-                      Scan or tap below to tip <span className="font-bold text-neutral-900">₹{effectiveTipAmount}</span> directly to {artisan.full_name}
-                    </p>
+                      {/* Artisan UPI ID Display & Copy */}
+                      {hasRealUpi ? (
+                        <div className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 flex items-center justify-between mb-3 text-left">
+                          <div className="min-w-0 pr-2">
+                            <span className="block text-[9px] text-stone-400 uppercase font-bold tracking-wider">{t("artisan_upi_id", "Artisan UPI ID")}</span>
+                            <span className="text-xs font-semibold text-stone-800 truncate block font-mono">{upiId}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyUpi(upiId)}
+                            className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-200 rounded-lg transition shrink-0"
+                            title="Copy UPI ID"
+                          >
+                            {copiedUpi ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-full bg-amber-50/70 border border-amber-200/60 rounded-xl px-3 py-1.5 text-center mb-3">
+                          <span className="text-[10px] font-medium text-amber-900">
+                            Scan with PhonePe, Google Pay, or Paytm
+                          </span>
+                        </div>
+                      )}
 
-                    {/* Pay via UPI App button */}
-                    <a
-                      href={tipUpiUri}
-                      className="w-full py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-neutral-800 transition active:scale-[0.99] shadow-sm mb-2 text-center"
-                    >
-                      <Zap size={14} className="text-amber-400 fill-amber-400" />
-                      Pay ₹{effectiveTipAmount} via UPI App
-                    </a>
+                      <p className="text-[11px] text-neutral-500 mb-3 text-center">
+                        Scan or tap below to tip <span className="font-bold text-neutral-900">₹{effectiveTipAmount}</span> directly to {artisan.full_name}
+                      </p>
 
-                    {/* Confirm Sent Tip Button */}
-                    <button
-                      type="button"
-                      disabled={isRecordingTip}
-                      onClick={() => handleRecordTip("upi")}
-                      className="w-full py-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition"
-                    >
-                      {isRecordingTip ? "Recording..." : "I've Sent This Tip (Record)"}
-                    </button>
-                  </div>
+                      {/* Pay via UPI App button */}
+                      {upiUri ? (
+                        <a
+                          href={tipUpiUri}
+                          className="w-full py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-neutral-800 transition active:scale-[0.99] shadow-sm mb-2 text-center"
+                        >
+                          <Zap size={14} className="text-amber-400 fill-amber-400" />
+                          Pay ₹{effectiveTipAmount} via UPI App
+                        </a>
+                      ) : null}
+
+                      {/* Confirm Sent Tip Button */}
+                      <button
+                        type="button"
+                        disabled={isRecordingTip}
+                        onClick={() => handleRecordTip("upi")}
+                        className="w-full py-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition"
+                      >
+                        {isRecordingTip ? "Recording..." : "I've Sent This Tip (Record)"}
+                      </button>
+                    </div>
+                  )
                 ) : (
                   <div className="w-full flex flex-col items-center">
                     <p className="text-[11px] text-neutral-500 mb-3 text-center">

@@ -14,7 +14,6 @@ import { Playfair_Display } from "next/font/google";
 import { useLanguage } from "@/context/LanguageContext";
 import LanguageToggle from "@/components/LanguageToggle";
 import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
-import { QRCodeCanvas } from "qrcode.react";
 import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
 import { Product } from "@/lib/api";
@@ -81,8 +80,10 @@ export default function Home() {
     paypalEmail,
     avatarUrl,
     bannerUrl,
+    qrCodeUrl,
     setAvatarUrl,
     setBannerUrl,
+    setQrCodeUrl,
     userRole,
     setUserRole,
     saveProfile,
@@ -153,11 +154,14 @@ export default function Home() {
   const [localPaypal, setLocalPaypal] = useState("");
   const [modalAvatarUrl, setModalAvatarUrl] = useState("");
   const [modalBannerUrl, setModalBannerUrl] = useState("");
+  const [modalQrCodeUrl, setModalQrCodeUrl] = useState("");
   const [isUploadingModalAvatar, setIsUploadingModalAvatar] = useState(false);
   const [isUploadingModalBanner, setIsUploadingModalBanner] = useState(false);
+  const [isUploadingModalQr, setIsUploadingModalQr] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const modalAvatarInputRef = useRef<HTMLInputElement>(null);
   const modalBannerInputRef = useRef<HTMLInputElement>(null);
+  const modalQrInputRef = useRef<HTMLInputElement>(null);
 
   // Studio Navigation Tabs: "craft" | "catalog" | "branding" | "insights"
   const [activeTab, setActiveTab] = useState<"craft" | "catalog" | "branding" | "insights">("craft");
@@ -279,13 +283,16 @@ export default function Home() {
   const [brandingPaypal, setBrandingPaypal] = useState("");
   const [brandingAvatarUrl, setBrandingAvatarUrl] = useState("");
   const [brandingBannerUrl, setBrandingBannerUrl] = useState("");
+  const [brandingQrCodeUrl, setBrandingQrCodeUrl] = useState("");
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [isUploadingQr, setIsUploadingQr] = useState(false);
   const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
   const [isDraggingBanner, setIsDraggingBanner] = useState(false);
   const [isSavingBranding, setIsSavingBranding] = useState(false);
   const brandingAvatarInputRef = useRef<HTMLInputElement>(null);
   const brandingBannerInputRef = useRef<HTMLInputElement>(null);
+  const brandingQrInputRef = useRef<HTMLInputElement>(null);
 
   // Sync branding state when artisan context loads
   useEffect(() => {
@@ -297,7 +304,8 @@ export default function Home() {
     if (paypalEmail) setBrandingPaypal(paypalEmail);
     if (avatarUrl) setBrandingAvatarUrl(avatarUrl);
     if (bannerUrl) setBrandingBannerUrl(bannerUrl);
-  }, [profileName, whatsappNumber, profilePhone, upiId, paypalEmail, avatarUrl, bannerUrl]);
+    if (qrCodeUrl) setBrandingQrCodeUrl(qrCodeUrl);
+  }, [profileName, whatsappNumber, profilePhone, upiId, paypalEmail, avatarUrl, bannerUrl, qrCodeUrl]);
 
   // Sync user state from Supabase Auth & ArtisanContext
   useEffect(() => {
@@ -355,13 +363,14 @@ export default function Home() {
       setLocalPaypal(paypalEmail || "");
       setModalAvatarUrl(avatarUrl || "");
       setModalBannerUrl(bannerUrl || "");
+      setModalQrCodeUrl(qrCodeUrl || "");
     }
-  }, [isProfileOpen, profileName, whatsappNumber, profilePhone, upiId, paypalEmail, avatarUrl, bannerUrl]);
+  }, [isProfileOpen, profileName, whatsappNumber, profilePhone, upiId, paypalEmail, avatarUrl, bannerUrl, qrCodeUrl]);
 
   // Asset upload helper supporting both modal and branding tab
   const handleUploadAsset = async (
     file: File,
-    assetType: "avatar" | "banner",
+    assetType: "avatar" | "banner" | "qr",
     isModal = false
   ) => {
     const targetId = user?.id || artisanId;
@@ -369,10 +378,12 @@ export default function Home() {
 
     if (isModal) {
       if (assetType === "avatar") setIsUploadingModalAvatar(true);
-      else setIsUploadingModalBanner(true);
+      else if (assetType === "banner") setIsUploadingModalBanner(true);
+      else setIsUploadingModalQr(true);
     } else {
       if (assetType === "avatar") setIsUploadingAvatar(true);
-      else setIsUploadingBanner(true);
+      else if (assetType === "banner") setIsUploadingBanner(true);
+      else setIsUploadingQr(true);
     }
 
     try {
@@ -382,14 +393,23 @@ export default function Home() {
           setBrandingAvatarUrl(res.url);
           setModalAvatarUrl(res.url);
           setAvatarUrl(res.url);
-        } else {
+        } else if (assetType === "banner") {
           setBrandingBannerUrl(res.url);
           setModalBannerUrl(res.url);
           setBannerUrl(res.url);
+        } else {
+          setBrandingQrCodeUrl(res.url);
+          setModalQrCodeUrl(res.url);
+          setQrCodeUrl(res.url);
         }
 
         // Direct DB update so the asset is immediately saved to the artisan record
-        const updateField = assetType === "avatar" ? { avatar_url: res.url } : { banner_url: res.url };
+        const updateField =
+          assetType === "avatar"
+            ? { avatar_url: res.url }
+            : assetType === "banner"
+            ? { banner_url: res.url }
+            : { qr_code_url: res.url };
         try {
           await supabase.from("artisans").update(updateField).eq("id", targetId);
         } catch (dbErr) {
@@ -410,7 +430,13 @@ export default function Home() {
         await revalidateArtisanProfile(targetId);
         router.refresh();
 
-        showToast(`${assetType === "avatar" ? "Profile photo" : "Cover photo"} uploaded & saved!`);
+        const label =
+          assetType === "avatar"
+            ? "Profile photo"
+            : assetType === "banner"
+            ? "Cover photo"
+            : "Payment QR code";
+        showToast(`${label} uploaded & saved!`);
       } else {
         showToast(res.error || `Failed to upload ${assetType}`);
       }
@@ -420,10 +446,12 @@ export default function Home() {
     } finally {
       if (isModal) {
         if (assetType === "avatar") setIsUploadingModalAvatar(false);
-        else setIsUploadingModalBanner(false);
+        else if (assetType === "banner") setIsUploadingModalBanner(false);
+        else setIsUploadingModalQr(false);
       } else {
         if (assetType === "avatar") setIsUploadingAvatar(false);
-        else setIsUploadingBanner(false);
+        else if (assetType === "banner") setIsUploadingBanner(false);
+        else setIsUploadingQr(false);
       }
     }
   };
@@ -443,6 +471,7 @@ export default function Home() {
           paypal_email?: string;
           avatar_url?: string;
           banner_url?: string;
+          qr_code_url?: string;
         } = {
           full_name: localName.trim(),
           whatsapp_number: safeWhatsapp,
@@ -450,6 +479,7 @@ export default function Home() {
           paypal_email: localPaypal.trim(),
           avatar_url: modalAvatarUrl.trim(),
           banner_url: modalBannerUrl.trim(),
+          qr_code_url: modalQrCodeUrl.trim(),
         };
 
         const { error } = await supabase
@@ -468,7 +498,8 @@ export default function Home() {
         localUpi.trim(),
         localPaypal.trim(),
         modalAvatarUrl.trim(),
-        modalBannerUrl.trim()
+        modalBannerUrl.trim(),
+        modalQrCodeUrl.trim()
       );
       if (success) {
         await revalidateArtisanProfile(targetId);
@@ -498,6 +529,7 @@ export default function Home() {
           paypal_email?: string;
           avatar_url?: string;
           banner_url?: string;
+          qr_code_url?: string;
         } = {
           full_name: brandingName.trim(),
           whatsapp_number: safeWhatsapp,
@@ -505,6 +537,7 @@ export default function Home() {
           paypal_email: brandingPaypal.trim(),
           avatar_url: brandingAvatarUrl.trim(),
           banner_url: brandingBannerUrl.trim(),
+          qr_code_url: brandingQrCodeUrl.trim(),
         };
 
         const { error } = await supabase
@@ -523,7 +556,8 @@ export default function Home() {
         brandingUpi.trim(),
         brandingPaypal.trim(),
         brandingAvatarUrl.trim(),
-        brandingBannerUrl.trim()
+        brandingBannerUrl.trim(),
+        brandingQrCodeUrl.trim()
       );
 
       if (success) {
@@ -1677,17 +1711,96 @@ export default function Home() {
                   />
                 </div>
 
+                {/* Payment QR Code Uploader */}
+                <div className="pt-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-800">
+                      Payment QR Code (PhonePe / GPay / Paytm)
+                    </label>
+                    {brandingQrCodeUrl && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        Active QR
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mb-2">
+                    Upload your actual payment QR code screenshot so patrons can scan and pay or tip you directly.
+                  </p>
+
+                  <input
+                    ref={brandingQrInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUploadAsset(f, "qr", false);
+                      e.target.value = "";
+                    }}
+                  />
+
+                  {brandingQrCodeUrl ? (
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <div className="w-16 h-16 bg-white p-1 rounded-lg border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden shadow-xs">
+                        <img
+                          src={brandingQrCodeUrl}
+                          alt="Artisan Payment QR"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-slate-800 block truncate">Official Payment QR</span>
+                        <span className="text-[11px] text-slate-500 block truncate">Active for domestic patrons</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <button
+                            type="button"
+                            disabled={isUploadingQr}
+                            onClick={() => brandingQrInputRef.current?.click()}
+                            className="text-[11px] font-bold text-slate-800 hover:text-black underline cursor-pointer"
+                          >
+                            {isUploadingQr ? "Uploading..." : "Replace QR"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBrandingQrCodeUrl("")}
+                            className="text-[11px] font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isUploadingQr}
+                      onClick={() => brandingQrInputRef.current?.click()}
+                      className="w-full p-3.5 rounded-xl border-2 border-dashed border-slate-200 hover:border-amber-600 bg-slate-50 hover:bg-amber-50/30 cursor-pointer transition flex items-center justify-center gap-2 text-slate-600"
+                    >
+                      {isUploadingQr ? (
+                        <Loader2 size={16} className="animate-spin text-amber-700" />
+                      ) : (
+                        <UploadCloud size={16} className="text-amber-700" />
+                      )}
+                      <span className="text-xs font-semibold">
+                        {isUploadingQr ? "Uploading Payment QR..." : "Upload Payment QR Code"}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    UPI ID (Instant Domestic Pay)
+                    UPI ID
                   </label>
                   <input
                     type="text"
                     value={brandingUpi}
                     onChange={(e) => setBrandingUpi(e.target.value)}
-                    placeholder="artisan@upi"
+                    placeholder="e.g. 9876543210@paytm or weaver@okhdfcbank"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-slate-800"
                   />
+                  <p className="text-[11px] text-slate-400 mt-1">Direct bank account UPI VPA for zero-commission instant settlement.</p>
                 </div>
 
                 <div>
@@ -2329,14 +2442,93 @@ export default function Home() {
                   <p className="text-xs text-neutral-400 mt-1.5 ml-1">Orders and buyer inquiries on your storefront will be sent here.</p>
                 </div>
 
+                {/* Official Payment QR Code (In place of demo shop QR) */}
+                <div className="pt-2 pb-1 border-t border-stone-200">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-semibold text-neutral-800">
+                      Payment QR Code (PhonePe / GPay / Paytm)
+                    </label>
+                    {modalQrCodeUrl && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        Active QR
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-400 mb-3">
+                    Upload your actual payment QR code image so patrons can scan and send tips or instant payments.
+                  </p>
+
+                  <input
+                    ref={modalQrInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUploadAsset(f, "qr", true);
+                      e.target.value = "";
+                    }}
+                  />
+
+                  {modalQrCodeUrl ? (
+                    <div className="flex flex-col items-center p-3.5 bg-stone-50 border border-stone-200 rounded-2xl max-w-[220px] mx-auto mb-2">
+                      <div className="w-36 h-36 bg-white p-2 rounded-xl border border-stone-200 flex items-center justify-center overflow-hidden shadow-xs">
+                        <img
+                          src={modalQrCodeUrl}
+                          alt="Uploaded Payment QR"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 mt-3 w-full">
+                        <button
+                          type="button"
+                          disabled={isUploadingModalQr}
+                          onClick={() => modalQrInputRef.current?.click()}
+                          className="flex-1 py-1.5 bg-neutral-900 text-white rounded-lg text-xs font-semibold hover:bg-neutral-800 transition"
+                        >
+                          {isUploadingModalQr ? "Uploading..." : "Replace QR"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setModalQrCodeUrl("")}
+                          className="px-2.5 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold hover:bg-rose-100 transition"
+                          title="Remove QR code"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isUploadingModalQr}
+                      onClick={() => modalQrInputRef.current?.click()}
+                      className="w-full p-4 border-2 border-dashed border-stone-300 hover:border-amber-600 rounded-2xl bg-stone-50 hover:bg-amber-50/40 transition flex flex-col items-center justify-center gap-2 text-center cursor-pointer group"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-amber-700 shadow-xs group-hover:scale-105 transition">
+                        {isUploadingModalQr ? <Loader2 size={18} className="animate-spin" /> : <UploadCloud size={18} />}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-neutral-800 block">
+                          {isUploadingModalQr ? "Uploading Payment QR..." : "Upload Payment QR Code"}
+                        </span>
+                        <span className="text-[11px] text-neutral-500">
+                          Screenshot from PhonePe, GPay, Paytm, or BHIM
+                        </span>
+                      </div>
+                    </button>
+                  )}
+                </div>
+
+                {/* Real UPI ID under Payment QR */}
                 <div>
-                  <label className="block text-sm font-semibold text-neutral-800 mb-2">{t('upi_id_label')}</label>
+                  <label className="block text-sm font-semibold text-neutral-800 mb-1.5">UPI ID</label>
                   <input 
                     type="text" 
                     value={localUpi}
                     onChange={(e) => setLocalUpi(e.target.value)}
-                    placeholder={t('upi_id_placeholder')}
-                    className="w-full px-4 py-3.5 bg-white border border-stone-200 rounded-xl text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-800 transition shadow-sm text-sm"
+                    placeholder="e.g. 9876543210@paytm or weaver@okhdfcbank"
+                    className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-800 transition shadow-sm text-sm"
                   />
                   <p className="text-xs text-neutral-400 mt-1.5 ml-1">Receive direct zero-commission UPI payments from customers.</p>
                 </div>
@@ -2350,66 +2542,32 @@ export default function Home() {
                     value={localPaypal}
                     onChange={(e) => setLocalPaypal(e.target.value)}
                     placeholder="e.g. artisan-seller@sandbox.paypal.com"
-                    className="w-full px-4 py-3.5 bg-white border border-stone-200 rounded-xl text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-800 transition shadow-sm text-sm"
+                    className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-800 transition shadow-sm text-sm"
                   />
                   <p className="text-xs text-neutral-400 mt-1.5 ml-1">Receive international USD export orders directly via PayPal Sandbox.</p>
                 </div>
 
                 {userRole === "artisan" && (
-                  <>
-                    <div className="pt-4 pb-2 border-t border-stone-200">
-                      <h4 className={`text-lg font-bold text-neutral-900 mb-4 ${playfair.className}`}>{t('my_store_link')}</h4>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          value={`${typeof window !== 'undefined' ? window.location.origin : ''}/shop/${artisanId}`}
-                          readOnly
-                          className="flex-1 px-4 py-3.5 bg-stone-50 border border-stone-200 rounded-xl text-neutral-600 text-sm overflow-hidden"
-                        />
-                        <button 
-                          onClick={() => {
-                            navigator.clipboard.writeText(`${window.location.origin}/shop/${artisanId}`);
-                            showToast("Link copied to clipboard!");
-                          }}
-                          className="px-4 py-3.5 bg-neutral-900 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-neutral-800 transition active:scale-95 shrink-0"
-                        >
-                          <Copy size={18} />
-                        </button>
-                      </div>
+                  <div className="pt-4 pb-2 border-t border-stone-200">
+                    <h4 className={`text-lg font-bold text-neutral-900 mb-4 ${playfair.className}`}>{t('my_store_link')}</h4>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/shop/${artisanId}`}
+                        readOnly
+                        className="flex-1 px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-neutral-600 text-sm overflow-hidden"
+                      />
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/shop/${artisanId}`);
+                          showToast("Link copied to clipboard!");
+                        }}
+                        className="px-4 py-3 bg-neutral-900 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-neutral-800 transition active:scale-95 shrink-0"
+                      >
+                        <Copy size={18} />
+                      </button>
                     </div>
-
-                    <div className="pt-4 pb-6 border-t border-stone-200">
-                      <h4 className={`text-base font-bold text-neutral-900 mb-3 text-center ${playfair.className}`}>Shop QR Code</h4>
-                      <div className="flex flex-col items-center p-3.5 bg-white border border-stone-200 rounded-2xl shadow-sm max-w-[210px] mx-auto">
-                        <div className="w-32 h-32 flex items-center justify-center bg-white rounded-xl">
-                          <QRCodeCanvas 
-                            id="shop-qr-code" 
-                            value={`${typeof window !== 'undefined' ? window.location.origin : ''}/shop/${artisanId}`} 
-                            size={120} 
-                            bgColor={"#ffffff"}
-                            fgColor={"#171717"}
-                            level={"H"}
-                          />
-                        </div>
-                        <button 
-                          onClick={() => {
-                            const canvas = document.getElementById("shop-qr-code") as HTMLCanvasElement;
-                            if (!canvas) return;
-                            const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
-                            const downloadLink = document.createElement("a");
-                            downloadLink.href = pngUrl;
-                            downloadLink.download = "shop-qr-code.png";
-                            document.body.appendChild(downloadLink);
-                            downloadLink.click();
-                            document.body.removeChild(downloadLink);
-                          }}
-                          className="mt-3 w-full py-2 bg-stone-100 text-neutral-900 border border-stone-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-stone-200 transition"
-                        >
-                          <Download size={14} /> Download QR
-                        </button>
-                      </div>
-                    </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>

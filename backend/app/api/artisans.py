@@ -97,6 +97,7 @@ async def update_artisan(artisan_id: str, payload: dict, authorization: Optional
             "paypal_email",
             "avatar_url",
             "banner_url",
+            "qr_code_url",
             "preferred_currency",
             "preferred_language",
         ]
@@ -124,11 +125,11 @@ async def update_artisan(artisan_id: str, payload: dict, authorization: Optional
             return {"status": "success", "artisan": result.data[0] if result.data else None}
         except Exception as db_err:
             err_str = str(db_err)
-            if "PGRST204" in err_str or "preferred_currency" in err_str or "preferred_language" in err_str or "avatar_url" in err_str:
+            if "PGRST204" in err_str or "preferred_currency" in err_str or "preferred_language" in err_str or "avatar_url" in err_str or "qr_code_url" in err_str:
                 # Strip newly added columns if table cache hasn't refreshed
                 safe_payload = {
                     k: v for k, v in allowed.items()
-                    if k not in ["preferred_currency", "preferred_language", "avatar_url", "banner_url"]
+                    if k not in ["preferred_currency", "preferred_language", "avatar_url", "banner_url", "qr_code_url"]
                 }
                 if safe_payload:
                     result = supabase.table("artisans").upsert({"id": artisan_id, **safe_payload}).execute()
@@ -146,7 +147,7 @@ async def upload_artisan_asset(
     asset_type: str = Form("avatar"),
     authorization: Optional[str] = Header(None)
 ):
-    """Upload an artisan profile avatar or cover banner image to the artisan-assets bucket with authentication check."""
+    """Upload an artisan profile avatar, cover banner, or payment QR image to the artisan-assets bucket with authentication check."""
     await verify_artisan_owner(artisan_id, authorization)
     try:
         content = await file.read()
@@ -169,7 +170,13 @@ async def upload_artisan_asset(
         public_url = supabase.storage.from_(bucket).get_public_url(file_name)
 
         # Update artisan record if column exists
-        col = "avatar_url" if asset_type == "avatar" else "banner_url"
+        if asset_type == "avatar":
+            col = "avatar_url"
+        elif asset_type in ["qr", "qr_code", "qrcode"]:
+            col = "qr_code_url"
+        else:
+            col = "banner_url"
+
         try:
             supabase.table("artisans").update({col: public_url}).eq("id", artisan_id).execute()
         except Exception as db_err:

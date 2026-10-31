@@ -70,7 +70,7 @@ export async function compressImage(file: File, maxDimension = 1200, quality = 0
 export async function uploadArtisanAsset(
   artisanId: string,
   file: File,
-  assetType: "avatar" | "banner"
+  assetType: "avatar" | "banner" | "qr"
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   // 1. File size check (2MB limit after compression)
   let uploadFile = file;

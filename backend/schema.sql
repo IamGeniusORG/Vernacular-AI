@@ -50,6 +50,7 @@ ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS upi_id TEXT;
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS banner_url TEXT;
+ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS qr_code_url TEXT;
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS preferred_currency TEXT DEFAULT 'INR';
 ALTER TABLE public.artisans ADD COLUMN IF NOT EXISTS preferred_language TEXT DEFAULT 'en';
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price_usd NUMERIC;

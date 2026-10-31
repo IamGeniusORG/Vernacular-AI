@@ -15,6 +15,7 @@ interface ArtisanContextType {
   paypalEmail: string;
   avatarUrl: string;
   bannerUrl: string;
+  qrCodeUrl: string;
   userRole: string;
   setProfileName: (name: string) => void;
   setWhatsappNumber: (num: string) => void;
@@ -22,6 +23,7 @@ interface ArtisanContextType {
   setPaypalEmail: (email: string) => void;
   setAvatarUrl: (url: string) => void;
   setBannerUrl: (url: string) => void;
+  setQrCodeUrl: (url: string) => void;
   setUserRole: (role: string) => void;
   saveProfile: (
     newName: string,
@@ -29,7 +31,8 @@ interface ArtisanContextType {
     newUpi?: string,
     newPaypalEmail?: string,
     newAvatarUrl?: string,
-    newBannerUrl?: string
+    newBannerUrl?: string,
+    newQrCodeUrl?: string
   ) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -60,6 +63,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
   const [paypalEmail, setPaypalEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [userRole, setUserRoleState] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const cached = localStorage.getItem("user_role") || localStorage.getItem("intended_role");
@@ -87,7 +91,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await supabase
         .from("artisans")
-        .select("full_name, phone_number, user_role, whatsapp_number, upi_id, paypal_email, avatar_url, banner_url")
+        .select("full_name, phone_number, user_role, whatsapp_number, upi_id, paypal_email, avatar_url, banner_url, qr_code_url")
         .eq("id", userId)
         .maybeSingle();
 
@@ -155,6 +159,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         setPaypalEmail(profile.paypal_email || "");
         if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
         if (profile.banner_url) setBannerUrl(profile.banner_url);
+        if (profile.qr_code_url) setQrCodeUrl(profile.qr_code_url);
         if (profile.user_role) {
           setUserRole(profile.user_role);
         }
@@ -221,7 +226,8 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     newUpi?: string,
     newPaypalEmail?: string,
     newAvatarUrl?: string,
-    newBannerUrl?: string
+    newBannerUrl?: string,
+    newQrCodeUrl?: string
   ) => {
     if (!artisanId) return false;
 
@@ -232,6 +238,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       paypal_email?: string;
       avatar_url?: string;
       banner_url?: string;
+      qr_code_url?: string;
     } = {
       full_name: newName.trim(),
     };
@@ -240,6 +247,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     if (newPaypalEmail !== undefined) payload.paypal_email = newPaypalEmail.trim();
     if (newAvatarUrl !== undefined) payload.avatar_url = newAvatarUrl.trim();
     if (newBannerUrl !== undefined) payload.banner_url = newBannerUrl.trim();
+    if (newQrCodeUrl !== undefined) payload.qr_code_url = newQrCodeUrl.trim();
 
     // 1. Update via Backend API with Supabase session auth token
     try {
@@ -264,10 +272,11 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         .update(payload)
         .eq("id", artisanId);
 
-      if (dbErr && (dbErr.code === "PGRST204" || dbErr.message?.includes("avatar_url") || dbErr.message?.includes("banner_url"))) {
+      if (dbErr && (dbErr.code === "PGRST204" || dbErr.message?.includes("avatar_url") || dbErr.message?.includes("banner_url") || dbErr.message?.includes("qr_code_url"))) {
         const fallbackPayload = { ...payload };
         delete fallbackPayload.avatar_url;
         delete fallbackPayload.banner_url;
+        delete fallbackPayload.qr_code_url;
         await supabase.from("artisans").update(fallbackPayload).eq("id", artisanId);
       }
     } catch (err) {
@@ -280,6 +289,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     if (newPaypalEmail !== undefined) setPaypalEmail(newPaypalEmail.trim());
     if (newAvatarUrl !== undefined) setAvatarUrl(newAvatarUrl.trim());
     if (newBannerUrl !== undefined) setBannerUrl(newBannerUrl.trim());
+    if (newQrCodeUrl !== undefined) setQrCodeUrl(newQrCodeUrl.trim());
     return true;
   };
 
@@ -301,6 +311,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     setPaypalEmail("");
     setAvatarUrl("");
     setBannerUrl("");
+    setQrCodeUrl("");
     setUserRole("customer");
   };
 
@@ -330,6 +341,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         setPaypalEmail(profile.paypal_email || "");
         setAvatarUrl(profile.avatar_url || "");
         setBannerUrl(profile.banner_url || "");
+        setQrCodeUrl(profile.qr_code_url || "");
         if (profile.user_role) {
           setUserRole(profile.user_role);
         }
@@ -348,6 +360,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         paypalEmail,
         avatarUrl,
         bannerUrl,
+        qrCodeUrl,
         userRole,
         setProfileName,
         setWhatsappNumber,
@@ -355,6 +368,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         setPaypalEmail,
         setAvatarUrl,
         setBannerUrl,
+        setQrCodeUrl,
         setUserRole,
         saveProfile,
         logout,
