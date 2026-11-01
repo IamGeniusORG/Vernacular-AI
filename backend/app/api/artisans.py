@@ -1,3 +1,4 @@
+import re
 import uuid
 from typing import Optional, List
 from pydantic import BaseModel, Field
@@ -5,6 +6,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header
 from app.core.supabase_client import supabase
 from app.core.config import settings
 from app.core.auth import verify_artisan_owner
+from app.schemas.artisan import ArtisanUpdate
 
 router = APIRouter()
 
@@ -72,12 +74,26 @@ async def list_artisans():
 
 @router.get("/{artisan_id}")
 async def get_artisan(artisan_id: str):
-    """Fetch artisan profile by ID."""
+    """Fetch artisan profile by ID, seamlessly merging database records with Supabase Auth metadata."""
     try:
         result = supabase.table("artisans").select("*").eq("id", artisan_id).execute()
-        if not result.data:
+        artisan_data = dict(result.data[0]) if (result.data and len(result.data) > 0) else {"id": artisan_id}
+
+        # Seamlessly fallback / overlay with Supabase Auth user_metadata
+        try:
+            auth_user = supabase.auth.admin.get_user_by_id(artisan_id)
+            if auth_user and hasattr(auth_user, "user") and auth_user.user:
+                meta = getattr(auth_user.user, "user_metadata", {}) or {}
+                for k, v in meta.items():
+                    if v and (k not in artisan_data or artisan_data[k] is None or artisan_data[k] == ""):
+                        artisan_data[k] = v
+        except Exception as auth_err:
+            print(f"Notice: Supabase admin get_user_by_id skipped: {auth_err}")
+
+        if not result.data and not artisan_data.get("full_name") and not artisan_data.get("phone_number"):
             raise HTTPException(status_code=404, detail="Artisan not found")
-        return {"status": "success", "artisan": result.data[0]}
+
+        return {"status": "success", "artisan": artisan_data}
     except HTTPException:
         raise
     except Exception as e:
@@ -85,26 +101,13 @@ async def get_artisan(artisan_id: str):
 
 
 @router.patch("/{artisan_id}")
-async def update_artisan(artisan_id: str, payload: dict, authorization: Optional[str] = Header(None)):
-    """Update artisan or buyer profile fields with strict authentication check."""
+async def update_artisan(artisan_id: str, payload: ArtisanUpdate, authorization: Optional[str] = Header(None)):
+    """Update artisan or buyer profile fields with strict authentication check and resilient column stripping."""
     await verify_artisan_owner(artisan_id, authorization)
     try:
-        allowed_keys = [
-            "full_name",
-            "user_role",
-            "district",
-            "whatsapp_number",
-            "upi_id",
-            "paypal_email",
-            "avatar_url",
-            "banner_url",
-            "qr_code_url",
-            "preferred_currency",
-            "preferred_language",
-        ]
+        raw_allowed = payload.model_dump(exclude_unset=True)
         allowed = {
-            k: ("" if v is None else v) for k, v in payload.items()
-            if k in allowed_keys
+            k: ("" if v is None else v) for k, v in raw_allowed.items()
         }
         if not allowed:
             return {"status": "no_changes"}
@@ -115,28 +118,44 @@ async def update_artisan(artisan_id: str, payload: dict, authorization: Optional
         except Exception as auth_err:
             print(f"Notice: Supabase admin auth user metadata sync skipped: {auth_err}")
 
-        # 2. Update or insert database row with defensive fallback for pending SQL migrations
-        try:
-            existing = supabase.table("artisans").select("id").eq("id", artisan_id).execute()
-            if not existing.data:
-                insert_payload = {"id": artisan_id, **allowed}
-                result = supabase.table("artisans").insert(insert_payload).execute()
-            else:
-                result = supabase.table("artisans").update(allowed).eq("id", artisan_id).execute()
-            return {"status": "success", "artisan": result.data[0] if result.data else None}
-        except Exception as db_err:
-            err_str = str(db_err)
-            if "PGRST204" in err_str or "preferred_currency" in err_str or "preferred_language" in err_str or "avatar_url" in err_str or "qr_code_url" in err_str:
-                # Strip newly added columns if table cache hasn't refreshed
-                safe_payload = {
-                    k: v for k, v in allowed.items()
-                    if k not in ["preferred_currency", "preferred_language", "avatar_url", "banner_url", "qr_code_url"]
-                }
-                if safe_payload:
-                    result = supabase.table("artisans").upsert({"id": artisan_id, **safe_payload}).execute()
-                    return {"status": "success", "artisan": result.data[0] if result.data else None}
-                return {"status": "success", "notice": "stored_in_auth_metadata"}
-            raise db_err
+        # 2. Update or insert database row with dynamic self-healing column stripping loop
+        db_payload = dict(allowed)
+        saved_artisan = None
+        for _ in range(5):
+            try:
+                existing = supabase.table("artisans").select("id").eq("id", artisan_id).execute()
+                if not existing.data:
+                    res = supabase.table("artisans").insert({"id": artisan_id, **db_payload}).execute()
+                else:
+                    res = supabase.table("artisans").update(db_payload).eq("id", artisan_id).execute()
+                saved_artisan = res.data[0] if (res.data and len(res.data) > 0) else None
+                break
+            except Exception as db_err:
+                err_str = str(db_err)
+                col_match = re.search(r"Could not find the '([^']+)' column", err_str)
+                if col_match:
+                    missing_col = col_match.group(1)
+                    if missing_col in db_payload:
+                        print(f"Dynamic self-healing: Column '{missing_col}' missing in 'artisans'. Stripping from DB payload and retrying.")
+                        db_payload.pop(missing_col, None)
+                        if not db_payload:
+                            break
+                        continue
+                fallback_strip = ["paypal_email", "avatar_url", "banner_url", "qr_code_url", "preferred_currency", "preferred_language"]
+                has_any = any(k in db_payload for k in fallback_strip)
+                if has_any:
+                    for k in fallback_strip:
+                        db_payload.pop(k, None)
+                    continue
+                raise db_err
+
+        # Return merged artisan data with the updated fields overlay
+        final_artisan = dict(saved_artisan) if saved_artisan else {"id": artisan_id}
+        for k, v in allowed.items():
+            if k not in final_artisan or not final_artisan[k]:
+                final_artisan[k] = v
+
+        return {"status": "success", "artisan": final_artisan}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

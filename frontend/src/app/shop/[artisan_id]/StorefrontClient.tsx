@@ -114,12 +114,12 @@ export default function StorefrontClient({ products, artisan }: Props) {
     const rawPhone = artisan.whatsapp_number || artisan.phone_number || "";
     const digits = rawPhone.replace(/\D/g, "");
     
-    if (!digits) {
+    if (!digits || digits.length < 7 || rawPhone.toLowerCase().includes("unknown")) {
       showToast("Artisan has not set a WhatsApp number yet.");
       return;
     }
     
-    // Ensure country code 91 if 10 digits
+    // Ensure country code 91 if exactly 10 digits
     const cleanPhone = digits.length === 10 ? `91${digits}` : digits;
     const price = product.price || product.price_inr || 1500;
     const productTitle = product.ai_title_en || product.ai_title_local || "Handloom Creation";
@@ -170,6 +170,10 @@ export default function StorefrontClient({ products, artisan }: Props) {
     artisan.upi_id.includes("@")
   );
   const hasPaymentConfigured = hasRealQr || hasRealUpi;
+  const rawWhatsApp = (artisan.whatsapp_number || artisan.phone_number || "").trim();
+  const digitsOnly = rawWhatsApp.replace(/\D/g, "");
+  const hasWhatsApp = Boolean(digitsOnly && digitsOnly.length >= 7 && !rawWhatsApp.toLowerCase().includes("unknown"));
+  const hasPayPal = Boolean(artisan.paypal_email && artisan.paypal_email.trim() && artisan.paypal_email.includes("@"));
   const upiId = hasRealUpi ? artisan.upi_id!.trim() : "";
   const upiPrice = activeUpiProduct ? (activeUpiProduct.price || activeUpiProduct.price_inr || 1500) : 1500;
   const upiTitle = activeUpiProduct ? (activeUpiProduct.ai_title_en || activeUpiProduct.ai_title_local || "Handloom Creation") : "Handloom Creation";
@@ -632,7 +636,8 @@ export default function StorefrontClient({ products, artisan }: Props) {
                         </span>
                         <span className="text-xs font-bold text-stone-900">${usdPrice.toFixed(2)} USD</span>
                       </div>
-                      <div className="w-full relative z-10">
+                      {hasPayPal ? (
+                        <div className="w-full relative z-10">
                         <PayPalButtons
                           style={{
                             layout: "vertical",
@@ -675,13 +680,47 @@ export default function StorefrontClient({ products, artisan }: Props) {
                           }}
                         />
                       </div>
-                    </div>
-                  ) : (
+                    ) : (
+                      <div className="w-full p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-center space-y-1.5">
+                        <p className="text-[11px] font-semibold text-amber-900">
+                          Global Checkout Pending Setup
+                        </p>
+                        <p className="text-[10px] text-amber-700 leading-tight">
+                          PayPal direct checkout is not linked yet. Inquire directly on WhatsApp for international shipping.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!hasWhatsApp) {
+                              showToast("Artisan hasn't added their WhatsApp number yet.");
+                              return;
+                            }
+                            handleBuy(product);
+                          }}
+                          className="w-full py-1.5 bg-neutral-900 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-neutral-800 transition active:scale-[0.99]"
+                        >
+                          <MessageCircle size={13} /> Inquire for Export
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
                     <div className="flex flex-col gap-2 mt-2">
                       {/* WhatsApp Checkout */}
                       <button
-                        onClick={() => handleBuy(product)}
-                        className="w-full py-2.5 bg-neutral-900 text-white rounded-lg text-sm font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors shadow-sm active:scale-[0.99]"
+                        onClick={() => {
+                          if (!hasWhatsApp) {
+                            showToast("Artisan hasn't added their WhatsApp number yet.");
+                            return;
+                          }
+                          handleBuy(product);
+                        }}
+                        className={`w-full py-2.5 rounded-lg text-sm font-medium tracking-wide flex items-center justify-center gap-2 transition-colors shadow-sm active:scale-[0.99] ${
+                          hasWhatsApp
+                            ? "bg-neutral-900 text-white hover:bg-neutral-800"
+                            : "bg-stone-200 text-stone-500 hover:bg-stone-300"
+                        }`}
+                        title={hasWhatsApp ? "Order on WhatsApp" : "Artisan has not set up WhatsApp yet"}
                       >
                         <MessageCircle size={16} className="opacity-90" /> {t("buy_on_whatsapp")}
                       </button>
@@ -1102,50 +1141,68 @@ export default function StorefrontClient({ products, artisan }: Props) {
                   )
                 ) : (
                   <div className="w-full flex flex-col items-center">
-                    <p className="text-[11px] text-neutral-500 mb-3 text-center">
-                      Tip <span className="font-bold text-neutral-900">${effectiveTipAmount.toFixed(2)} USD</span> securely with PayPal
-                    </p>
-                    <div className="w-full relative z-10">
-                      <PayPalButtons
-                        style={{
-                          layout: "vertical",
-                          height: 38,
-                          shape: "rect",
-                          color: "gold",
-                          tagline: false,
-                        }}
-                        createOrder={(data, actions) => {
-                          return actions.order.create({
-                            intent: "CAPTURE",
-                            application_context: {
-                              shipping_preference: "NO_SHIPPING",
-                            },
-                            purchase_units: [
-                              {
-                                description: `Direct Patronage Tip for ${artisan.full_name}`,
-                                amount: {
-                                  currency_code: "USD",
-                                  value: effectiveTipAmount.toFixed(2),
+                    {hasPayPal ? (
+                      <>
+                        <p className="text-[11px] text-neutral-500 mb-3 text-center">
+                          Tip <span className="font-bold text-neutral-900">${effectiveTipAmount.toFixed(2)} USD</span> securely with PayPal
+                        </p>
+                        <div className="w-full relative z-10">
+                          <PayPalButtons
+                            style={{
+                              layout: "vertical",
+                              height: 38,
+                              shape: "rect",
+                              color: "gold",
+                              tagline: false,
+                            }}
+                            createOrder={(data, actions) => {
+                              return actions.order.create({
+                                intent: "CAPTURE",
+                                application_context: {
+                                  shipping_preference: "NO_SHIPPING",
                                 },
-                              },
-                            ],
-                          });
-                        }}
-                        onApprove={async (data, actions) => {
-                          if (actions.order) {
-                            const details = await actions.order.capture();
-                            await handleRecordTip("paypal", details.id || data.orderID);
-                          }
-                        }}
-                        onError={(err) => {
-                          console.error("PayPal Tip Error:", err);
-                          showToast("PayPal tip error. Please try again.");
-                        }}
-                        onCancel={() => {
-                          showToast("PayPal tip was cancelled.");
-                        }}
-                      />
-                    </div>
+                                purchase_units: [
+                                  {
+                                    description: `Direct Patronage Tip for ${artisan.full_name}`,
+                                    amount: {
+                                      currency_code: "USD",
+                                      value: effectiveTipAmount.toFixed(2),
+                                    },
+                                  },
+                                ],
+                              });
+                            }}
+                            onApprove={async (data, actions) => {
+                              if (actions.order) {
+                                const details = await actions.order.capture();
+                                await handleRecordTip("paypal", details.id || data.orderID);
+                              }
+                            }}
+                            onError={(err) => {
+                              console.error("PayPal Tip Error:", err);
+                              showToast("PayPal tip error. Please try again.");
+                            }}
+                            onCancel={() => {
+                              showToast("PayPal tip was cancelled.");
+                            }}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full p-4 bg-amber-50/80 border border-amber-200/80 rounded-2xl text-center space-y-2">
+                        <p className="text-xs font-bold text-amber-900">PayPal Tip Not Available</p>
+                        <p className="text-[11px] text-amber-700 leading-relaxed">
+                          This artisan hasn&apos;t added their PayPal account yet. You can support them via Indian UPI or reach out directly on WhatsApp.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setTipCurrency("INR")}
+                          className="px-4 py-2 bg-stone-900 text-white rounded-xl text-xs font-bold hover:bg-stone-800 transition"
+                        >
+                          Switch to UPI Tip (₹)
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

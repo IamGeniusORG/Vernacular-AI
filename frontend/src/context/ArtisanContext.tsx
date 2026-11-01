@@ -89,13 +89,13 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
   const fetchProfileData = useCallback(async (userId: string) => {
     // 1. Try Supabase client query
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("artisans")
-        .select("full_name, phone_number, user_role, whatsapp_number, upi_id, paypal_email, avatar_url, banner_url, qr_code_url")
+        .select("*")
         .eq("id", userId)
         .maybeSingle();
 
-      if (data) return data;
+      if (data && !error) return data;
     } catch (err) {
       console.warn("Client-side Supabase select error:", err);
     }
@@ -148,15 +148,30 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       if (metaRole) {
         setUserRole(metaRole);
       }
+      if (user.user_metadata?.whatsapp_number) {
+        setWhatsappNumber(cleanPhone(user.user_metadata.whatsapp_number));
+      }
+      if (user.user_metadata?.upi_id) {
+        setUpiId(user.user_metadata.upi_id);
+      }
+      if (user.user_metadata?.paypal_email) {
+        setPaypalEmail(user.user_metadata.paypal_email);
+      }
+      if (user.user_metadata?.banner_url) {
+        setBannerUrl(user.user_metadata.banner_url);
+      }
+      if (user.user_metadata?.qr_code_url) {
+        setQrCodeUrl(user.user_metadata.qr_code_url);
+      }
 
       // 2. Overlay persistent database profile
       const profile = await fetchProfileData(user.id);
       if (profile && mounted) {
         if (profile.full_name) setProfileName(profile.full_name);
-        setProfilePhone(cleanPhone(profile.phone_number));
-        setWhatsappNumber(cleanPhone(profile.whatsapp_number));
-        setUpiId(profile.upi_id || "");
-        setPaypalEmail(profile.paypal_email || "");
+        if (profile.phone_number) setProfilePhone(cleanPhone(profile.phone_number));
+        if (profile.whatsapp_number) setWhatsappNumber(cleanPhone(profile.whatsapp_number));
+        if (profile.upi_id) setUpiId(profile.upi_id);
+        if (profile.paypal_email) setPaypalEmail(profile.paypal_email);
         if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
         if (profile.banner_url) setBannerUrl(profile.banner_url);
         if (profile.qr_code_url) setQrCodeUrl(profile.qr_code_url);
@@ -249,7 +264,24 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     if (newBannerUrl !== undefined) payload.banner_url = newBannerUrl.trim();
     if (newQrCodeUrl !== undefined) payload.qr_code_url = newQrCodeUrl.trim();
 
-    // 1. Update via Backend API with Supabase session auth token
+    // 1. Update Supabase Auth user_metadata directly from client (immediate auth persistence)
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          full_name: payload.full_name,
+          ...(payload.whatsapp_number !== undefined && { whatsapp_number: payload.whatsapp_number }),
+          ...(payload.upi_id !== undefined && { upi_id: payload.upi_id }),
+          ...(payload.paypal_email !== undefined && { paypal_email: payload.paypal_email }),
+          ...(payload.avatar_url !== undefined && { avatar_url: payload.avatar_url }),
+          ...(payload.banner_url !== undefined && { banner_url: payload.banner_url }),
+          ...(payload.qr_code_url !== undefined && { qr_code_url: payload.qr_code_url }),
+        },
+      });
+    } catch (metaErr) {
+      console.warn("Client auth metadata update error:", metaErr);
+    }
+
+    // 2. Update via Backend API with Supabase session auth token
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -265,18 +297,23 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       console.warn("Backend saveProfile error:", err);
     }
 
-    // 2. Update via Supabase client (with defensive fallback if columns not yet migrated)
+    // 3. Update via Supabase client (with defensive fallback if columns not yet migrated)
     try {
       const { error: dbErr } = await supabase
         .from("artisans")
         .update(payload)
         .eq("id", artisanId);
 
-      if (dbErr && (dbErr.code === "PGRST204" || dbErr.message?.includes("avatar_url") || dbErr.message?.includes("banner_url") || dbErr.message?.includes("qr_code_url"))) {
-        const fallbackPayload = { ...payload };
-        delete fallbackPayload.avatar_url;
-        delete fallbackPayload.banner_url;
-        delete fallbackPayload.qr_code_url;
+      if (dbErr) {
+        const fallbackPayload: {
+          full_name?: string;
+          whatsapp_number?: string;
+          upi_id?: string;
+        } = {
+          full_name: payload.full_name,
+        };
+        if (payload.whatsapp_number !== undefined) fallbackPayload.whatsapp_number = payload.whatsapp_number;
+        if (payload.upi_id !== undefined) fallbackPayload.upi_id = payload.upi_id;
         await supabase.from("artisans").update(fallbackPayload).eq("id", artisanId);
       }
     } catch (err) {
@@ -327,21 +364,29 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       currentUser = session.user;
     }
 
-    if (currentUser?.user_metadata?.user_role) {
-      setUserRole(currentUser.user_metadata.user_role);
+    if (currentUser?.user_metadata) {
+      const meta = currentUser.user_metadata;
+      if (meta.user_role) setUserRole(meta.user_role);
+      if (meta.full_name) setProfileName(meta.full_name);
+      if (meta.whatsapp_number) setWhatsappNumber(cleanPhone(meta.whatsapp_number));
+      if (meta.upi_id) setUpiId(meta.upi_id);
+      if (meta.paypal_email) setPaypalEmail(meta.paypal_email);
+      if (meta.avatar_url) setAvatarUrl(meta.avatar_url);
+      if (meta.banner_url) setBannerUrl(meta.banner_url);
+      if (meta.qr_code_url) setQrCodeUrl(meta.qr_code_url);
     }
 
     if (currentId) {
       const profile = await fetchProfileData(currentId);
       if (profile) {
-        setProfileName(profile.full_name || "New Artisan");
-        setProfilePhone(cleanPhone(profile.phone_number));
-        setWhatsappNumber(cleanPhone(profile.whatsapp_number));
-        setUpiId(profile.upi_id || "");
-        setPaypalEmail(profile.paypal_email || "");
-        setAvatarUrl(profile.avatar_url || "");
-        setBannerUrl(profile.banner_url || "");
-        setQrCodeUrl(profile.qr_code_url || "");
+        if (profile.full_name) setProfileName(profile.full_name);
+        if (profile.phone_number) setProfilePhone(cleanPhone(profile.phone_number));
+        if (profile.whatsapp_number) setWhatsappNumber(cleanPhone(profile.whatsapp_number));
+        if (profile.upi_id) setUpiId(profile.upi_id);
+        if (profile.paypal_email) setPaypalEmail(profile.paypal_email);
+        if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
+        if (profile.banner_url) setBannerUrl(profile.banner_url);
+        if (profile.qr_code_url) setQrCodeUrl(profile.qr_code_url);
         if (profile.user_role) {
           setUserRole(profile.user_role);
         }

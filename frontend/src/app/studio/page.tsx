@@ -66,6 +66,40 @@ interface GeneratedProduct {
   whatsapp_link: string;
 }
 
+const COUNTRY_CODES = [
+  { code: "+91", label: "🇮🇳 +91 (India)" },
+  { code: "+1", label: "🇺🇸 +1 (US / Canada)" },
+  { code: "+44", label: "🇬🇧 +44 (UK)" },
+  { code: "+880", label: "🇧🇩 +880 (Bangladesh)" },
+  { code: "+971", label: "🇦🇪 +971 (UAE)" },
+  { code: "+65", label: "🇸🇬 +65 (Singapore)" },
+  { code: "+61", label: "🇦🇺 +61 (Australia)" },
+  { code: "+49", label: "🇩🇪 +49 (Germany)" },
+  { code: "+33", label: "🇫🇷 +33 (France)" },
+  { code: "+81", label: "🇯🇵 +81 (Japan)" },
+];
+
+const parsePhoneNumber = (fullPhone?: string | null): { countryCode: string; localNumber: string } => {
+  if (!fullPhone) return { countryCode: "+91", localNumber: "" };
+  const s = fullPhone.trim();
+  if (s.toLowerCase().includes("unknown") || s.toLowerCase() === "null") {
+    return { countryCode: "+91", localNumber: "" };
+  }
+  const sortedCodes = ["+880", "+971", "+91", "+44", "+65", "+61", "+49", "+33", "+81", "+1"];
+  for (const c of sortedCodes) {
+    if (s.startsWith(c)) {
+      const remainingDigits = s.slice(c.length).replace(/\D/g, "");
+      return { countryCode: c, localNumber: remainingDigits };
+    }
+  }
+  if (s.startsWith("+")) {
+    const digits = s.slice(1).replace(/\D/g, "");
+    return { countryCode: "+91", localNumber: digits };
+  }
+  const digits = s.replace(/\D/g, "");
+  return { countryCode: "+91", localNumber: digits };
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -190,7 +224,8 @@ export default function Home() {
   
   // Local state for the input fields in the modal
   const [localName, setLocalName] = useState("");
-  const [localWhatsapp, setLocalWhatsapp] = useState("");
+  const [modalCountryCode, setModalCountryCode] = useState("+91");
+  const [modalLocalPhone, setModalLocalPhone] = useState("");
   const [localUpi, setLocalUpi] = useState("");
   const [localPaypal, setLocalPaypal] = useState("");
   const [modalAvatarUrl, setModalAvatarUrl] = useState("");
@@ -319,7 +354,8 @@ export default function Home() {
 
   // Profile & Branding Dedicated Tab State
   const [brandingName, setBrandingName] = useState("");
-  const [brandingWhatsapp, setBrandingWhatsapp] = useState("");
+  const [brandingCountryCode, setBrandingCountryCode] = useState("+91");
+  const [brandingLocalPhone, setBrandingLocalPhone] = useState("");
   const [brandingUpi, setBrandingUpi] = useState("");
   const [brandingPaypal, setBrandingPaypal] = useState("");
   const [brandingAvatarUrl, setBrandingAvatarUrl] = useState("");
@@ -340,7 +376,9 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (profileName) setBrandingName(profileName);
     const rawW = whatsappNumber || profilePhone || "";
-    setBrandingWhatsapp(rawW.toLowerCase().includes("unknown") ? "" : rawW);
+    const parsed = parsePhoneNumber(rawW);
+    setBrandingCountryCode(parsed.countryCode);
+    setBrandingLocalPhone(parsed.localNumber);
     if (upiId) setBrandingUpi(upiId);
     if (paypalEmail) setBrandingPaypal(paypalEmail);
     if (avatarUrl) setBrandingAvatarUrl(avatarUrl);
@@ -398,8 +436,9 @@ export default function Home() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalName(profileName || "");
       const rawW = whatsappNumber || profilePhone || "";
-      const safeWhatsapp = rawW.toLowerCase().includes("unknown") ? "" : rawW;
-      setLocalWhatsapp(safeWhatsapp);
+      const parsed = parsePhoneNumber(rawW);
+      setModalCountryCode(parsed.countryCode);
+      setModalLocalPhone(parsed.localNumber);
       setLocalUpi(upiId || "");
       setLocalPaypal(paypalEmail || "");
       setModalAvatarUrl(avatarUrl || "");
@@ -501,8 +540,8 @@ export default function Home() {
     setIsSavingProfile(true);
     try {
       const targetId = user?.id || artisanId;
-      const cleanW = localWhatsapp.trim();
-      const safeWhatsapp = cleanW.toLowerCase().includes("unknown") ? "" : cleanW;
+      const cleanDigits = modalLocalPhone.replace(/\D/g, "");
+      const safeWhatsapp = cleanDigits ? `${modalCountryCode}${cleanDigits}` : "";
 
       if (targetId) {
         const payload: {
@@ -560,7 +599,8 @@ export default function Home() {
     setIsSavingBranding(true);
     try {
       const targetId = user?.id || artisanId;
-      const safeWhatsapp = brandingWhatsapp.trim().toLowerCase().includes("unknown") ? "" : brandingWhatsapp.trim();
+      const cleanDigits = brandingLocalPhone.replace(/\D/g, "");
+      const safeWhatsapp = cleanDigits ? `${brandingCountryCode}${cleanDigits}` : "";
 
       if (targetId) {
         const payload: {
@@ -1743,13 +1783,28 @@ export default function Home() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     WhatsApp Number (Direct Domestic Inquiries)
                   </label>
-                  <input
-                    type="tel"
-                    value={brandingWhatsapp}
-                    onChange={(e) => setBrandingWhatsapp(e.target.value)}
-                    placeholder="+91 98765 43210"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-slate-800"
-                  />
+                  <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-slate-800 focus-within:border-transparent">
+                    <select
+                      value={brandingCountryCode}
+                      onChange={(e) => setBrandingCountryCode(e.target.value)}
+                      className="bg-slate-100/90 text-slate-800 text-xs font-semibold px-2.5 py-2.5 border-r border-slate-200 outline-none cursor-pointer hover:bg-slate-200/70 transition shrink-0"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={brandingLocalPhone}
+                      onChange={(e) => setBrandingLocalPhone(e.target.value.replace(/\D/g, ""))}
+                      placeholder="9876543210"
+                      className="flex-1 px-3.5 py-2.5 bg-transparent text-slate-900 text-xs outline-none"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">Select country code and enter mobile number with no spaces or symbols.</p>
                 </div>
 
                 {/* Payment QR Code Uploader */}
@@ -2492,13 +2547,27 @@ export default function Home() {
 
                 <div>
                   <label className="block text-sm font-semibold text-neutral-800 mb-2">{t('whatsapp_number_label')}</label>
-                  <input 
-                    type="tel" 
-                    value={localWhatsapp}
-                    onChange={(e) => setLocalWhatsapp(e.target.value)}
-                    placeholder="+91 98765 43210"
-                    className="w-full px-4 py-3.5 bg-white border border-stone-200 rounded-xl text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-800 transition shadow-sm text-sm"
-                  />
+                  <div className="flex rounded-xl border border-stone-200 overflow-hidden bg-white shadow-sm focus-within:ring-2 focus-within:ring-neutral-800 transition">
+                    <select
+                      value={modalCountryCode}
+                      onChange={(e) => setModalCountryCode(e.target.value)}
+                      className="bg-stone-100 text-stone-800 text-sm font-semibold px-3 py-3.5 border-r border-stone-200 outline-none cursor-pointer hover:bg-stone-200/70 transition shrink-0"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input 
+                      type="tel" 
+                      inputMode="numeric"
+                      value={modalLocalPhone}
+                      onChange={(e) => setModalLocalPhone(e.target.value.replace(/\D/g, ""))}
+                      placeholder="9876543210"
+                      className="flex-1 px-4 py-3.5 bg-transparent text-neutral-900 outline-none text-sm"
+                    />
+                  </div>
                   <p className="text-xs text-neutral-400 mt-1.5 ml-1">Orders and buyer inquiries on your storefront will be sent here.</p>
                 </div>
 
