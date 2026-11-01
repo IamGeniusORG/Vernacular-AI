@@ -107,3 +107,22 @@ export async function getArtisanProducts(artisanId: string): Promise<Product[]> 
 
   return [];
 }
+
+export async function deleteArtisanAccount(artisanId: string, token: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/artisans/${artisanId}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { success: false, message: err.detail || "Failed to delete account" };
+    }
+    return { success: true };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Network error during account deletion";
+    return { success: false, message: msg };
+  }
+}

@@ -99,7 +99,9 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
 * **Supabase Telemetry Ledger:** Stores aggregated visitor sessions in the `product_views` table for artisan performance insights.
 
 ### 9. Privacy, Compliance & Production Hardening
-* **Multi-Lingual Cookie Consent:** Privacy-compliant cookie banner (`CookieConsent.tsx`) supporting English, Hindi, and Bengali with local state persistence.
+* **Complete Account & Data Deletion:** Permanent account erasure flow in `/studio` with a sincere confirmation modal and backend `DELETE /api/v1/artisans/{artisan_id}` endpoint. Automatically purges all garment photos (`product-images`), voice recordings (`product-audio`), and branding assets (`artisan-assets`) from Supabase Storage before cascading database record deletions and deleting the user from Supabase Auth.
+* **Strict JWT Bearer Authentication:** Enforces authenticated session token checks across all sensitive backend mutations (`PATCH /artisans/{id}`, `DELETE /artisans/{id}`, `POST /products/generate`, `PATCH /products/{id}/price`), preventing unauthorized requests or impersonation via direct cURL calls.
+* **Persistent Multi-Lingual Cookie Consent:** Privacy-compliant cookie banner (`CookieConsent.tsx`) supporting English, Hindi, and Bengali, permanently persisting user consent to `localStorage` to avoid repetitive displays on subsequent page loads.
 * **Streamlined Onboarding Flow:** Fixed role-lock race conditions during Google 1-Tap OAuth sign-up, ensuring newly registered weavers transition directly into their active Studio dashboard without infinite setup loops.
 * **PKCE OAuth Code Exchange:** Route Handler (`src/app/auth/callback/route.ts`) explicitly binds session cookies to outgoing `NextResponse.redirect` headers with reverse-proxy host resolution on Render.
 
@@ -175,6 +177,7 @@ flowchart TD
 │   ├── main.py                      # FastAPI entrypoint with regex CORS middleware
 │   ├── schema.sql                   # Database schema (artisans, products, tips, product_views)
 │   ├── auth_trigger.sql             # PostgreSQL trigger syncing auth.users to public.artisans
+│   ├── delete_demo_artisan.sql      # Devpost presentation cleanup script (purges demo artisan)
 │   ├── requirements.txt             # Pinned backend dependencies
 │   ├── .env.example                 # Environment template for backend
 │   └── .gitignore                   # Backend-specific ignore rules

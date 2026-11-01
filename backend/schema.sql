@@ -60,6 +60,19 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price INTEGER;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS audio_url TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS in_stock BOOLEAN DEFAULT TRUE;
 
+-- Ensure ON DELETE CASCADE constraints for clean account deletion
+ALTER TABLE IF EXISTS public.products
+    DROP CONSTRAINT IF EXISTS products_artisan_id_fkey,
+    ADD CONSTRAINT products_artisan_id_fkey FOREIGN KEY (artisan_id) REFERENCES public.artisans(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS public.tips
+    DROP CONSTRAINT IF EXISTS tips_artisan_id_fkey,
+    ADD CONSTRAINT tips_artisan_id_fkey FOREIGN KEY (artisan_id) REFERENCES public.artisans(id) ON DELETE CASCADE;
+
+ALTER TABLE IF EXISTS public.product_views
+    DROP CONSTRAINT IF EXISTS product_views_artisan_id_fkey,
+    ADD CONSTRAINT product_views_artisan_id_fkey FOREIGN KEY (artisan_id) REFERENCES public.artisans(id) ON DELETE CASCADE;
+
 -- Storage Buckets & Policies for artisan assets & product audio
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('artisan-assets', 'artisan-assets', true)

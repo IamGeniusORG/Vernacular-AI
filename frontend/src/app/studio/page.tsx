@@ -6,7 +6,7 @@ import {
   Mic, CheckCircle, Check, Share2, Loader2, Sparkles,
   ImagePlus, AudioLines, UploadCloud, AlertCircle, X, Plus, LogOut, User, Copy, Download, ShoppingBag,
   Trash2, RefreshCw, Camera, ExternalLink, ImageIcon,
-  BarChart3, TrendingUp, Globe2, WifiOff, Heart, Eye
+  BarChart3, TrendingUp, Globe2, WifiOff, Heart, Eye, HeartCrack
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -101,6 +101,47 @@ export default function Home() {
   // Dedicated state handles customer accounts gracefully below without silent redirects
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isActivatingArtisan, setIsActivatingArtisan] = useState(false);
+  const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (!artisanId) return;
+    setIsDeletingAccount(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token || "";
+
+      const res = await fetch(`${API_BASE}/api/v1/artisans/${artisanId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to delete account");
+      }
+
+      // Clear local auth & storage
+      await logout();
+      setIsDeleteAccountModalOpen(false);
+      showToast("Your account and data have been permanently erased.");
+
+      // Redirect cleanly to home page
+      if (typeof window !== "undefined") {
+        window.location.replace("/");
+      } else {
+        router.replace("/");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to delete account";
+      showToast(msg);
+      setIsDeletingAccount(false);
+    }
+  };
 
   const handleActivateArtisanRole = async () => {
     if (!artisanId) return;
@@ -1838,6 +1879,25 @@ export default function Home() {
                     <ExternalLink size={14} /> View Live Public Storefront
                   </button>
                 )}
+
+                {/* Danger Zone: Delete Account */}
+                <div className="pt-6 mt-4 border-t border-slate-200">
+                  <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-4 sm:p-5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-rose-900 mb-1">
+                      Danger Zone
+                    </h4>
+                    <p className="text-[11px] sm:text-xs text-rose-700 leading-relaxed mb-3.5">
+                      Permanently delete your artisan account, public storefront, products, and audio stories. This action cannot be reversed.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsDeleteAccountModalOpen(true)}
+                      className="w-full py-2.5 sm:py-3 bg-rose-600 hover:bg-rose-700 active:scale-[0.99] text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
+                    >
+                      <Trash2 size={15} /> Delete Account
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ) : activeTab === "insights" ? (
@@ -2596,13 +2656,26 @@ export default function Home() {
                 Browse Marketplace
               </button>
 
+              {/* Delete Account Trigger */}
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsProfileOpen(false);
+                  setIsDeleteAccountModalOpen(true);
+                }}
+                className="w-full h-11 bg-white text-rose-600 border border-rose-200 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-rose-50 hover:border-rose-300 transition active:scale-[0.99]"
+              >
+                <Trash2 size={16} />
+                Delete Account
+              </button>
+
               {/* Destructive / Tertiary Action: Sign Out */}
               <button 
                 onClick={() => {
                   setIsProfileOpen(false);
                   handleSignOut();
                 }}
-                className="w-full h-11 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-red-100/80 hover:text-red-700 transition active:scale-[0.99]"
+                className="w-full h-11 bg-stone-50 text-stone-600 border border-stone-200 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-stone-100 hover:text-stone-800 transition active:scale-[0.99]"
               >
                 <LogOut size={18} />
                 {t('sign_out')}
@@ -2639,6 +2712,78 @@ export default function Home() {
                   {isDeleting ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sincere, Branded Account Deletion Confirmation Modal */}
+        {isDeleteAccountModalOpen && (
+          <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-stone-200 flex flex-col items-center animate-in zoom-in-95 duration-200 relative text-center">
+              
+              {/* Close icon button */}
+              <button
+                type="button"
+                onClick={() => !isDeletingAccount && setIsDeleteAccountModalOpen(false)}
+                disabled={isDeletingAccount}
+                className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition disabled:opacity-50"
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
+
+              {/* Emotional Branded Icon */}
+              <div className="w-16 h-16 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mb-4 shadow-inner">
+                <HeartCrack size={32} className="stroke-[1.75]" />
+              </div>
+
+              {/* Title */}
+              <h3 className={`text-xl sm:text-2xl text-stone-900 font-bold mb-2.5 ${playfair.className}`}>
+                We&apos;re so sorry to see you go
+              </h3>
+
+              {/* Sincere message as requested */}
+              <p className="text-xs sm:text-sm text-stone-600 leading-relaxed mb-6 font-sans">
+                We&apos;re so sorry to see you go. Deleting your account will permanently erase your storefront, audio stories, and catalog from Vernacular AI.
+              </p>
+
+              {/* Warning box */}
+              <div className="w-full bg-rose-50/70 border border-rose-200/80 rounded-2xl p-3.5 text-left mb-6">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                  <div className="text-[11px] text-rose-800 leading-snug">
+                    <span className="font-bold">Irreversible Action:</span> All uploaded images, weaver voice recordings, direct patronage tips, and catalog entries will be permanently erased.
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons: "Stay with us" and "Leave and Delete Data" */}
+              <div className="w-full flex flex-col sm:flex-row gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteAccountModalOpen(false)}
+                  disabled={isDeletingAccount}
+                  className="w-full sm:flex-1 py-3 px-4 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer order-2 sm:order-1 disabled:opacity-50"
+                >
+                  Stay with us
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={isDeletingAccount}
+                  className="w-full sm:flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer order-1 sm:order-2 disabled:opacity-70"
+                >
+                  {isDeletingAccount ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>Deleting Data...</span>
+                    </>
+                  ) : (
+                    <span>Leave and Delete Data</span>
+                  )}
+                </button>
+              </div>
+
             </div>
           </div>
         )}

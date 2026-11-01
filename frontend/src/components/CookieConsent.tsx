@@ -10,20 +10,30 @@ export default function CookieConsent() {
 
   useEffect(() => {
     try {
-      const consent = localStorage.getItem("vernacular_cookie_consent");
-      if (!consent) {
-        // Subtle delay for smooth entrance without jarring the initial load
-        const timer = setTimeout(() => setIsVisible(true), 1200);
+      if (typeof window === "undefined") return;
+      const consent1 = localStorage.getItem("vernacular-cookie-consent");
+      const consent2 = localStorage.getItem("vernacular_cookie_consent");
+      const hasConsent =
+        consent1 === "true" ||
+        consent1 === "accepted" ||
+        consent1 === "essential" ||
+        consent2 === "true" ||
+        consent2 === "accepted" ||
+        consent2 === "essential";
+
+      if (!hasConsent) {
+        const timer = setTimeout(() => setIsVisible(true), 500);
         return () => clearTimeout(timer);
       }
     } catch {
-      // LocalStorage access restricted (e.g., incognito or iframe)
+      // LocalStorage access restricted (e.g., incognito or sandboxed iframe)
     }
   }, []);
 
   const handleAcceptAll = () => {
     try {
-      localStorage.setItem("vernacular_cookie_consent", "accepted");
+      localStorage.setItem("vernacular-cookie-consent", "true");
+      localStorage.setItem("vernacular_cookie_consent", "true");
     } catch {
       // ignore
     }
@@ -32,7 +42,8 @@ export default function CookieConsent() {
 
   const handleEssentialOnly = () => {
     try {
-      localStorage.setItem("vernacular_cookie_consent", "essential");
+      localStorage.setItem("vernacular-cookie-consent", "true");
+      localStorage.setItem("vernacular_cookie_consent", "true");
     } catch {
       // ignore
     }

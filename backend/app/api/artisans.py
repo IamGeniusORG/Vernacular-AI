@@ -1,8 +1,9 @@
 import uuid
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header
 from app.core.supabase_client import supabase
+from app.core.config import settings
 from app.core.auth import verify_artisan_owner
 
 router = APIRouter()
@@ -250,3 +251,107 @@ async def get_artisan_tips(artisan_id: str):
         }
     except Exception as e:
         return {"status": "success", "tips": [], "summary": {"total_inr": 0, "total_usd": 0, "count": 0}}
+
+
+def _extract_storage_filename(url: Optional[str], bucket: str) -> Optional[str]:
+    """Extract storage object relative path or filename from a Supabase Storage public URL."""
+    if not url or not isinstance(url, str):
+        return None
+    marker = f"/{bucket}/"
+    if marker in url:
+        path = url.split(marker)[-1].split("?")[0].strip()
+        return path if path else None
+    parts = url.split("?")[0].split("/")
+    if parts:
+        return parts[-1].strip()
+    return None
+
+
+@router.delete("/{artisan_id}")
+async def delete_artisan_account(
+    artisan_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Permanently delete an artisan account.
+    Enforces JWT Bearer authentication: only the account owner or service-role admin can delete.
+    Cleans up all images, audio, and branding assets from Supabase Storage buckets,
+    deletes all database records (via ON DELETE CASCADE), and removes the Supabase Auth user.
+    """
+    caller_id = await verify_artisan_owner(artisan_id, authorization)
+
+    try:
+        # 1. Fetch all product media to delete storage files before DB rows cascade
+        image_bucket = getattr(settings, "SUPABASE_BUCKET", "product-images") or "product-images"
+        try:
+            prods_res = supabase.table("products").select("id, image_url, audio_url").eq("artisan_id", artisan_id).execute()
+            products = prods_res.data or []
+        except Exception as e:
+            print(f"Notice: failed to query products for deletion: {e}")
+            products = []
+
+        # Remove product images and audio notes
+        for p in products:
+            img_url = p.get("image_url")
+            if img_url:
+                img_path = _extract_storage_filename(img_url, image_bucket)
+                if img_path:
+                    try:
+                        supabase.storage.from_(image_bucket).remove([img_path])
+                    except Exception as err:
+                        print(f"Notice: failed to delete image {img_path}: {err}")
+
+            audio_url = p.get("audio_url")
+            if audio_url:
+                audio_path = _extract_storage_filename(audio_url, "product-audio")
+                if audio_path:
+                    try:
+                        supabase.storage.from_("product-audio").remove([audio_path])
+                    except Exception as err:
+                        print(f"Notice: failed to delete audio {audio_path}: {err}")
+
+        # 2. Delete all branding assets from artisan-assets bucket under {artisan_id}/ folder
+        try:
+            assets = supabase.storage.from_("artisan-assets").list(artisan_id)
+            if assets:
+                paths = [f"{artisan_id}/{item['name']}" for item in assets if isinstance(item, dict) and "name" in item]
+                if paths:
+                    supabase.storage.from_("artisan-assets").remove(paths)
+        except Exception as err:
+            print(f"Notice: failed to delete artisan-assets directory: {err}")
+
+        # Also check artisan row for custom asset URLs
+        try:
+            artisan_res = supabase.table("artisans").select("avatar_url, banner_url, qr_code_url").eq("id", artisan_id).execute()
+            if artisan_res.data:
+                row = artisan_res.data[0]
+                for key in ["avatar_url", "banner_url", "qr_code_url"]:
+                    url = row.get(key)
+                    if url and "artisan-assets" in url:
+                        path = _extract_storage_filename(url, "artisan-assets")
+                        if path:
+                            try:
+                                supabase.storage.from_("artisan-assets").remove([path])
+                            except Exception:
+                                pass
+        except Exception as e:
+            print(f"Notice: failed to inspect artisan branding assets: {e}")
+
+        # 3. Delete artisan row from public.artisans (cascades to products, tips, product_views)
+        supabase.table("artisans").delete().eq("id", artisan_id).execute()
+
+        # 4. Delete user from Supabase Auth admin
+        try:
+            supabase.auth.admin.delete_user(artisan_id)
+        except Exception as auth_err:
+            print(f"Notice: auth.admin.delete_user deferred or not permitted: {auth_err}")
+
+        return {
+            "status": "success",
+            "message": "Artisan account, catalog, and storage assets permanently deleted.",
+            "artisan_id": artisan_id,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Account deletion failed: {str(e)}")
