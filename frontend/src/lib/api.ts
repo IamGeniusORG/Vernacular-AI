@@ -40,10 +40,10 @@ export interface Artisan {
 }
 
 export async function getArtisan(artisanId: string): Promise<Artisan | null> {
-  // 1. Try backend API
+  // 1. Try backend API with ISR caching (60s)
   try {
     const res = await fetch(`${API_BASE}/api/v1/artisans/${artisanId}`, {
-      cache: 'no-store',
+      next: { revalidate: 60 },
     });
     if (res.ok) {
       const data = await res.json();
@@ -75,10 +75,10 @@ export async function getArtisan(artisanId: string): Promise<Artisan | null> {
 }
 
 export async function getArtisanProducts(artisanId: string): Promise<Product[]> {
-  // 1. Try backend API
+  // 1. Try backend API with ISR caching (60s)
   try {
     const res = await fetch(`${API_BASE}/api/v1/products/shop/${artisanId}`, {
-      cache: 'no-store',
+      next: { revalidate: 60 },
     });
     if (res.ok) {
       const data = await res.json();

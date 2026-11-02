@@ -1,10 +1,11 @@
 import logging
 from typing import Optional
 import re
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from pydantic import BaseModel, Field
 
 from app.core.supabase_client import supabase
+from app.core.limiter import limiter
 
 logger = logging.getLogger("orders_router")
 router = APIRouter()
@@ -107,7 +108,8 @@ async def record_order(payload: OrderRecordRequest):
 
 
 @router.post("/subscribe")
-async def subscribe_newsletter(req: SubscribeRequest):
+@limiter.limit("5/minute")
+async def subscribe_newsletter(request: Request, req: SubscribeRequest):
     """Subscribe a buyer's email to the newsletter community."""
     email = req.email.strip().lower()
     if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):

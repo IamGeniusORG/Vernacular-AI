@@ -34,6 +34,12 @@ export default function LandingFooter() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cleanEmail }),
       });
+
+      if (res.status === 429) {
+        showToast("Please wait a moment before trying again.");
+        return;
+      }
+
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.status === "already_subscribed") {
         showToast(data.message || "This email is already subscribed to our patron circle.");

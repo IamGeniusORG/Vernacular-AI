@@ -1,12 +1,13 @@
 import asyncio
 import urllib.parse
 import uuid
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Header, BackgroundTasks, status
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Header, BackgroundTasks, status, Request
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
 from app.core.supabase_client import supabase
 from app.core.auth import get_current_user_id, verify_artisan_owner
+from app.core.limiter import limiter
 from app.services.ai_service import generate_product_listing, parse_search_intent
 from app.services.storage_service import upload_image, save_product, upload_audio
 from app.services.image_service import remove_background_with_fallback
@@ -128,7 +129,9 @@ async def _process_single_image(
 
 
 @router.post("/generate", response_model=BatchProductResponse)
+@limiter.limit("5/minute")
 async def generate_listing(
+    request: Request,
     background_tasks: BackgroundTasks,
     artisan_id: uuid.UUID = Form(...),
     images: List[UploadFile] = File(...),

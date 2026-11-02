@@ -11,8 +11,13 @@ backend_dir = os.path.dirname(os.path.abspath(__file__))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+from app.core.limiter import limiter
 from app.api.products import router as products_router
 from app.api.artisans import router as artisans_router
 from app.api.analytics import router as analytics_router
@@ -86,6 +91,18 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Attach SlowAPI Rate Limiter
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded. Please wait a moment before trying again."},
+        headers={"Retry-After": "60"},
+    )
+
 # Explicit CORS origins for production and local environments
 frontend_env = os.getenv("FRONTEND_URL", "https://vernacular-storefront.onrender.com").rstrip("/")
 raw_allowed = os.getenv("ALLOWED_ORIGINS", "")
@@ -131,7 +148,8 @@ app.include_router(artisans_router, prefix="/api/v1/artisans", tags=["Artisans"]
 app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 
-# Direct top-level subscription endpoint for convenience
+# Direct top-level subscription endpoint for convenience with client-IP rate limiting
 @app.post("/api/v1/subscribe", tags=["Subscribers"])
-async def subscribe_endpoint(req: SubscribeRequest):
-    return await subscribe_newsletter(req)
+@limiter.limit("5/minute")
+async def subscribe_endpoint(request: Request, req: SubscribeRequest):
+    return await subscribe_newsletter(request, req)

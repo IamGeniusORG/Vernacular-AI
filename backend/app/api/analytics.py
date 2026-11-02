@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 from app.core.supabase_client import supabase
+from app.core.limiter import limiter
 
 router = APIRouter()
 
@@ -14,7 +15,8 @@ class TrackViewRequest(BaseModel):
 
 
 @router.post("/view")
-async def track_view(payload: TrackViewRequest, request: Request):
+@limiter.limit("60/minute")
+async def track_view(request: Request, payload: TrackViewRequest):
     """
     Non-blocking visitor tracking. Resolves geo from edge headers or payload.
     """

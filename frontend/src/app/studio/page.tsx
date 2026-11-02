@@ -1261,6 +1261,13 @@ export default function Home() {
         headers,
         body: formData,
       });
+
+      if (res.status === 429) {
+        showToast("Please wait a moment before trying again.");
+        setErrorMsg("Please wait a moment before trying again.");
+        return;
+      }
+
       const data = await res.json();
       if (data.status === "success") {
         setResults(data.products);
