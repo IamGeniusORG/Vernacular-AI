@@ -47,6 +47,9 @@ export default function StorefrontClient({ products, artisan }: Props) {
   const [patronName, setPatronName] = useState<string>("");
   const [tipSuccess, setTipSuccess] = useState<{ amount: string; method: string } | null>(null);
   const [isRecordingTip, setIsRecordingTip] = useState(false);
+  const [isQrLightboxOpen, setIsQrLightboxOpen] = useState(false);
+  const [lightboxSubtitle, setLightboxSubtitle] = useState<string>("");
+  const [lightboxUri, setLightboxUri] = useState<string>("");
 
   const { artisanId } = useArtisan();
   const { t } = useLanguage();
@@ -98,6 +101,23 @@ export default function StorefrontClient({ products, artisan }: Props) {
       // ignore
     }
   }, [artisan?.id, destination]);
+
+  // ESC key listener to dismiss full-screen QR Lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isQrLightboxOpen) {
+        setIsQrLightboxOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isQrLightboxOpen]);
+
+  const openQrLightbox = (uri: string, subtitle: string) => {
+    setLightboxUri(uri);
+    setLightboxSubtitle(subtitle);
+    setIsQrLightboxOpen(true);
+  };
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -315,12 +335,14 @@ export default function StorefrontClient({ products, artisan }: Props) {
           order_id: orderId,
         }),
       });
+      showToast("🎉 Tip recorded! Thank you for supporting " + artisan.full_name);
       setTipSuccess({
         amount: tipCurrency === "INR" ? `₹${effectiveTipAmount}` : `$${effectiveTipAmount.toFixed(2)} USD`,
         method: method.toUpperCase(),
       });
     } catch (err) {
       console.error("Tip record error:", err);
+      showToast("🎉 Tip recorded! Thank you for supporting " + artisan.full_name);
       setTipSuccess({
         amount: tipCurrency === "INR" ? `₹${effectiveTipAmount}` : `$${effectiveTipAmount.toFixed(2)} USD`,
         method: method.toUpperCase(),
@@ -943,13 +965,19 @@ export default function StorefrontClient({ products, artisan }: Props) {
             </div>
 
             {/* QR Code Container */}
-            <div className="p-3 bg-white border border-stone-200 rounded-2xl shadow-inner mb-4 flex items-center justify-center min-h-[190px]">
+            <div 
+              onClick={() => (hasRealQr || hasRealUpi) && openQrLightbox(upiUri, `${activeUpiProduct?.ai_title_en || "Creation"} • ₹${upiPrice}`)}
+              title={hasPaymentConfigured ? "Click to view full-screen QR" : undefined}
+              className={`p-3 bg-white border border-stone-200 rounded-2xl shadow-inner mb-4 flex items-center justify-center min-h-[190px] relative ${
+                hasPaymentConfigured ? "cursor-pointer group hover:border-[#C85A32]/60 hover:shadow-md transition-all" : ""
+              }`}
+            >
               {hasRealQr ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={artisan.qr_code_url!}
                   alt={`${artisan.full_name} Payment QR`}
-                  className="w-44 h-44 object-contain rounded-xl"
+                  className="w-44 h-44 object-contain rounded-xl group-hover:scale-[1.02] transition-transform duration-200"
                 />
               ) : hasRealUpi ? (
                 <QRCodeCanvas
@@ -958,10 +986,16 @@ export default function StorefrontClient({ products, artisan }: Props) {
                   bgColor={"#ffffff"}
                   fgColor={"#171717"}
                   level={"M"}
+                  className="group-hover:scale-[1.02] transition-transform duration-200"
                 />
               ) : (
                 <div className="text-center p-4">
                   <p className="text-xs text-stone-500">The artisan haven&apos;t added their payment QR yet. Try again later!</p>
+                </div>
+              )}
+              {hasPaymentConfigured && (
+                <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded-md text-[9px] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  <span>🔍 Tap to expand</span>
                 </div>
               )}
             </div>
@@ -1233,13 +1267,17 @@ export default function StorefrontClient({ products, artisan }: Props) {
                   ) : (
                     <div className="w-full flex flex-col items-center">
                       {/* UPI QR Container: Real QR Image or Dynamic Canvas */}
-                      <div className="p-3 bg-white border-2 border-stone-200 rounded-2xl shadow-inner mb-3 flex items-center justify-center min-h-[170px]">
+                      <div
+                        onClick={() => openQrLightbox(tipUpiUri, `Patronage Tip • ₹${effectiveTipAmount}`)}
+                        title="Click to view full-screen QR"
+                        className="p-3 bg-white border-2 border-stone-200 hover:border-[#C85A32]/60 rounded-2xl shadow-inner mb-3 flex items-center justify-center min-h-[170px] cursor-pointer group transition-all duration-200 hover:shadow-md relative"
+                      >
                         {hasRealQr ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={artisan.qr_code_url!}
                             alt={`${artisan.full_name} Payment QR`}
-                            className="w-40 h-40 object-contain rounded-xl"
+                            className="w-40 h-40 object-contain rounded-xl group-hover:scale-[1.02] transition-transform duration-200"
                           />
                         ) : hasRealUpi ? (
                           <QRCodeCanvas
@@ -1248,8 +1286,12 @@ export default function StorefrontClient({ products, artisan }: Props) {
                             bgColor={"#ffffff"}
                             fgColor={"#171717"}
                             level={"M"}
+                            className="group-hover:scale-[1.02] transition-transform duration-200"
                           />
                         ) : null}
+                        <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded-md text-[9px] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                          <span>🔍 Tap to expand</span>
+                        </div>
                       </div>
 
                       {/* Artisan UPI ID Display & Copy */}
@@ -1291,14 +1333,24 @@ export default function StorefrontClient({ products, artisan }: Props) {
                         </a>
                       ) : null}
 
-                      {/* Confirm Sent Tip Button */}
+                      {/* Confirm Sent Tip Button with Disabled/Loading State */}
                       <button
                         type="button"
                         disabled={isRecordingTip}
                         onClick={() => handleRecordTip("upi")}
-                        className="w-full py-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition"
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.99] shadow-sm cursor-pointer disabled:cursor-not-allowed"
                       >
-                        {isRecordingTip ? "Recording..." : "I've Sent This Tip (Record)"}
+                        {isRecordingTip ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin text-white" />
+                            <span>Recording Tip...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check size={14} strokeWidth={2.5} />
+                            <span>I&apos;ve Sent This Tip (Record)</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   )
@@ -1449,6 +1501,94 @@ export default function StorefrontClient({ products, artisan }: Props) {
               className="w-full py-3 bg-stone-900 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-stone-800 transition active:scale-[0.99] shadow-md"
             >
               Continue Exploring Boutique
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Full-Screen Interactive QR Code Lightbox Overlay ── */}
+      {isQrLightboxOpen && (
+        <div
+          className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setIsQrLightboxOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Enlarged Payment QR Code Lightbox"
+        >
+          <div
+            className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-stone-200 flex flex-col items-center max-w-lg w-full relative animate-in zoom-in-95 duration-200 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Right "X" Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsQrLightboxOpen(false)}
+              aria-label="Close QR lightbox"
+              className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-full transition cursor-pointer"
+            >
+              <X size={22} />
+            </button>
+
+            {/* Lightbox Badge & Header */}
+            <div className="text-center mb-5 pt-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full inline-block mb-2">
+                {lightboxSubtitle || `Direct UPI • ${artisan.full_name}`}
+              </span>
+              <h3 className={`text-xl sm:text-2xl font-bold text-neutral-900 ${playfair.className}`}>
+                Scan &amp; Pay via UPI
+              </h3>
+              <p className="text-xs text-neutral-500 mt-1 max-w-xs mx-auto">
+                Scan using any UPI app on your mobile phone (GPay, PhonePe, Paytm, BHIM)
+              </p>
+            </div>
+
+            {/* High-Resolution QR Display (Large 400x400) */}
+            <div className="p-4 sm:p-6 bg-white border-2 border-stone-200 rounded-3xl shadow-inner flex items-center justify-center mb-4">
+              {hasRealQr ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={artisan.qr_code_url!}
+                  alt={`${artisan.full_name} Payment QR Code`}
+                  className="w-[280px] h-[280px] sm:w-[380px] sm:h-[380px] object-contain rounded-2xl"
+                />
+              ) : (
+                <QRCodeCanvas
+                  value={lightboxUri || tipUpiUri || upiUri}
+                  size={380}
+                  bgColor={"#ffffff"}
+                  fgColor={"#171717"}
+                  level={"H"}
+                  includeMargin={true}
+                  className="w-[280px] h-[280px] sm:w-[380px] sm:h-[380px] rounded-xl"
+                />
+              )}
+            </div>
+
+            {/* Artisan UPI ID Pill & Copy */}
+            {hasRealUpi && (
+              <div className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-xs mb-4">
+                <div className="min-w-0 pr-3">
+                  <span className="block text-[9px] uppercase font-bold text-stone-400 tracking-wider">UPI ID</span>
+                  <span className="font-mono font-bold text-stone-800 truncate block text-xs sm:text-sm">{upiId}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyUpi(upiId)}
+                  className="px-3 py-1.5 bg-white border border-stone-200 hover:bg-stone-100 rounded-lg font-semibold text-stone-700 flex items-center gap-1.5 transition text-xs shrink-0 cursor-pointer"
+                >
+                  {copiedUpi ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                  <span>{copiedUpi ? "Copied" : "Copy"}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Close / Done Button */}
+            <button
+              type="button"
+              onClick={() => setIsQrLightboxOpen(false)}
+              className="w-full py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition cursor-pointer"
+            >
+              Done Scanning
             </button>
           </div>
         </div>

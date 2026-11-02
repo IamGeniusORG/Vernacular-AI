@@ -2,11 +2,12 @@ import re
 import uuid
 from typing import Optional, List
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header, BackgroundTasks
 from app.core.supabase_client import supabase
 from app.core.config import settings
 from app.core.auth import verify_artisan_owner
 from app.schemas.artisan import ArtisanUpdate
+from app.services.email_service import send_artisan_tip_notification
 
 router = APIRouter()
 
@@ -208,8 +209,8 @@ async def upload_artisan_asset(
 
 
 @router.post("/{artisan_id}/tip")
-async def record_artisan_tip(artisan_id: str, tip: TipRequest):
-    """Record a direct patronage tip to an artisan."""
+async def record_artisan_tip(artisan_id: str, tip: TipRequest, background_tasks: BackgroundTasks):
+    """Record a direct patronage tip to an artisan and dispatch an email alert."""
     if tip.amount <= 0:
         raise HTTPException(status_code=400, detail="Tip amount must be greater than zero")
     if tip.currency not in ("INR", "USD"):
@@ -223,6 +224,8 @@ async def record_artisan_tip(artisan_id: str, tip: TipRequest):
         if not artisan_res.data:
             raise HTTPException(status_code=404, detail="Artisan not found")
 
+        artisan_name = artisan_res.data[0].get("full_name") or "Artisan"
+
         record = {
             "artisan_id": artisan_id,
             "amount": round(tip.amount, 2),
@@ -232,12 +235,40 @@ async def record_artisan_tip(artisan_id: str, tip: TipRequest):
             "order_id": tip.order_id,
         }
         res = supabase.table("tips").insert(record).execute()
+
+        # Enqueue background task for email notification via Resend
+        background_tasks.add_task(
+            send_artisan_tip_notification,
+            artisan_id=artisan_id,
+            artisan_name=artisan_name,
+            amount=round(tip.amount, 2),
+            currency=tip.currency,
+            payment_method=tip.payment_method,
+            patron_name=tip.patron_name,
+        )
+
         return {"status": "success", "tip": res.data[0] if res.data else record}
     except HTTPException:
         raise
     except Exception as e:
         # Graceful fallback if table is pending migration in Supabase production
         print(f"Tip logging notice: {e}")
+        try:
+            artisan_name = "Artisan"
+            if 'artisan_res' in locals() and artisan_res and artisan_res.data:
+                artisan_name = artisan_res.data[0].get("full_name") or "Artisan"
+            background_tasks.add_task(
+                send_artisan_tip_notification,
+                artisan_id=artisan_id,
+                artisan_name=artisan_name,
+                amount=round(tip.amount, 2),
+                currency=tip.currency,
+                payment_method=tip.payment_method,
+                patron_name=tip.patron_name,
+            )
+        except Exception as bg_err:
+            print(f"Failed to schedule tip email in fallback: {bg_err}")
+
         return {
             "status": "success",
             "notice": "Tip recorded locally",

@@ -184,3 +184,121 @@ def send_back_in_stock_notification(
         logger.info(f"Dispatched back-in-stock notification to {len(subscribers)} subscribers.")
     except Exception as e:
         logger.error(f"Failed to send back-in-stock notification: {e}")
+
+
+def send_artisan_tip_notification(
+    artisan_id: str,
+    artisan_name: str,
+    amount: float,
+    currency: str,
+    payment_method: str,
+    patron_name: Optional[str] = None,
+):
+    """
+    Background Task: Dispatches an email notification to the Artisan when a patron sends/records a tip.
+    Subject: 🎉 You received a new tip on Vernacular AI!
+    Body: "Hello [Artisan Name], [Patron Name or 'An anonymous patron'] has just recorded a [Currency] [Amount] tip for you via [Payment Method (e.g., UPI)]. Please check your banking app to confirm receipt of the funds."
+    Isolated with try/except so email delivery errors never fail the tip recording response.
+    """
+    try:
+        api_key = settings.RESEND_API_KEY or os.getenv("RESEND_API_KEY")
+        if not api_key:
+            logger.info("Notice: RESEND_API_KEY not configured. Artisan tip notification simulated.")
+            return
+
+        resend.api_key = api_key
+
+        # 1. Query the database to get the receiving Artisan's registered email address
+        artisan_email = None
+
+        # First attempt: Supabase Auth Admin API (where user signed up with Google or Email)
+        try:
+            auth_user = supabase.auth.admin.get_user_by_id(artisan_id)
+            if auth_user and auth_user.user and auth_user.user.email:
+                artisan_email = auth_user.user.email
+        except Exception as auth_err:
+            logger.warning(f"Notice querying auth.users for artisan {artisan_id}: {auth_err}")
+
+        # Second attempt: check artisans table (paypal_email or email)
+        if not artisan_email:
+            try:
+                res = supabase.table("artisans").select("*").eq("id", artisan_id).maybe_single().execute()
+                if res and res.data:
+                    artisan_email = res.data.get("paypal_email") or res.data.get("email")
+            except Exception as db_err:
+                logger.warning(f"Notice querying artisans table for email {artisan_id}: {db_err}")
+
+        if not artisan_email:
+            logger.info(f"No registered email found for artisan {artisan_id} ({artisan_name}). Skipping tip email.")
+            return
+
+        display_patron = (patron_name or "").strip() or "An anonymous patron"
+        formatted_amount = f"₹{amount:,.2f}" if currency == "INR" else f"${amount:,.2f} USD"
+        display_method = payment_method.upper() if payment_method else "UPI"
+
+        frontend_base = os.getenv("FRONTEND_URL", "https://vernacular-storefront.onrender.com").rstrip("/")
+        studio_url = f"{frontend_base}/studio"
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F9F8F6; margin: 0; padding: 24px; color: #1C1917; }}
+                .container {{ max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #E7E5E4; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
+                .header-bar {{ background: linear-gradient(135deg, #D97706, #B45309); padding: 32px 24px; text-align: center; color: #ffffff; }}
+                .header-emoji {{ font-size: 42px; margin-bottom: 8px; }}
+                .header-bar h1 {{ margin: 0; font-size: 22px; font-weight: 800; color: #ffffff; }}
+                .content {{ padding: 32px 28px; }}
+                .greeting {{ font-size: 16px; font-weight: 700; color: #1C1917; margin-bottom: 16px; }}
+                .message-box {{ background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 16px; padding: 20px; margin: 24px 0; text-align: center; }}
+                .tip-amount {{ font-size: 32px; font-weight: 900; color: #92400E; margin: 8px 0; }}
+                .tip-details {{ font-size: 12px; color: #78350F; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }}
+                .body-text {{ font-size: 14px; line-height: 1.6; color: #57534E; margin: 16px 0; }}
+                .cta-wrapper {{ text-align: center; margin: 28px 0 12px 0; }}
+                .btn {{ display: inline-block; padding: 14px 32px; background: #1C1917; color: #ffffff !important; text-decoration: none; border-radius: 9999px; font-weight: 700; font-size: 13px; }}
+                .footer {{ border-top: 1px solid #F5F5F4; padding: 20px; text-align: center; font-size: 11px; color: #A8A29E; background: #FAFAF9; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header-bar">
+                    <div class="header-emoji">🎉</div>
+                    <h1>You Received a New Tip!</h1>
+                </div>
+                <div class="content">
+                    <div class="greeting">Hello {artisan_name},</div>
+                    <p class="body-text">
+                        <strong>{display_patron}</strong> has just recorded a <strong>{currency} {formatted_amount}</strong> tip for you via <strong>{display_method}</strong>.
+                    </p>
+                    <div class="message-box">
+                        <div class="tip-details">Direct Patronage Recorded</div>
+                        <div class="tip-amount">{formatted_amount}</div>
+                        <div class="tip-details">Via {display_method} • 100% Commission-Free</div>
+                    </div>
+                    <p class="body-text">
+                        Please check your banking app to confirm receipt of the funds.
+                    </p>
+                    <div class="cta-wrapper">
+                        <a href="{studio_url}" class="btn">View Live Studio Analytics &rarr;</a>
+                    </div>
+                </div>
+                <div class="footer">
+                    Vernacular AI • 100% Direct Weaver Platform & Global Digital Sovereignty
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        resend.Emails.send({
+            "from": settings.FROM_EMAIL,
+            "to": artisan_email,
+            "subject": "🎉 You received a new tip on Vernacular AI!",
+            "html": html_content,
+        })
+        logger.info(f"Dispatched tip notification email to artisan {artisan_name} ({artisan_email}).")
+    except Exception as e:
+        logger.warning(f"Artisan tip email dispatch notice: {e}")
