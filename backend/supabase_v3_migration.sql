@@ -115,7 +115,29 @@ DROP POLICY IF EXISTS "Service role can view subscribers" ON public.subscribers;
 CREATE POLICY "Service role can view subscribers" ON public.subscribers 
     FOR SELECT USING (auth.role() = 'service_role');
 
--- 5. Supabase Realtime Publications
+-- 5. Product Views Analytics Table
+CREATE TABLE IF NOT EXISTS public.product_views (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    artisan_id UUID NOT NULL REFERENCES public.artisans(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES public.products(id) ON DELETE CASCADE,
+    country TEXT DEFAULT 'India',
+    country_code TEXT DEFAULT 'IN',
+    city TEXT DEFAULT 'Kolkata',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_views_artisan_created ON public.product_views(artisan_id, created_at DESC);
+ALTER TABLE public.product_views ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Artisans can view own analytics" ON public.product_views;
+CREATE POLICY "Artisans can view own analytics" ON public.product_views 
+    FOR SELECT USING (auth.uid() = artisan_id);
+
+DROP POLICY IF EXISTS "Public can record product views" ON public.product_views;
+CREATE POLICY "Public can record product views" ON public.product_views 
+    FOR INSERT WITH CHECK (true);
+
+-- 6. Supabase Realtime Publications
 -- Enables WebSocket subscriptions for live tips and orders in Artisan Studio
 DO $$
 BEGIN
@@ -123,10 +145,12 @@ BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.tips;
     EXCEPTION WHEN duplicate_object THEN
         -- table already in publication
+        NULL;
     END;
     BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
     EXCEPTION WHEN duplicate_object THEN
         -- table already in publication
+        NULL;
     END;
 END $$;
