@@ -3,17 +3,11 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { Playfair_Display } from "next/font/google";
+import { playfair } from "@/lib/fonts";
 import { Loader2, ShoppingBag, Sparkles } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import LanguageToggle from "@/components/LanguageToggle";
 import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
 
 function LoginContent() {
   const searchParams = useSearchParams();

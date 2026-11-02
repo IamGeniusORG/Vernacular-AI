@@ -23,6 +23,8 @@ export interface QueuedListing {
   notes?: string;
   language: string;
   timestamp: number;
+  manualPrice?: number | null;
+  stockQuantity?: number | null;
 }
 
 // Convert File / Blob to Base64 data URL
@@ -107,6 +109,12 @@ export const syncOfflineQueue = async (
       formData.append("language", item.language || "en");
       if (item.notes) {
         formData.append("notes", item.notes);
+      }
+      if (item.manualPrice) {
+        formData.append("manual_price", item.manualPrice.toString());
+      }
+      if (item.stockQuantity) {
+        formData.append("stock_quantity", item.stockQuantity.toString());
       }
 
       // Reconstitute images

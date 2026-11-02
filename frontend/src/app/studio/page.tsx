@@ -4,13 +4,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Mic, CheckCircle, Check, Share2, Loader2, Sparkles,
-  ImagePlus, AudioLines, UploadCloud, AlertCircle, X, Plus, LogOut, User, Copy, Download, ShoppingBag,
+  ImagePlus, AudioLines, UploadCloud, AlertCircle, X, Plus, Minus, LogOut, User, Copy, Download, ShoppingBag,
   Trash2, RefreshCw, Camera, ExternalLink, ImageIcon,
   BarChart3, TrendingUp, Globe2, WifiOff, Heart, Eye, HeartCrack
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Playfair_Display } from "next/font/google";
+import { playfair } from "@/lib/fonts";
 import { useLanguage } from "@/context/LanguageContext";
 import LanguageToggle from "@/components/LanguageToggle";
 import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
@@ -23,6 +23,7 @@ import UserDropdown from "@/components/UserDropdown";
 import { uploadArtisanAsset } from "@/lib/uploadAsset";
 import { revalidateArtisanProfile } from "@/app/actions/revalidate";
 import { useOfflineSync, enqueueListing, fileToBase64, QueuedListing } from "@/lib/offlineQueue";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -41,12 +42,6 @@ function generateOfflineId(): string {
 function getTimestamp(): number {
   return Date.now();
 }
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -247,12 +242,17 @@ export default function Home() {
   const [isLoadingInventory, setIsLoadingInventory] = useState(false);
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [isUpdatingPrice, setIsUpdatingPrice] = useState<Record<string, boolean>>({});
-  const [isTogglingStock, setIsTogglingStock] = useState<Record<string, boolean>>({});
+  const [isUpdatingStock, setIsUpdatingStock] = useState<Record<string, boolean>>({});
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
 
+  // Craft Tab Initial Pricing & Stock State
+  const [uploadPrice, setUploadPrice] = useState<string>("");
+  const [uploadStock, setUploadStock] = useState<number>(1);
+
   // Offline Synchronization & PWA State
+  useNetworkStatus(showToast);
   const [authToken, setAuthToken] = useState<string | null>(null);
 
   useEffect(() => {
@@ -752,6 +752,89 @@ export default function Home() {
     }
   }, [user?.id, artisanId]);
 
+  // ── Supabase Realtime Listener (Tips, Orders & Live Analytics State Hydration) ──
+  useEffect(() => {
+    const targetUserId = user?.id || artisanId;
+    if (!targetUserId) return;
+
+    const channel = supabase
+      .channel(`artisan-realtime-feed-${targetUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "tips",
+          filter: `artisan_id=eq.${targetUserId}`,
+        },
+        (payload) => {
+          const newTip = payload.new as {
+            amount?: number;
+            currency?: string;
+            patron_name?: string;
+          };
+          const patronName = newTip.patron_name || "Generous Patron";
+          const amount = Number(newTip.amount || 0);
+          const curr = newTip.currency === "USD" ? "$" : "₹";
+          showToast(`🎉 New tip received: ${curr}${amount} from ${patronName}!`);
+
+          // Live Hydrate Analytics State Without Refresh
+          setAnalytics((prev) => {
+            if (!prev) return prev;
+            const isUsd = newTip.currency === "USD";
+            return {
+              ...prev,
+              tips_summary: {
+                ...prev.tips_summary,
+                count: (prev.tips_summary?.count || 0) + 1,
+                total_inr: isUsd
+                  ? prev.tips_summary?.total_inr || 0
+                  : (prev.tips_summary?.total_inr || 0) + amount,
+                total_usd: isUsd
+                  ? (prev.tips_summary?.total_usd || 0) + amount
+                  : prev.tips_summary?.total_usd || 0,
+              },
+            };
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "orders",
+          filter: `artisan_id=eq.${targetUserId}`,
+        },
+        (payload) => {
+          const newOrder = payload.new as {
+            amount?: number;
+            currency?: string;
+            buyer_name?: string;
+            payment_method?: string;
+            status?: string;
+          };
+          const buyerName = newOrder.buyer_name || "Buyer";
+          const amount = Number(newOrder.amount || 0);
+          const curr = newOrder.currency === "USD" ? "$" : "₹";
+
+          if (newOrder.status === "completed" || newOrder.payment_method === "paypal") {
+            showToast(`🎉 New verified order: ${curr}${amount} from ${buyerName}!`);
+          } else {
+            showToast(`🔔 New pending UPI order: ₹${amount} from ${buyerName}. Please verify your bank app.`);
+          }
+
+          // Auto-refresh inventory so stock decrement is immediately visible
+          fetchMyCatalog();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, artisanId, supabase, showToast, fetchMyCatalog]);
+
   // Save single generated product price override
   const handleSaveProductPrice = async (product: GeneratedProduct) => {
     setIsSavingProductPrice((prev) => ({ ...prev, [product.product_id]: true }));
@@ -883,25 +966,89 @@ export default function Home() {
     }
   };
 
-  const handleToggleStock = async (product: Product) => {
-    const newStock = product.in_stock === false;
-    setIsTogglingStock((prev) => ({ ...prev, [product.id]: true }));
+  const handleAdjustStock = async (productId: string, newStock: number) => {
+    const safeStock = Math.max(0, newStock);
+    const isInStock = safeStock > 0;
+    setIsUpdatingStock((prev) => ({ ...prev, [productId]: true }));
+
+    // Optimistic local state update
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? { ...p, stock_quantity: safeStock, in_stock: isInStock }
+          : p
+      )
+    );
+
     try {
-      const { error } = await supabase
+      // 1. Direct Supabase update with defensive column check
+      const { error: dbErr } = await supabase
         .from("products")
-        .update({ in_stock: newStock })
-        .eq("id", product.id);
-      if (!error) {
-        setInventory((prev) =>
-          prev.map((p) => (p.id === product.id ? { ...p, in_stock: newStock } : p))
-        );
-        router.refresh();
-        showToast(newStock ? t("in_stock") : t("sold_out"));
+        .update({ stock_quantity: safeStock, in_stock: isInStock })
+        .eq("id", productId);
+
+      if (dbErr && (dbErr.code === "PGRST204" || dbErr.message?.includes("stock_quantity"))) {
+        await supabase
+          .from("products")
+          .update({ in_stock: isInStock })
+          .eq("id", productId);
       }
+
+      // 2. Patch backend API (which notifies subscribers if restocked 0 -> >0)
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      await fetch(`${API_BASE}/api/v1/products/${productId}/stock`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ stock_quantity: safeStock }),
+      });
+
+      router.refresh();
+      showToast(`Stock updated: ${safeStock} available`);
     } catch (err) {
-      console.error("Failed to toggle stock:", err);
+      console.error("Failed to adjust stock:", err);
+      showToast("Updated stock locally");
     } finally {
-      setIsTogglingStock((prev) => ({ ...prev, [product.id]: false }));
+      setIsUpdatingStock((prev) => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleToggleStock = async (product: Product) => {
+    const currentStock = typeof product.stock_quantity === "number" ? product.stock_quantity : (product.in_stock === false ? 0 : 1);
+    const isCurrentlyInStock = product.in_stock !== false && currentStock > 0;
+    const newStock = isCurrentlyInStock ? 0 : (currentStock > 0 ? currentStock : 1);
+    await handleAdjustStock(product.id, newStock);
+  };
+
+  const handleShareCatalogProduct = async (product: Product) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const productUrl = `${origin}/shop/${product.artisan_id || artisanId}?product=${product.id}`;
+    const shareTitle = product.ai_title_local || product.ai_title_en;
+    const shareText = `Check out this handcrafted masterpiece "${product.ai_title_en}" on Vernacular AI`;
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: productUrl,
+        });
+        showToast("Link shared successfully!");
+        return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(productUrl);
+      showToast("Product link copied to clipboard!");
+    } catch {
+      showToast("Failed to copy link");
     }
   };
 
@@ -1068,6 +1215,8 @@ export default function Home() {
           audio: queuedAudio,
           language: "en",
           timestamp: getTimestamp(),
+          manualPrice: uploadPrice ? parseInt(uploadPrice, 10) : undefined,
+          stockQuantity: uploadStock || 1,
         };
 
         await enqueueListing(offlineItem);
@@ -1077,6 +1226,8 @@ export default function Home() {
         setImages([]);
         setImagePreviews([]);
         setAudioBlob(null);
+        setUploadPrice("");
+        setUploadStock(1);
       } catch (queueErr) {
         console.error("Offline save error:", queueErr);
         setErrorMsg("Failed to save draft offline.");
@@ -1093,6 +1244,10 @@ export default function Home() {
     const audioMime = audioBlob.type || "audio/webm";
     const audioFilename = (audioBlob as File).name || (audioMime.includes("mp4") ? "recording.mp4" : "recording.webm");
     formData.append("audio", audioBlob, audioFilename);
+    if (uploadPrice) {
+      formData.append("manual_price", uploadPrice);
+    }
+    formData.append("stock_quantity", String(uploadStock || 1));
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -1146,12 +1301,16 @@ export default function Home() {
             audio: queuedAudio,
             language: "en",
             timestamp: getTimestamp(),
+            manualPrice: uploadPrice ? parseInt(uploadPrice, 10) : undefined,
+            stockQuantity: uploadStock || 1,
           });
           await refreshQueueCount();
           showToast("Network dropped. Saved draft to offline queue!");
           setImages([]);
           setImagePreviews([]);
           setAudioBlob(null);
+          setUploadPrice("");
+          setUploadStock(1);
           return;
         } catch {
           // ignore
@@ -1200,6 +1359,7 @@ export default function Home() {
   const reset = () => {
     setImages([]); setImagePreviews([]); setAudioBlob(null);
     setResults(null); setErrorMsg(null); setRecordingTime(0);
+    setUploadPrice(""); setUploadStock(1);
   };
 
   const canGenerate = images.length > 0 && !!audioBlob && !isLoading;
@@ -1292,10 +1452,18 @@ export default function Home() {
         {/* ── Mobile-Optimized Artisan Header ── */}
         <header className="px-3.5 sm:px-5 pt-3.5 sm:pt-6 pb-2.5 flex items-center justify-between border-b border-slate-100 bg-white/95 backdrop-blur-md sticky top-0 z-20 gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Studio Active" />
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? "bg-emerald-500" : "bg-amber-500 animate-pulse"}`}
+              title={isOnline ? "Studio Online" : "Studio Offline"}
+            />
             <h1 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 tracking-tight truncate">
               {t('header_title')}
             </h1>
+            {!isOnline && (
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1 border border-amber-300">
+                <WifiOff size={10} /> Offline
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {!isAppInstalled && (
@@ -1496,7 +1664,7 @@ export default function Home() {
                             alt={item.ai_title_en}
                             className="w-full h-full object-cover object-top"
                           />
-                          {item.in_stock === false && (
+                          {(item.in_stock === false || (typeof item.stock_quantity === "number" && item.stock_quantity <= 0)) && (
                             <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-wider">
                               {t('sold_out')}
                             </div>
@@ -1517,58 +1685,98 @@ export default function Home() {
                           )}
                         </div>
 
-                        <button
-                          onClick={() => initiateDelete(item.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
-                          title={t('delete_product')}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleShareCatalogProduct(item)}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                            title="Share Creation"
+                          >
+                            <Share2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => initiateDelete(item.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                            title={t('delete_product')}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Bottom row: Inline Price Editor & Stock Toggle */}
-                      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-slate-500">₹</span>
-                          <input
-                            type="number"
-                            value={priceDrafts[item.id] ?? ""}
-                            onChange={(e) =>
-                              setPriceDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))
-                            }
-                            placeholder="Price"
-                            className="w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-400"
-                          />
+                      {/* Bottom row: Inline Price Editor & Stock Management */}
+                      <div className="pt-2.5 border-t border-slate-100 flex flex-col gap-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-500">₹</span>
+                            <input
+                              type="number"
+                              value={priceDrafts[item.id] ?? ""}
+                              onChange={(e) =>
+                                setPriceDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))
+                              }
+                              placeholder="Price"
+                              className="w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                            />
+                            <button
+                              onClick={() => handleUpdatePrice(item.id)}
+                              disabled={isUpdatingPrice[item.id]}
+                              className="px-2.5 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition active:scale-95 disabled:opacity-60 cursor-pointer"
+                            >
+                              {isUpdatingPrice[item.id] ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                "Save"
+                              )}
+                            </button>
+                          </div>
+
                           <button
-                            onClick={() => handleUpdatePrice(item.id)}
-                            disabled={isUpdatingPrice[item.id]}
-                            className="px-2.5 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition active:scale-95 disabled:opacity-60"
+                            onClick={() => handleToggleStock(item)}
+                            disabled={isUpdatingStock[item.id]}
+                            className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer ${
+                              item.in_stock === false || (typeof item.stock_quantity === "number" && item.stock_quantity <= 0)
+                                ? "bg-stone-100 text-stone-600 border border-stone-300 hover:bg-stone-200"
+                                : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                            }`}
                           >
-                            {isUpdatingPrice[item.id] ? (
+                            {isUpdatingStock[item.id] ? (
                               <Loader2 size={12} className="animate-spin" />
+                            ) : item.in_stock === false || (typeof item.stock_quantity === "number" && item.stock_quantity <= 0) ? (
+                              <>● {t('sold_out')}</>
                             ) : (
-                              "Save"
+                              <>✓ {t('in_stock')}</>
                             )}
                           </button>
                         </div>
 
-                        <button
-                          onClick={() => handleToggleStock(item)}
-                          disabled={isTogglingStock[item.id]}
-                          className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1 active:scale-95 ${
-                            item.in_stock === false
-                              ? "bg-stone-100 text-stone-600 border border-stone-300 hover:bg-stone-200"
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                          }`}
-                        >
-                          {isTogglingStock[item.id] ? (
-                            <Loader2 size={12} className="animate-spin" />
-                          ) : item.in_stock === false ? (
-                            <>● {t('sold_out')}</>
-                          ) : (
-                            <>✓ {t('in_stock')}</>
-                          )}
-                        </button>
+                        {/* Interactive Inventory Stock Counter */}
+                        <div className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200/80">
+                          <span className="text-[11px] font-bold text-slate-600">Quantity Available:</span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleAdjustStock(item.id, Math.max(0, (item.stock_quantity ?? (item.in_stock === false ? 0 : 1)) - 1))}
+                              disabled={isUpdatingStock[item.id]}
+                              className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold text-xs disabled:opacity-40 cursor-pointer"
+                              title="Decrease stock"
+                            >
+                              <Minus size={12} />
+                            </button>
+                            <span className="w-8 text-center text-xs font-black text-slate-900">
+                              {typeof item.stock_quantity === "number" ? item.stock_quantity : (item.in_stock === false ? 0 : 1)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleAdjustStock(item.id, (item.stock_quantity ?? (item.in_stock === false ? 0 : 1)) + 1)}
+                              disabled={isUpdatingStock[item.id]}
+                              className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold text-xs disabled:opacity-40 cursor-pointer"
+                              title="Increase stock"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -2237,6 +2445,66 @@ export default function Home() {
                   )}
                 </div>
               </section>
+
+              {/* Step 3 — Initial Pricing & Inventory */}
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">3</div>
+                  <h2 className="text-base font-bold text-slate-800">Pricing & Inventory</h2>
+                </div>
+
+                <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">
+                        Price (₹) <span className="text-slate-400 font-normal lowercase">(optional)</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">₹</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={uploadPrice}
+                          onChange={(e) => setUploadPrice(e.target.value)}
+                          placeholder="AI estimates"
+                          className="w-full bg-white border border-slate-200 rounded-xl pl-6 pr-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">Leave blank for AI suggested pricing</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">
+                        Initial Stock
+                      </label>
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => setUploadStock((s) => Math.max(0, s - 1))}
+                          className="w-8 h-8 rounded-l-xl border border-r-0 border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-100 font-bold text-sm cursor-pointer"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          value={uploadStock}
+                          onChange={(e) => setUploadStock(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                          className="w-12 h-8 border border-slate-200 bg-white text-center text-xs font-bold text-slate-900 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setUploadStock((s) => s + 1)}
+                          className="w-8 h-8 rounded-r-xl border border-l-0 border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-100 font-bold text-sm cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">Units available</p>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
 
           ) : (
@@ -2408,12 +2676,20 @@ export default function Home() {
             <button
               onClick={generate}
               disabled={!canGenerate}
-              className={`w-full py-4 rounded-2xl font-extrabold text-base transition-all flex justify-center items-center gap-2 shadow-xl ${canGenerate ? "bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-[1.02] shadow-indigo-600/30" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
+              className={`w-full py-4 rounded-2xl font-extrabold text-base transition-all flex justify-center items-center gap-2 shadow-xl ${
+                canGenerate
+                  ? isOnline
+                    ? "bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-[1.02] shadow-indigo-600/30 cursor-pointer"
+                    : "bg-amber-600 text-white hover:bg-amber-700 hover:scale-[1.02] shadow-amber-600/30 cursor-pointer"
+                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
+              }`}
             >
               {isLoading ? (
                 <><Loader2 className="animate-spin" size={22} /> {loadingMsg || "Generating..."}</>
               ) : !artisanId ? (
                 <>{t('sign_in_to_generate')} <User size={18} /></>
+              ) : !isOnline ? (
+                <>Save Draft (Offline) <WifiOff size={18} /></>
               ) : (
                 <>{t('generate_btn')} <Sparkles size={18} /></>
               )}

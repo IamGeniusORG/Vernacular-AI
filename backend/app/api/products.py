@@ -1,8 +1,8 @@
 import asyncio
 import urllib.parse
 import uuid
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Header
-from pydantic import BaseModel
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Header, BackgroundTasks, status
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 from app.core.supabase_client import supabase
@@ -10,6 +10,7 @@ from app.core.auth import get_current_user_id, verify_artisan_owner
 from app.services.ai_service import generate_product_listing, parse_search_intent
 from app.services.storage_service import upload_image, save_product, upload_audio
 from app.services.image_service import remove_background_with_fallback
+from app.services.email_service import send_new_product_notification, send_back_in_stock_notification
 from app.schemas.product import BatchProductResponse, GeneratedProduct
 
 router = APIRouter()
@@ -20,6 +21,10 @@ class PriceUpdate(BaseModel):
     price: Optional[int] = None
     price_usd: Optional[float] = None
     suggested_usd_price: Optional[float] = None
+
+
+class StockUpdate(BaseModel):
+    stock_quantity: int = Field(..., ge=0)
 
 
 class SearchIntentRequest(BaseModel):
@@ -59,6 +64,8 @@ async def _process_single_image(
     audio_mime: str,
     artisan_id: str,
     audio_url: str,
+    manual_price: Optional[int] = None,
+    stock_quantity: int = 1,
 ) -> GeneratedProduct:
     """Upload image to Supabase, call AI, save to DB, return product."""
     image_bytes = await image_file.read()
@@ -85,11 +92,20 @@ async def _process_single_image(
     )
 
     # 3. Persist to Supabase DB (products table) asynchronously
-    saved = await asyncio.to_thread(save_product, artisan_id, image_url, audio_url, ai_data)
+    saved = await asyncio.to_thread(
+        save_product,
+        artisan_id,
+        image_url,
+        audio_url,
+        ai_data,
+        manual_price,
+        stock_quantity,
+    )
     product_id = str(saved.get("id", ""))
-    effective_price = saved.get("price") or saved.get("price_inr") or ai_data.get("price_inr")
+    effective_price = saved.get("price") or saved.get("price_inr") or manual_price or ai_data.get("price_inr")
     effective_usd = saved.get("price_usd") or ai_data.get("suggested_usd_price")
     export_desc = saved.get("export_description") or ai_data.get("export_description", "")
+    qty = saved.get("stock_quantity", stock_quantity)
 
     return GeneratedProduct(
         product_id=product_id,
@@ -106,14 +122,19 @@ async def _process_single_image(
         price_inr=effective_price,
         tags=ai_data.get("tags", []),
         whatsapp_link=_build_whatsapp_link(ai_data, product_id),
+        stock_quantity=qty,
+        in_stock=qty > 0,
     )
 
 
 @router.post("/generate", response_model=BatchProductResponse)
 async def generate_listing(
+    background_tasks: BackgroundTasks,
     artisan_id: uuid.UUID = Form(...),
     images: List[UploadFile] = File(...),
     audio: UploadFile = File(...),
+    manual_price: Optional[int] = Form(None),
+    stock_quantity: Optional[int] = Form(1),
     authorization: Optional[str] = Header(None),
 ):
     # Strict authentication: ensure the caller is authorized for this artisan_id
@@ -150,11 +171,38 @@ async def generate_listing(
         audio_url = await asyncio.to_thread(upload_audio, audio_bytes, audio_mime)
 
         # Process all images concurrently without blocking the event loop
+        effective_qty = stock_quantity if (stock_quantity is not None and stock_quantity >= 0) else 1
         tasks = [
-            _process_single_image(img, audio_bytes, audio_mime, str(artisan_id), audio_url)
+            _process_single_image(
+                img,
+                audio_bytes,
+                audio_mime,
+                str(artisan_id),
+                audio_url,
+                manual_price,
+                effective_qty,
+            )
             for img in images
         ]
         products = await asyncio.gather(*tasks)
+
+        # Background Task: Alert subscriber community of new handcrafted masterpiece
+        if products and len(products) > 0:
+            try:
+                artisan_res = supabase.table("artisans").select("full_name").eq("id", str(artisan_id)).execute()
+                artisan_name = artisan_res.data[0]["full_name"] if (artisan_res.data and len(artisan_res.data) > 0) else "Artisan"
+                first_prod = products[0]
+                background_tasks.add_task(
+                    send_new_product_notification,
+                    artisan_name=artisan_name,
+                    product_title=first_prod.ai_title_en or "Heritage Handloom Creation",
+                    image_url=first_prod.image_url,
+                    product_id=first_prod.product_id,
+                    price_inr=first_prod.price_inr,
+                    artisan_id=str(artisan_id),
+                )
+            except Exception as bg_err:
+                print(f"Notice: Background email scheduling deferred: {bg_err}")
 
         return BatchProductResponse(
             status="success",
@@ -231,5 +279,122 @@ async def update_product_price(
         return {"status": "success", "updated": patch_data}
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{product_id}/decrement-stock")
+async def decrement_product_stock_endpoint(product_id: str):
+    """
+    Atomic Stock Decrement Endpoint:
+    Decrements product inventory by 1 atomically to prevent race condition overselling.
+    Returns HTTP 409 Conflict if stock is 0 (sold out).
+    """
+    try:
+        # 1. Try Supabase RPC atomic stored procedure
+        try:
+            rpc_res = supabase.rpc("decrement_product_stock", {"p_product_id": product_id}).execute()
+            if rpc_res.data:
+                res_obj = rpc_res.data
+                if res_obj.get("success") is False:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Item has just sold out. Please explore other handloom creations."
+                    )
+                return {"status": "success", "remaining_stock": res_obj.get("remaining_stock", 0)}
+        except HTTPException:
+            raise
+        except Exception as rpc_err:
+            print(f"RPC decrement fallback to direct table operation: {rpc_err}")
+
+        # 2. Resilient table fallback
+        prod_res = supabase.table("products").select("stock_quantity, in_stock").eq("id", product_id).execute()
+        if not prod_res.data:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        current_stock = prod_res.data[0].get("stock_quantity")
+        if current_stock is None:
+            current_stock = 1 if prod_res.data[0].get("in_stock", True) else 0
+
+        if current_stock <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Item has just sold out. Please explore other handloom creations."
+            )
+
+        new_stock = max(0, current_stock - 1)
+        supabase.table("products").update({
+            "stock_quantity": new_stock,
+            "in_stock": new_stock > 0,
+        }).eq("id", product_id).execute()
+
+        return {"status": "success", "remaining_stock": new_stock}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/{product_id}/stock")
+async def update_product_stock(
+    product_id: str,
+    update: StockUpdate,
+    background_tasks: BackgroundTasks,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Manual Stock Adjustment Endpoint:
+    Artisan updates stock for their creation with strict JWT authorization.
+    If restocked from 0 to >0, triggers a BackgroundTasks job to email the subscriber community.
+    """
+    if update.stock_quantity < 0:
+        raise HTTPException(status_code=400, detail="Stock quantity cannot be negative")
+
+    caller_id = await get_current_user_id(authorization)
+
+    prod_res = (
+        supabase.table("products")
+        .select("artisan_id, stock_quantity, ai_title_en, image_url, price, price_inr")
+        .eq("id", product_id)
+        .execute()
+    )
+    if not prod_res.data:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    prod = prod_res.data[0]
+    prod_owner = str(prod.get("artisan_id", ""))
+    if caller_id != "service-role-admin" and prod_owner.lower() != caller_id.lower():
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: You can only adjust inventory for your own creations.",
+        )
+
+    previous_stock = prod.get("stock_quantity") or 0
+    new_stock = update.stock_quantity
+
+    try:
+        supabase.table("products").update({
+            "stock_quantity": new_stock,
+            "in_stock": new_stock > 0,
+        }).eq("id", product_id).execute()
+
+        # If restocked from 0 to >0, alert subscriber community
+        if previous_stock == 0 and new_stock > 0:
+            try:
+                artisan_res = supabase.table("artisans").select("full_name").eq("id", prod_owner).execute()
+                artisan_name = artisan_res.data[0]["full_name"] if (artisan_res.data and len(artisan_res.data) > 0) else "Artisan"
+                background_tasks.add_task(
+                    send_back_in_stock_notification,
+                    artisan_name=artisan_name,
+                    product_title=prod.get("ai_title_en") or "Heritage Handloom Creation",
+                    image_url=prod.get("image_url") or "",
+                    product_id=product_id,
+                    price_inr=prod.get("price") or prod.get("price_inr"),
+                    artisan_id=prod_owner,
+                )
+            except Exception as bg_err:
+                print(f"Notice: Restock email scheduling deferred: {bg_err}")
+
+        return {"status": "success", "stock_quantity": new_stock, "in_stock": new_stock > 0}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

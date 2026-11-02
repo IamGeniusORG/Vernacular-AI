@@ -17,6 +17,8 @@ class GeneratedProduct(BaseModel):
     export_description: Optional[str] = None
     tags: List[str]
     whatsapp_link: str
+    stock_quantity: Optional[int] = 1
+    in_stock: Optional[bool] = True
 
 
 class BatchProductResponse(BaseModel):

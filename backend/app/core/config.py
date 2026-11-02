@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = "" # User added this
     SUPABASE_BUCKET: str = "product-images"
+    RESEND_API_KEY: str = ""
+    FROM_EMAIL: str = "Vernacular AI <onboarding@resend.dev>"
 
     class Config:
         env_file = (_BACKEND_ENV, ".env")

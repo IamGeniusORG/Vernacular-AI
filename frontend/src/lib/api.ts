@@ -17,6 +17,7 @@ export interface Product {
   export_description?: string | null;
   tags: string[];
   in_stock?: boolean | null;
+  stock_quantity?: number | null;
   created_at: string;
 }
 

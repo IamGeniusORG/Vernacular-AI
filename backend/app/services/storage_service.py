@@ -56,11 +56,17 @@ def upload_audio(audio_bytes: bytes, mime_type: str = "audio/webm") -> str:
     return public_url
 
 
-def save_product(artisan_id: str, image_url: str, audio_url: str, ai_data: dict) -> dict:
+def save_product(
+    artisan_id: str,
+    image_url: str,
+    audio_url: str,
+    ai_data: dict,
+    manual_price: Optional[int] = None,
+    stock_quantity: int = 1,
+) -> dict:
     """Insert a generated product into Supabase products table. Returns inserted row."""
-    # Determine default price: ai price -> parsed suggested price -> 1500 fallback
-    ai_price = ai_data.get("price_inr")
-    final_price = ai_price
+    # Determine default price: manual price -> ai price -> parsed suggested price -> 1500 fallback
+    final_price = manual_price if (manual_price is not None and manual_price > 0) else ai_data.get("price_inr")
     if final_price is None and ai_data.get("suggested_price_range"):
         matches = re.findall(r'\d+', str(ai_data.get("suggested_price_range", "")))
         if matches:
@@ -91,6 +97,7 @@ def save_product(artisan_id: str, image_url: str, audio_url: str, ai_data: dict)
 
     export_desc = ai_data.get("export_description", "") or ai_data.get("ai_desc_en", "")
 
+    qty = max(0, stock_quantity)
     row = {
         "artisan_id": str(artisan_id),
         "image_url": image_url,
@@ -105,7 +112,8 @@ def save_product(artisan_id: str, image_url: str, audio_url: str, ai_data: dict)
         "price_inr":      final_price,
         "price":          final_price,
         "price_usd":      final_usd,
-        "in_stock":       True,
+        "in_stock":       qty > 0,
+        "stock_quantity": qty,
         "tags":           ai_data.get("tags", []),
     }
     try:
@@ -113,16 +121,17 @@ def save_product(artisan_id: str, image_url: str, audio_url: str, ai_data: dict)
         return response.data[0] if response.data else row
     except Exception as e:
         err_msg = str(e)
-        if "PGRST204" in err_msg or "export_description" in err_msg or "schema cache" in err_msg:
-            # Safe fallback if export_description / price_usd column hasn't been added to remote DB yet
+        if "PGRST204" in err_msg or "export_description" in err_msg or "stock_quantity" in err_msg or "schema cache" in err_msg:
+            # Safe fallback if export_description / price_usd / stock_quantity column hasn't been added to remote DB yet
             safe_row = row.copy()
-            for col in ["export_description", "suggested_usd_price", "price_usd"]:
+            for col in ["export_description", "suggested_usd_price", "price_usd", "stock_quantity"]:
                 safe_row.pop(col, None)
             response = supabase.table("products").insert(safe_row).execute()
             saved = response.data[0] if response.data else safe_row
             saved["export_description"] = export_desc
             saved["suggested_usd_price"] = final_usd
             saved["price_usd"] = final_usd
+            saved["stock_quantity"] = qty
             return saved
         raise e
 

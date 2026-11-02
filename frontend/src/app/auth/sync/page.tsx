@@ -4,15 +4,9 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useArtisan } from "@/context/ArtisanContext";
-import { Playfair_Display } from "next/font/google";
+import { playfair } from "@/lib/fonts";
 import { Loader2, Sparkles, ArrowRight } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
 
 function AuthSyncContent() {
   const router = useRouter();

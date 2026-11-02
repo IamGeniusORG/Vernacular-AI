@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.products import router as products_router
 from app.api.artisans import router as artisans_router
 from app.api.analytics import router as analytics_router
+from app.api.orders import router as orders_router, SubscribeRequest, subscribe_newsletter
 
 start_time = time.time()
 keep_alive_stats = {
@@ -128,3 +129,9 @@ async def health_check():
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(artisans_router, prefix="/api/v1/artisans", tags=["Artisans"])
 app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])
+app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
+
+# Direct top-level subscription endpoint for convenience
+@app.post("/api/v1/subscribe", tags=["Subscribers"])
+async def subscribe_endpoint(req: SubscribeRequest):
+    return await subscribe_newsletter(req)

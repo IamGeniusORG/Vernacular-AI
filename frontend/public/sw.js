@@ -69,7 +69,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigation requests: Network-first with cache fallback
+  // Navigation requests: Offline-First Studio Routing
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
@@ -81,10 +81,12 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(async () => {
+          // When offline, intercept and serve /studio as the primary accessible workspace
+          const studioFallback = await caches.match("/studio");
+          if (studioFallback) return studioFallback;
           const cached = await caches.match(request);
           if (cached) return cached;
-          const fallback = await caches.match("/studio");
-          return fallback || caches.match("/");
+          return (await caches.match("/")) || Response.error();
         })
     );
     return;

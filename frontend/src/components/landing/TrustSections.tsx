@@ -16,14 +16,8 @@ import {
   Lock,
   UserCheck,
 } from "lucide-react";
-import { Playfair_Display } from "next/font/google";
+import { playfair } from "@/lib/fonts";
 import { useLanguage } from "@/context/LanguageContext";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  display: "swap",
-});
 
 export default function TrustSections() {
   const { t } = useLanguage();

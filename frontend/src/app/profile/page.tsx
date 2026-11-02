@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Playfair_Display } from "next/font/google";
+import { playfair } from "@/lib/fonts";
 import {
   Camera,
   ArrowLeft,
@@ -29,11 +29,6 @@ import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { uploadArtisanAsset } from "@/lib/uploadAsset";
 import { createClient } from "@/utils/supabase/client";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-});
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 

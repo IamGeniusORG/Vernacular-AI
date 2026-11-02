@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShoppingBag, MessageCircle, BadgeCheck, Camera, Zap, X, Copy, Check, ArrowLeft, Volume2, Globe, Heart, AlertCircle } from "lucide-react";
+import { ShoppingBag, MessageCircle, BadgeCheck, Camera, Zap, X, Copy, Check, ArrowLeft, Volume2, Globe, Heart, AlertCircle, Share2, Loader2 } from "lucide-react";
 import { Product, Artisan } from "@/lib/api";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
 import Image from "next/image";
-import { Playfair_Display } from "next/font/google";
+import { playfair } from "@/lib/fonts";
 import { QRCodeCanvas } from "qrcode.react";
 import Marquee from "@/components/Marquee";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
@@ -16,12 +16,6 @@ import UserDropdown from "@/components/UserDropdown";
 import LanguageToggle from "@/components/LanguageToggle";
 import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 import { usePreferences } from "@/context/PreferencesContext";
-
-const playfair = Playfair_Display({ 
-  subsets: ["latin"], 
-  weight: ["400", "500", "600", "700"],
-  display: "swap"
-});
 
 interface Props {
   products: Product[];
@@ -136,6 +130,122 @@ export default function StorefrontClient({ products, artisan }: Props) {
       setCopiedUpi(true);
       showToast("UPI ID copied to clipboard!");
       setTimeout(() => setCopiedUpi(false), 2000);
+    }
+  };
+
+  const handleShareProfile = async () => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const title = `Handcrafted Heritage Creations by ${artisan.full_name} | Vernacular AI`;
+    const text = `Check out these handcrafted masterpieces by ${artisan.full_name} on Vernacular AI:`;
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        showToast("Shared successfully!");
+        return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+      }
+    }
+
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+      showToast("Profile link copied to clipboard!");
+    }
+  };
+
+  const handleShareProduct = async (product: Product) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const url = `${origin}/shop/${artisan.id}#product-${product.id}`;
+    const productTitle = product.ai_title_en || product.ai_title_local || "Handcrafted Masterpiece";
+    const title = `${productTitle} by ${artisan.full_name} | Vernacular AI`;
+    const text = `Check out this handcrafted masterpiece by ${artisan.full_name} on Vernacular AI:`;
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        showToast("Shared successfully!");
+        return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+      }
+    }
+
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+      showToast("Product link copied to clipboard!");
+    }
+  };
+
+  const [isReportingUpi, setIsReportingUpi] = useState(false);
+
+  const handleRecordOrder = async (
+    product: Product,
+    paymentMethod: "paypal" | "upi",
+    status: "completed" | "pending",
+    amount: number,
+    orderCurrency: "INR" | "USD",
+    transactionId?: string,
+    buyerName?: string
+  ) => {
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      await fetch(`${backendUrl}/api/v1/orders/record`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          artisan_id: artisan.id,
+          product_id: product.id,
+          amount,
+          currency: orderCurrency,
+          payment_method: paymentMethod,
+          status,
+          transaction_id: transactionId,
+          buyer_name: buyerName || "Anonymous Patron",
+        }),
+      });
+
+      // Optimistically decrement local stock quantity in state
+      setShuffledProducts((prev) =>
+        prev.map((p) => {
+          if (p.id === product.id) {
+            const currentQty = p.stock_quantity ?? (p.in_stock === false ? 0 : 1);
+            const nextQty = Math.max(0, currentQty - 1);
+            return {
+              ...p,
+              stock_quantity: nextQty,
+              in_stock: nextQty > 0,
+            };
+          }
+          return p;
+        })
+      );
+    } catch (err) {
+      console.warn("Order recording notice:", err);
+    }
+  };
+
+  const handleReportUpiPayment = async () => {
+    if (!activeUpiProduct) return;
+    setIsReportingUpi(true);
+    try {
+      const upiPrice = activeUpiProduct.price || activeUpiProduct.price_inr || 1500;
+      await handleRecordOrder(
+        activeUpiProduct,
+        "upi",
+        "pending",
+        upiPrice,
+        "INR",
+        `UPI-REF-${Date.now().toString().slice(-6)}`,
+        patronName || "Valued Patron"
+      );
+      showToast("Payment reported! Waiting for artisan confirmation.");
+      setActiveUpiProduct(null);
+    } catch {
+      showToast("Payment reported! Waiting for artisan confirmation.");
+      setActiveUpiProduct(null);
+    } finally {
+      setIsReportingUpi(false);
     }
   };
 
@@ -331,6 +441,15 @@ export default function StorefrontClient({ products, artisan }: Props) {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleShareProfile}
+                  className="px-4 py-2 bg-white hover:bg-stone-100 text-neutral-800 rounded-full text-xs font-semibold flex items-center gap-1.5 transition border border-stone-200 shadow-sm cursor-pointer active:scale-95"
+                  title="Share Storefront"
+                >
+                  <Share2 size={13} />
+                  <span>Share Profile</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsTipModalOpen(true)}
@@ -551,12 +670,17 @@ export default function StorefrontClient({ products, artisan }: Props) {
           {gridProducts.map((product) => {
             const displayPrice = product.price || product.price_inr;
             const usdPrice = getProductUsdPrice(product);
-            const isSoldOut = product.in_stock === false;
+            const stock = product.stock_quantity !== undefined && product.stock_quantity !== null
+              ? product.stock_quantity
+              : (product.in_stock === false ? 0 : 1);
+            const isSoldOut = stock <= 0 || product.in_stock === false;
+            const isLowStock = !isSoldOut && stock >= 1 && stock <= 3;
 
             return (
               <div
                 key={product.id}
-                className="group flex flex-col bg-transparent"
+                id={`product-${product.id}`}
+                className="group flex flex-col bg-transparent relative"
               >
                 {/* Image Container with Next.js Image Optimization */}
                 <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-white border border-stone-200 mb-4">
@@ -571,11 +695,29 @@ export default function StorefrontClient({ products, artisan }: Props) {
                   <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm text-neutral-900 text-sm font-semibold px-3 py-1 rounded-full shadow-sm z-10">
                     {destination === "international" ? `$${usdPrice.toFixed(2)} USD` : `₹${displayPrice || 1500}`}
                   </div>
-                  {isSoldOut && (
-                    <div className="absolute top-3 right-3 bg-neutral-900/85 backdrop-blur-md text-white text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow z-10">
-                      {t('sold_out')}
+
+                  {/* Share Product Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleShareProduct(product)}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-neutral-700 hover:text-neutral-900 flex items-center justify-center shadow transition z-10 cursor-pointer active:scale-95"
+                    title="Share Creation"
+                  >
+                    <Share2 size={13} />
+                  </button>
+
+                  {/* Sold Out / Low Stock Badges */}
+                  {isSoldOut ? (
+                    <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] flex items-center justify-center z-10">
+                      <span className="bg-neutral-900/95 text-white text-[11px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-md border border-white/20">
+                        {t('sold_out', 'Sold Out')}
+                      </span>
                     </div>
-                  )}
+                  ) : isLowStock ? (
+                    <div className="absolute top-3 left-3 bg-rose-600/95 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow z-10 animate-pulse">
+                      Only {stock} left!
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Details */}
@@ -669,6 +811,16 @@ export default function StorefrontClient({ products, artisan }: Props) {
                                 productTitle: product.ai_title_en || product.ai_title_local || "Handcrafted Heritage Creation",
                                 amount: `$${usdPrice.toFixed(2)} USD`,
                               });
+                              // Record order into database and atomically decrement stock
+                              await handleRecordOrder(
+                                product,
+                                "paypal",
+                                "completed",
+                                usdPrice,
+                                "USD",
+                                orderId,
+                                details.payer?.name?.given_name || "Valued Global Patron"
+                              );
                             }
                           }}
                           onError={(err) => {
@@ -839,13 +991,24 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
             {/* Pay via UPI App Deep-link Button */}
             {upiUri ? (
-              <a
-                href={upiUri}
-                className="w-full py-3 bg-neutral-900 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 hover:bg-neutral-800 transition active:scale-[0.99] shadow-md text-center"
-              >
-                <Zap size={16} className="text-amber-400 fill-amber-400 shrink-0" />
-                {t('pay_via_upi_app')}
-              </a>
+              <div className="w-full space-y-2">
+                <a
+                  href={upiUri}
+                  className="w-full py-3 bg-neutral-900 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 hover:bg-neutral-800 transition active:scale-[0.99] shadow-md text-center"
+                >
+                  <Zap size={16} className="text-amber-400 fill-amber-400 shrink-0" />
+                  {t('pay_via_upi_app')}
+                </a>
+                <button
+                  type="button"
+                  disabled={isReportingUpi}
+                  onClick={handleReportUpiPayment}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.99] shadow-sm text-center cursor-pointer"
+                >
+                  {isReportingUpi ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                  <span>I have completed the UPI payment</span>
+                </button>
+              </div>
             ) : (
               <button
                 type="button"

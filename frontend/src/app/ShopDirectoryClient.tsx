@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Search, MapPin, Mic, MicOff, ArrowRight, Sparkles, Users, Package, Globe2, X, Loader2 } from "lucide-react";
-import { Playfair_Display } from "next/font/google";
+import { playfair } from "@/lib/fonts";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { Artisan } from "@/lib/api";
@@ -22,12 +22,6 @@ import HowItWorks from "@/components/landing/HowItWorks";
 import TrustSections from "@/components/landing/TrustSections";
 import LandingFaq from "@/components/landing/LandingFaq";
 import LandingFooter from "@/components/landing/LandingFooter";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
-});
 
 const CRAFT_FILTERS = ["All", "Baluchari", "Taant", "Jamdani", "Khadi", "Silk"];
 

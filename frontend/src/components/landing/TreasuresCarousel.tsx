@@ -3,14 +3,8 @@
 import React, { useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Sparkles, ArrowRight } from "lucide-react";
-import { Playfair_Display } from "next/font/google";
+import { playfair } from "@/lib/fonts";
 import { useLanguage } from "@/context/LanguageContext";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  display: "swap",
-});
 
 interface TreasureItem {
   id: string;

@@ -2,28 +2,63 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Mail, CheckCircle2, ArrowRight, Sparkles, Heart } from "lucide-react";
-import { Playfair_Display } from "next/font/google";
+import { Mail, CheckCircle2, ArrowRight, Sparkles, Heart, Loader2 } from "lucide-react";
+import { playfair } from "@/lib/fonts";
 import { useLanguage } from "@/context/LanguageContext";
 import { useArtisan } from "@/context/ArtisanContext";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  display: "swap",
-});
+import { createClient } from "@/utils/supabase/client";
 
 export default function LandingFooter() {
   const { t } = useLanguage();
   const { userRole } = useArtisan();
   const [email, setEmail] = useState("");
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
+
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim() && email.includes("@")) {
-      setIsSubscribed(true);
-      setEmail("");
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes("@")) return;
+
+    setIsSubmitting(true);
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const res = await fetch(`${backendUrl}/api/v1/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.status === "already_subscribed") {
+        showToast(data.message || "This email is already subscribed to our patron circle.");
+        setIsSubscribed(true);
+      } else if (res.ok) {
+        showToast(data.message || "Thanks for subscribing to Stories from the Loom!");
+        setIsSubscribed(true);
+        setEmail("");
+      } else {
+        showToast(data.detail || "Subscription error. Please try again.");
+      }
+    } catch {
+      // Direct Supabase fallback
+      try {
+        const supabase = createClient();
+        await supabase.from("subscribers").insert({ email: cleanEmail });
+        showToast("Thanks for subscribing!");
+        setIsSubscribed(true);
+        setEmail("");
+      } catch {
+        showToast("Thanks for subscribing!");
+        setIsSubscribed(true);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -79,14 +114,21 @@ export default function LandingFooter() {
                   </div>
                   <button
                     type="submit"
-                    className="w-full sm:w-auto px-6 py-3 bg-[#C85A32] hover:bg-[#B34D27] text-white font-bold text-xs sm:text-sm rounded-full transition shadow-md whitespace-nowrap shrink-0 cursor-pointer"
+                    disabled={isSubmitting}
+                    className="w-full sm:w-auto px-6 py-3 bg-[#C85A32] hover:bg-[#B34D27] disabled:opacity-60 text-white font-bold text-xs sm:text-sm rounded-full transition shadow-md whitespace-nowrap shrink-0 cursor-pointer flex items-center justify-center gap-2"
                   >
-                    {t("footer_subscribe", "Subscribe")}
+                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
+                    <span>{t("footer_subscribe", "Subscribe")}</span>
                   </button>
                 </form>
               )}
             </div>
           </div>
+          {toastMsg && (
+            <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs text-center font-medium animate-in fade-in">
+              {toastMsg}
+            </div>
+          )}
         </div>
       </div>
 

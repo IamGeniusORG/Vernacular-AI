@@ -2,14 +2,8 @@
 
 import React, { useState } from "react";
 import { ChevronDown, HelpCircle } from "lucide-react";
-import { Playfair_Display } from "next/font/google";
+import { playfair } from "@/lib/fonts";
 import { useLanguage } from "@/context/LanguageContext";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  display: "swap",
-});
 
 export default function LandingFaq() {
   const { t } = useLanguage();
