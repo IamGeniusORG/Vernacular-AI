@@ -26,7 +26,20 @@ yarn-error.log*
 *.env
 .env.development
 .env.production
+.env.test
 !.env.example
+
+# Secret keys & certificates
+*.pem
+*.key
+*.crt
+*secret*
+
+# Databases & local dumps
+*.sqlite
+*.sqlite3
+*.db
+*.dump
 
 # Vercel
 .vercel/

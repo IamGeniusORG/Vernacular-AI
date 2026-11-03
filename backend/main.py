@@ -18,6 +18,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.core.limiter import limiter
+from app.core.config import settings
 from app.api.products import router as products_router
 from app.api.artisans import router as artisans_router
 from app.api.analytics import router as analytics_router
@@ -74,6 +75,8 @@ async def keep_alive_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Strict DevSecOps: Fail fast if secrets are missing
+    settings.validate_secrets()
     # Start background keep-alive task on server boot
     task = asyncio.create_task(keep_alive_loop())
     yield

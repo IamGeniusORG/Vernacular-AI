@@ -1,0 +1,20 @@
+{
+  "name": "vernacular-ai-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vernacular AI Monorepo Root - Zero-Leak DevSecOps",
+  "scripts": {
+    "prepare": "husky",
+    "scan:secrets": "python scripts/scan_secrets.py",
+    "scan:secrets:staged": "python scripts/scan_secrets.py --staged"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3"
+  },
+  "lint-staged": {
+    "*": [
+      "python scripts/scan_secrets.py --staged"
+    ]
+  }
+}

@@ -22,7 +22,7 @@ import UniversalAvatar from "@/components/UniversalAvatar";
 import UserDropdown from "@/components/UserDropdown";
 import { uploadArtisanAsset } from "@/lib/uploadAsset";
 import { revalidateArtisanProfile } from "@/app/actions/revalidate";
-import { useOfflineSync, enqueueListing, fileToBase64, QueuedListing } from "@/lib/offlineQueue";
+import { useOfflineSync, enqueueListing, enqueueOfflineAction, fileToBase64, QueuedListing } from "@/lib/offlineQueue";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -583,14 +583,18 @@ export default function Home() {
         modalQrCodeUrl.trim()
       );
       if (success) {
-        await revalidateArtisanProfile(targetId);
-        router.refresh();
-        showToast("Profile updated");
+        if (!isOnline) {
+          showToast("Saved offline. Will sync when internet returns.");
+        } else {
+          await revalidateArtisanProfile(targetId);
+          router.refresh();
+          showToast("Profile updated");
+        }
         setIsProfileOpen(false);
       }
     } catch (err) {
       console.error("Error saving profile:", err);
-      showToast("Failed to save profile");
+      showToast(!isOnline ? "Saved offline. Will sync when internet returns." : "Failed to save profile");
     } finally {
       setIsSavingProfile(false); // CRITICAL FIX
     }
@@ -643,11 +647,15 @@ export default function Home() {
       );
 
       if (success) {
-        await revalidateArtisanProfile(targetId);
-        router.refresh();
-        showToast("Branding & Profile saved!");
+        if (!isOnline) {
+          showToast("Saved offline. Will sync when internet returns.");
+        } else {
+          await revalidateArtisanProfile(targetId);
+          router.refresh();
+          showToast("Branding & Profile saved!");
+        }
       } else {
-        showToast("Failed to save branding");
+        showToast(!isOnline ? "Saved offline. Will sync when internet returns." : "Failed to save branding");
       }
     } catch (err) {
       console.error("Save branding error:", err);
@@ -981,6 +989,21 @@ export default function Home() {
       )
     );
 
+    // If offline, queue action into IndexedDB without making network requests
+    if (!isOnline) {
+      await enqueueOfflineAction({
+        type: "UPDATE_STOCK",
+        endpoint: `${API_BASE}/api/v1/products/${productId}/stock`,
+        method: "PATCH",
+        payload: { stock_quantity: safeStock, in_stock: isInStock },
+        artisanId: artisanId || undefined,
+        description: `Update Stock for ${productId} to ${safeStock}`,
+      });
+      showToast("Saved offline. Will sync when internet returns.");
+      setIsUpdatingStock((prev) => ({ ...prev, [productId]: false }));
+      return;
+    }
+
     try {
       // 1. Direct Supabase update with defensive column check
       const { error: dbErr } = await supabase
@@ -1062,6 +1085,28 @@ export default function Home() {
   const confirmDelete = async () => {
     if (!productToDelete) return;
     setIsDeleting(true);
+
+    // If offline, optimistically remove from UI and queue action into IndexedDB
+    if (!isOnline) {
+      setProducts((prev) => prev.filter((p) => p.id !== productToDelete));
+      setPriceDrafts((prev) => {
+        const next = { ...prev };
+        delete next[productToDelete];
+        return next;
+      });
+      await enqueueOfflineAction({
+        type: "DELETE_PRODUCT",
+        endpoint: `${API_BASE}/api/v1/products/${productToDelete}`,
+        method: "DELETE",
+        payload: { id: productToDelete },
+        artisanId: artisanId || undefined,
+        description: `Delete Product ${productToDelete}`,
+      });
+      showToast("Saved offline. Will sync when internet returns.");
+      setIsDeleting(false);
+      setProductToDelete(null);
+      return;
+    }
 
     try {
       const { error } = await supabase

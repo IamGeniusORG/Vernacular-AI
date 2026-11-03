@@ -61,3 +61,31 @@ nav,
   filter: none;
 }
 
+/* ── Global Mobile Touch & Instant Tap Optimization ── */
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+.cursor-pointer {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Instant visual tactile response on tap/click */
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled),
+a:active {
+  transform: scale(0.98);
+  transition: transform 60ms ease-out;
+}
+
+/* Ensure interactive elements never suffer from stuck pointer-events */
+body:not(.lang-transitioning) main,
+body:not(.lang-transitioning) [data-lang-content],
+body:not(.lang-transitioning) button,
+body:not(.lang-transitioning) a {
+  pointer-events: auto;
+}
+

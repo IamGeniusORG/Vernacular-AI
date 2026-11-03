@@ -50,6 +50,14 @@ export function LanguageTransitionProvider({ children }: { children: ReactNode }
     }
   }, [activeLanguage]);
 
+  // Ensure body is immediately interactive on initial mount
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.body.classList.add("lang-idle");
+      document.body.classList.remove("lang-transitioning");
+    }
+  }, []);
+
   // Sync body dataset and classes for global CSS styling
   useEffect(() => {
     if (typeof document === "undefined") return;

@@ -8,12 +8,10 @@ def get_supabase() -> Optional[Client]:
     key = (
         os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
         or os.environ.get("SUPABASE_SERVICE_KEY")
-        or settings.SUPABASE_SERVICE_ROLE_KEY
-        or settings.SUPABASE_SERVICE_KEY
+        or settings.effective_service_role_key
     )
     if not url or not key:
-        url = "https://placeholder.supabase.co"
-        key = "placeholder-key"
+        return None
     try:
         return create_client(url, key)
     except Exception as e:

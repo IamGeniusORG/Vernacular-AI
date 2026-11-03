@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Environments
 venv/
@@ -20,7 +23,22 @@ venv.bak/
 *.env
 .env.production
 .env.development
+.env.test
 !.env.example
+
+# Databases & local dumps
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.dump
+*.sql.gz
+
+# Secret keys & certificates
+*.pem
+*.key
+*.crt
+*secret*
 
 # OS
 .DS_Store

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
+import { enqueueOfflineAction, isOffline } from "@/lib/offlineQueue";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -311,6 +312,36 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     if (newAvatarUrl !== undefined) payload.avatar_url = newAvatarUrl.trim();
     if (newBannerUrl !== undefined) payload.banner_url = newBannerUrl.trim();
     if (newQrCodeUrl !== undefined) payload.qr_code_url = newQrCodeUrl.trim();
+
+    // Offline Interception: If offline, save locally & queue action in IndexedDB
+    if (isOffline()) {
+      setProfileName(newName.trim());
+      if (newWhatsapp !== undefined) setWhatsappNumber(cleanPhone(newWhatsapp));
+      if (newUpi !== undefined) setUpiId(newUpi.trim());
+      if (newPaypalEmail !== undefined) setPaypalEmail(newPaypalEmail.trim());
+      if (newAvatarUrl !== undefined) setAvatarUrl(newAvatarUrl.trim());
+      if (newBannerUrl !== undefined) setBannerUrl(newBannerUrl.trim());
+      if (newQrCodeUrl !== undefined) setQrCodeUrl(newQrCodeUrl.trim());
+
+      try {
+        const cached = getInitialCachedProfile() || {};
+        localStorage.setItem(
+          "vernacular_cached_artisan",
+          JSON.stringify({ ...cached, ...payload })
+        );
+      } catch {}
+
+      await enqueueOfflineAction({
+        type: "UPDATE_PROFILE",
+        endpoint: `${API_BASE}/api/v1/artisans/${artisanId}`,
+        method: "PATCH",
+        payload: payload as Record<string, unknown>,
+        artisanId: artisanId || undefined,
+        description: "Profile Settings Update",
+      });
+
+      return true;
+    }
 
     // 1. Update Supabase Auth user_metadata directly from client (immediate auth persistence)
     try {

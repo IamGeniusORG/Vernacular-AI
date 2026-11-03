@@ -2,6 +2,7 @@ import { get, set, del } from "idb-keyval";
 import { useState, useEffect, useCallback } from "react";
 
 const QUEUE_KEY = "vernacular_offline_catalog_queue";
+const ACTIONS_QUEUE_KEY = "vernacular_offline_actions_queue";
 
 export interface QueuedImage {
   name: string;
@@ -26,6 +27,22 @@ export interface QueuedListing {
   manualPrice?: number | null;
   stockQuantity?: number | null;
 }
+
+export interface QueuedOfflineAction {
+  id: string;
+  type: "UPDATE_PROFILE" | "DELETE_PRODUCT" | "UPDATE_STOCK" | "GENERIC_API";
+  endpoint: string;
+  method: "PATCH" | "POST" | "PUT" | "DELETE";
+  payload: Record<string, unknown>;
+  artisanId?: string;
+  timestamp: number;
+  description: string;
+}
+
+// Check if client is currently offline
+export const isOffline = (): boolean => {
+  return typeof navigator !== "undefined" ? !navigator.onLine : false;
+};
 
 // Convert File / Blob to Base64 data URL
 export const fileToBase64 = (file: Blob): Promise<string> => {
@@ -160,6 +177,101 @@ export const syncOfflineQueue = async (
   return { synced, failed };
 };
 
+// ── Global Offline Actions Queue (Settings, WhatsApp, Stock, Deletions) ──
+
+export const getOfflineActionsQueue = async (): Promise<QueuedOfflineAction[]> => {
+  try {
+    const queue = await get<QueuedOfflineAction[]>(ACTIONS_QUEUE_KEY);
+    return queue || [];
+  } catch (err) {
+    console.error("Failed to read offline actions from IndexedDB:", err);
+    return [];
+  }
+};
+
+export const enqueueOfflineAction = async (
+  action: Omit<QueuedOfflineAction, "id" | "timestamp">
+): Promise<void> => {
+  try {
+    const queue = await getOfflineActionsQueue();
+    const item: QueuedOfflineAction = {
+      ...action,
+      id: "act_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+      timestamp: Date.now(),
+    };
+    queue.push(item);
+    await set(ACTIONS_QUEUE_KEY, queue);
+  } catch (err) {
+    console.error("Failed to enqueue offline action:", err);
+  }
+};
+
+export const dequeueOfflineAction = async (id: string): Promise<void> => {
+  try {
+    const queue = await getOfflineActionsQueue();
+    const filtered = queue.filter((item) => item.id !== id);
+    await set(ACTIONS_QUEUE_KEY, filtered);
+  } catch (err) {
+    console.error("Failed to dequeue offline action:", err);
+  }
+};
+
+export const syncOfflineActions = async (
+  token?: string | null
+): Promise<{ synced: number; failed: number }> => {
+  const queue = await getOfflineActionsQueue();
+  if (!queue.length) return { synced: 0, failed: 0 };
+
+  let synced = 0;
+  let failed = 0;
+
+  for (const item of queue) {
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(item.endpoint, {
+        method: item.method,
+        headers,
+        body: item.payload ? JSON.stringify(item.payload) : undefined,
+      });
+
+      if (res.ok) {
+        await dequeueOfflineAction(item.id);
+        synced++;
+      } else {
+        if (res.status >= 500) {
+          failed++;
+        } else {
+          // If 4xx client error, discard
+          await dequeueOfflineAction(item.id);
+        }
+      }
+    } catch (err) {
+      console.warn(`Sync failed for offline action ${item.id}:`, err);
+      failed++;
+    }
+  }
+
+  return { synced, failed };
+};
+
+// Global intercept helper for buttons/forms
+export const handleOfflineIntercept = async (
+  action: Omit<QueuedOfflineAction, "id" | "timestamp">,
+  onIntercepted?: (message: string) => void
+): Promise<boolean> => {
+  if (isOffline()) {
+    await enqueueOfflineAction(action);
+    const msg = "Saved offline. Will sync when internet returns.";
+    if (onIntercepted) onIntercepted(msg);
+    return true;
+  }
+  return false;
+};
+
 // React Hook for Offline State & Auto-Sync
 export const useOfflineSync = (
   token?: string | null,
@@ -173,11 +285,14 @@ export const useOfflineSync = (
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncResult, setLastSyncResult] = useState<{ synced: number; failed: number } | null>(null);
 
-  // Refresh current queue length non-blockingly
+  // Refresh current queue length non-blockingly (combines catalog drafts + action queue)
   const refreshQueueCount = useCallback(async () => {
     try {
-      const queue = await getOfflineQueue();
-      setQueueCount(queue.length);
+      const [catalogQueue, actionsQueue] = await Promise.all([
+        getOfflineQueue(),
+        getOfflineActionsQueue(),
+      ]);
+      setQueueCount(catalogQueue.length + actionsQueue.length);
     } catch {
       setQueueCount(0);
     } finally {
@@ -185,12 +300,19 @@ export const useOfflineSync = (
     }
   }, []);
 
-  // Sync execution handler
+  // Sync execution handler (flushes both catalog drafts and offline actions)
   const triggerSync = useCallback(async () => {
     if (!navigator.onLine || isSyncing) return;
     setIsSyncing(true);
     try {
-      const result = await syncOfflineQueue(token);
+      const [catalogRes, actionsRes] = await Promise.all([
+        syncOfflineQueue(token),
+        syncOfflineActions(token),
+      ]);
+      const totalSynced = catalogRes.synced + actionsRes.synced;
+      const totalFailed = catalogRes.failed + actionsRes.failed;
+      const result = { synced: totalSynced, failed: totalFailed };
+
       setLastSyncResult(result);
       await refreshQueueCount();
       if (result && result.synced > 0) {

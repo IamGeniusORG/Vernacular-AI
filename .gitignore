@@ -1,11 +1,11 @@
-# OS
+# OS & Editor
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
 
-# Documents
+# Documents & Internal Specs
 Required Documents/
-
-# Local internal docs
 memory.md
 phases.md
 rules.md
@@ -36,14 +36,28 @@ next-env.d.ts
 !.yarn/releases
 !.yarn/versions
 
-# Python
+# Python Caches & Virtual Environments
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
 venv/
 .venv/
+env/
+ENV/
 *.log
 
-# Env & Secrets
+# Databases & Local Dumps
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.dump
+*.sql.gz
+
+# Environment Variables & Secrets
 .env
 .env.local
 .env.*
@@ -51,6 +65,15 @@ venv/
 *.env
 .env.production
 .env.development
-*.pem
+.env.test
 !.env.example
 !*/.env.example
+
+# Secret Keys & Certificates
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*secret*
+!scripts/scan_secrets.py

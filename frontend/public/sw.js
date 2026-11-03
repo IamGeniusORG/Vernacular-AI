@@ -1,31 +1,48 @@
-// Vernacular AI Native Service Worker (v2)
-// High-performance Stale-While-Revalidate & Offline Studio Caching Strategy
+// Vernacular AI Native Service Worker (v3)
+// Immediate Client Claiming, Aggressive Pre-Caching & Resilient Offline Routing
 
-const CACHE_NAME = "vernacular-ai-v2";
-const OFFLINE_URLS = [
+const CACHE_NAME = "vernacular-ai-v3";
+const URLS_TO_PRECACHE = [
   "/",
   "/shop",
   "/studio",
+  "/profile",
+  "/login",
   "/manifest.json",
   "/favicon.ico",
   "/icon.png",
   "/logo.png",
   "/apple-icon.png",
+  "/B%20logo.png",
 ];
 
-// 1. Install & Pre-cache App Shell & Core Routes
+// 1. Install Event: Immediate skipWaiting & Aggressive Pre-caching
 self.addEventListener("install", (event) => {
+  // Force active service worker without waiting for tabs to close
+  self.skipWaiting();
+
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(OFFLINE_URLS).catch((err) => {
-        console.warn("ServiceWorker pre-cache partial failure:", err);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      console.log("[SW] Aggressively pre-caching core routes and assets...");
+      // Resilient individual caching: ensures all available routes are cached
+      // even if one asset network request fails, preventing installation abort
+      const precachePromises = URLS_TO_PRECACHE.map(async (url) => {
+        try {
+          const response = await fetch(url, { cache: "reload" });
+          if (response && (response.status === 200 || response.type === "opaque")) {
+            await cache.put(url, response);
+          }
+        } catch (err) {
+          console.warn(`[SW] Pre-cache item skipped for ${url}:`, err);
+        }
       });
+      await Promise.all(precachePromises);
+      console.log("[SW] Core routes successfully pre-cached.");
     })
   );
-  self.skipWaiting();
 });
 
-// 2. Activate & Cleanup Stale Caches
+// 2. Activate Event: Immediate Client Claiming
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -37,15 +54,19 @@ self.addEventListener("activate", (event) => {
           }
         })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => {
+      // Take immediate control of all open pages on the very first visit
+      console.log("[SW] Claiming all clients immediately.");
+      return self.clients.claim();
+    })
   );
 });
 
-// Helper: Fast Stale-While-Revalidate (Instant Cache Return + Background Network Refresh)
+// Helper: Fast Stale-While-Revalidate
 function staleWhileRevalidate(request, fallbackKey) {
   return caches.open(CACHE_NAME).then((cache) => {
     return cache.match(request, { ignoreSearch: true }).then((cachedResponse) => {
-      // Asynchronous background revalidation fetch (non-blocking)
+      // Non-blocking background network revalidation
       const fetchPromise = fetch(request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
@@ -55,12 +76,12 @@ function staleWhileRevalidate(request, fallbackKey) {
         })
         .catch(() => cachedResponse);
 
-      // Instant cache hit: Return immediately, bypassing all network timeout delays
+      // Return cached version instantly if present
       if (cachedResponse) {
         return cachedResponse;
       }
 
-      // Fallback cache hit (e.g. /studio shell for parameterized route)
+      // Check fallback key (e.g. /studio shell)
       if (fallbackKey) {
         return cache.match(fallbackKey).then((fallbackResponse) => {
           if (fallbackResponse) {
@@ -70,18 +91,17 @@ function staleWhileRevalidate(request, fallbackKey) {
         });
       }
 
-      // Cache miss: Await network response
       return fetchPromise;
     });
   });
 }
 
-// 3. Fetch Interceptor
+// 3. Fetch Event Interceptor
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Bypass non-GET requests or backend/Supabase/PayPal API traffic
+  // Bypass non-GET requests or backend/Supabase/PayPal APIs
   if (
     request.method !== "GET" ||
     url.pathname.startsWith("/api/") ||
@@ -116,7 +136,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── Strategy B: Stale-While-Revalidate for Next.js Static Assets & Fonts ──
+  // ── Strategy B: Next.js Static Assets & Fonts ──
   const isNextStatic = url.pathname.startsWith("/_next/static/");
   const isFont =
     url.pathname.match(/\.(woff2|woff|ttf|otf|eot)$/i) ||
@@ -128,11 +148,43 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── Strategy C: Stale-While-Revalidate for Studio & Navigation HTML Shells ──
+  // ── Strategy C: Navigation Requests (Dynamic Caching for All Visited Pages) ──
   if (request.mode === "navigate") {
-    const isStudio = url.pathname === "/studio" || url.pathname.startsWith("/studio");
-    const fallback = isStudio ? "/studio" : "/";
-    event.respondWith(staleWhileRevalidate(request, fallback));
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(request, { ignoreSearch: true });
+
+        // Background network fetch to dynamically cache every page the user visits
+        const fetchPromise = fetch(request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              cache.put(request, networkResponse.clone());
+              cache.put(url.pathname, networkResponse.clone());
+            }
+            return networkResponse;
+          })
+          .catch(async () => {
+            // When offline:
+            if (cached) return cached;
+            const pathCached = await cache.match(url.pathname);
+            if (pathCached) return pathCached;
+
+            // Fallback shells for main routes
+            if (url.pathname.startsWith("/studio")) {
+              return (await cache.match("/studio")) || (await cache.match("/"));
+            }
+            if (url.pathname.startsWith("/shop")) {
+              return (await cache.match("/shop")) || (await cache.match("/"));
+            }
+            if (url.pathname.startsWith("/profile")) {
+              return (await cache.match("/profile")) || (await cache.match("/"));
+            }
+            return (await cache.match("/")) || Response.error();
+          });
+
+        return cached || fetchPromise;
+      })
+    );
     return;
   }
 

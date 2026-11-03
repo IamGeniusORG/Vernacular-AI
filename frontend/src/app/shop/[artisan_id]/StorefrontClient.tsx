@@ -16,6 +16,7 @@ import UserDropdown from "@/components/UserDropdown";
 import LanguageToggle from "@/components/LanguageToggle";
 import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 import { usePreferences } from "@/context/PreferencesContext";
+import { enqueueOfflineAction } from "@/lib/offlineQueue";
 
 interface Props {
   products: Product[];
@@ -248,8 +249,34 @@ export default function StorefrontClient({ products, artisan }: Props) {
   const handleReportUpiPayment = async () => {
     if (!activeUpiProduct) return;
     setIsReportingUpi(true);
+    const upiPrice = activeUpiProduct.price || activeUpiProduct.price_inr || 1500;
+
+    // Offline Interception for UPI report button
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      await enqueueOfflineAction({
+        type: "GENERIC_API",
+        endpoint: `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"}/api/v1/orders/record`,
+        method: "POST",
+        payload: {
+          product_id: activeUpiProduct.id,
+          artisan_id: activeUpiProduct.artisan_id || artisan.id,
+          amount: upiPrice,
+          currency: "INR",
+          payment_method: "upi",
+          status: "pending",
+          transaction_id: `UPI-REF-${Date.now().toString().slice(-6)}`,
+          buyer_name: patronName || "Valued Patron",
+        },
+        artisanId: activeUpiProduct.artisan_id || artisan.id,
+        description: `Pending UPI order for ${activeUpiProduct.ai_title_en || "item"}`,
+      });
+      showToast("Saved offline. Will sync when internet returns.");
+      setActiveUpiProduct(null);
+      setIsReportingUpi(false);
+      return;
+    }
+
     try {
-      const upiPrice = activeUpiProduct.price || activeUpiProduct.price_inr || 1500;
       await handleRecordOrder(
         activeUpiProduct,
         "upi",
@@ -322,6 +349,32 @@ export default function StorefrontClient({ products, artisan }: Props) {
       return;
     }
     setIsRecordingTip(true);
+
+    // Offline Interception for Tip Submission
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      await enqueueOfflineAction({
+        type: "GENERIC_API",
+        endpoint: `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"}/api/v1/artisans/${artisan.id}/tip`,
+        method: "POST",
+        payload: {
+          amount: effectiveTipAmount,
+          currency: tipCurrency,
+          payment_method: method,
+          patron_name: patronName.trim() || "Anonymous Patron",
+          order_id: orderId,
+        },
+        artisanId: artisan.id,
+        description: `Direct Tip to ${artisan.full_name}`,
+      });
+      showToast("Saved offline. Will sync when internet returns.");
+      setTipSuccess({
+        amount: tipCurrency === "INR" ? `₹${effectiveTipAmount}` : `$${effectiveTipAmount.toFixed(2)} USD`,
+        method: method.toUpperCase(),
+      });
+      setIsRecordingTip(false);
+      return;
+    }
+
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
       await fetch(`${backendUrl}/api/v1/artisans/${artisan.id}/tip`, {
