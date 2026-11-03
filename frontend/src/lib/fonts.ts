@@ -8,6 +8,6 @@ export const playfair = {
   className: "font-playfair",
   variable: "--font-playfair",
   style: {
-    fontFamily: "'Playfair Display', Georgia, Cambria, 'Times New Roman', Times, serif",
+    fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, Cambria, 'Times New Roman', Times, serif",
   },
 };

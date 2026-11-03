@@ -268,6 +268,7 @@ export default function Home() {
   const {
     isOnline,
     queueCount,
+    isQueueLoading,
     isSyncing,
     refreshQueueCount,
     triggerSync,
@@ -1376,11 +1377,7 @@ export default function Home() {
   // ─────────────────────────────────────────────────────────────────────────
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center font-sans">
-        <Loader2 className="animate-spin text-slate-400" size={32} />
-      </div>
-    );
+    return <StudioSkeleton isOnline={isOnline} />;
   }
 
   // Customer Account View: gracefully explains that Studio tools are reserved for verified weavers
@@ -1527,14 +1524,20 @@ export default function Home() {
               <WifiOff size={13} className="shrink-0" />
               <span className="truncate">Offline Mode: Creations save locally</span>
             </div>
-            {queueCount > 0 && (
+            {isQueueLoading ? (
+              <span className="w-14 h-4 bg-amber-700/60 rounded-full animate-pulse shrink-0" />
+            ) : queueCount > 0 ? (
               <span className="bg-amber-800 px-2 py-0.5 rounded-full text-[10px] shrink-0 font-bold">
                 {queueCount} queued
               </span>
-            )}
+            ) : null}
           </div>
         )}
-        {isOnline && queueCount > 0 && (
+        {isOnline && (isQueueLoading ? (
+          <div className="w-full bg-slate-100/90 py-1 px-4 flex items-center justify-between shrink-0">
+            <div className="w-24 h-3 bg-slate-200 rounded animate-pulse" />
+          </div>
+        ) : queueCount > 0 ? (
           <div className="w-full bg-emerald-600 text-white text-[11px] font-semibold py-1.5 px-4 flex items-center justify-between shrink-0 shadow-xs z-30">
             <div className="flex items-center gap-1.5 truncate">
               <RefreshCw size={13} className={isSyncing ? "animate-spin shrink-0" : "shrink-0"} />
@@ -1550,7 +1553,7 @@ export default function Home() {
               {isSyncing ? "Syncing..." : "Sync Now"}
             </button>
           </div>
-        )}
+        ) : null)}
 
         {/* ── Segmented Navigation Control & Studio Body Wrapped with Language Transition ── */}
         <LanguageTransitionWrapper className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -3140,6 +3143,76 @@ export default function Home() {
           </div>
         )}
 
+      </main>
+    </div>
+  );
+}
+
+function StudioSkeleton({ isOnline }: { isOnline: boolean }) {
+  return (
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 md:p-6 font-sans">
+      <main className="w-full min-h-screen md:min-h-0 md:h-[880px] md:max-w-[410px] bg-white md:rounded-[2.5rem] md:shadow-2xl flex flex-col relative overflow-hidden border-0 md:border-[8px] md:border-slate-800 animate-pulse">
+        {/* Header Skeleton */}
+        <header className="px-3.5 sm:px-5 pt-3.5 sm:pt-6 pb-2.5 flex items-center justify-between border-b border-slate-100 bg-white sticky top-0 z-20">
+          <div className="flex items-center gap-2 flex-1">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? "bg-emerald-500" : "bg-amber-500"}`} />
+            <div className="h-4 w-32 bg-slate-200 rounded-md" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-12 bg-slate-200 rounded-full" />
+            <div className="h-7 w-7 rounded-full bg-slate-200" />
+          </div>
+        </header>
+
+        {/* Navigation Tabs Skeleton */}
+        <div className="px-3 sm:px-5 pt-2 pb-2 bg-white border-b border-slate-100">
+          <div className="flex items-center gap-1 py-1 px-1 bg-slate-100/90 rounded-xl">
+            <div className="flex-1 h-7 bg-white rounded-lg shadow-xs" />
+            <div className="flex-1 h-7 bg-slate-200/50 rounded-lg" />
+            <div className="flex-1 h-7 bg-slate-200/50 rounded-lg" />
+            <div className="flex-1 h-7 bg-slate-200/50 rounded-lg" />
+          </div>
+        </div>
+
+        {/* Studio Content Skeleton */}
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+          {/* Photo Dropzone Skeleton */}
+          <div className="space-y-1.5">
+            <div className="h-3.5 w-32 bg-slate-200 rounded" />
+            <div className="h-32 w-full border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 flex flex-col items-center justify-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-slate-200" />
+              <div className="h-3 w-40 bg-slate-200 rounded" />
+            </div>
+          </div>
+
+          {/* Voice Input Card Skeleton */}
+          <div className="space-y-1.5">
+            <div className="h-3.5 w-28 bg-slate-200 rounded" />
+            <div className="h-24 w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-slate-200 shrink-0" />
+              <div className="space-y-2 flex-1">
+                <div className="h-3.5 w-3/4 bg-slate-200 rounded" />
+                <div className="h-2.5 w-1/2 bg-slate-200 rounded" />
+              </div>
+            </div>
+          </div>
+
+          {/* Details / Pricing Inputs Skeleton */}
+          <div className="space-y-2 pt-2">
+            <div className="h-3.5 w-24 bg-slate-200 rounded" />
+            <div className="h-10 w-full bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="h-14 bg-slate-50 border border-slate-200 rounded-xl" />
+            <div className="h-14 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+        </div>
+
+        {/* Bottom Action Button Skeleton */}
+        <div className="p-4 bg-white/90 backdrop-blur-md border-t border-slate-100">
+          <div className="h-12 w-full bg-slate-200 rounded-2xl" />
+        </div>
       </main>
     </div>
   );

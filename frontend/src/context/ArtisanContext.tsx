@@ -52,19 +52,44 @@ const cleanPhone = (val?: string | null): string => {
   return s;
 };
 
+interface CachedArtisanProfile {
+  id?: string;
+  full_name?: string;
+  phone_number?: string;
+  whatsapp_number?: string;
+  upi_id?: string;
+  paypal_email?: string;
+  avatar_url?: string;
+  banner_url?: string;
+  qr_code_url?: string;
+  user_role?: string;
+}
+
+const getInitialCachedProfile = (): CachedArtisanProfile | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("vernacular_cached_artisan");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 const ArtisanContext = createContext<ArtisanContextType | undefined>(undefined);
 
 export function ArtisanProvider({ children }: { children: React.ReactNode }) {
-  const [artisanId, setArtisanId] = useState<string | null>(null);
-  const [profileName, setProfileName] = useState("");
-  const [profilePhone, setProfilePhone] = useState("");
-  const [whatsappNumber, setWhatsappNumber] = useState("");
-  const [upiId, setUpiId] = useState("");
-  const [paypalEmail, setPaypalEmail] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [bannerUrl, setBannerUrl] = useState("");
-  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const initialProfile = getInitialCachedProfile();
+  const [artisanId, setArtisanId] = useState<string | null>(() => initialProfile?.id || null);
+  const [profileName, setProfileName] = useState(() => initialProfile?.full_name || "");
+  const [profilePhone, setProfilePhone] = useState(() => cleanPhone(initialProfile?.phone_number));
+  const [whatsappNumber, setWhatsappNumber] = useState(() => cleanPhone(initialProfile?.whatsapp_number));
+  const [upiId, setUpiId] = useState(() => initialProfile?.upi_id || "");
+  const [paypalEmail, setPaypalEmail] = useState(() => initialProfile?.paypal_email || "");
+  const [avatarUrl, setAvatarUrl] = useState(() => initialProfile?.avatar_url || "");
+  const [bannerUrl, setBannerUrl] = useState(() => initialProfile?.banner_url || "");
+  const [qrCodeUrl, setQrCodeUrl] = useState(() => initialProfile?.qr_code_url || "");
   const [userRole, setUserRoleState] = useState<string>(() => {
+    if (initialProfile?.user_role) return initialProfile.user_role;
     if (typeof window !== "undefined") {
       const cached = localStorage.getItem("user_role") || localStorage.getItem("intended_role");
       if (cached === "artisan" || cached === "customer") return cached;
@@ -83,10 +108,17 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const [isLoading, setIsLoading] = useState(true);
+  // When offline or cached profile is present, avoid blocking initial hydration
+  const [isLoading, setIsLoading] = useState(() => (initialProfile?.id ? false : true));
   const supabase = createClient();
 
   const fetchProfileData = useCallback(async (userId: string) => {
+    // If offline, serve directly from local storage cache without waiting for network timeouts
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const local = getInitialCachedProfile();
+      if (local && local.id === userId) return local;
+    }
+
     // 1. Try Supabase client query
     try {
       const { data, error } = await supabase
@@ -95,7 +127,12 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
         .eq("id", userId)
         .maybeSingle();
 
-      if (data && !error) return data;
+      if (data && !error) {
+        try {
+          localStorage.setItem("vernacular_cached_artisan", JSON.stringify(data));
+        } catch {}
+        return data;
+      }
     } catch (err) {
       console.warn("Client-side Supabase select error:", err);
     }
@@ -103,7 +140,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     // 2. Fallback to Backend API with circuit breaker timeout (uses service_role key to bypass RLS)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
       const res = await fetch(`${API_BASE}/api/v1/artisans/${userId}`, {
         cache: "no-store",
         signal: controller.signal,
@@ -111,7 +148,13 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timeoutId);
       if (res.ok) {
         const json = await res.json();
-        return json.artisan ?? null;
+        const art = json.artisan ?? null;
+        if (art) {
+          try {
+            localStorage.setItem("vernacular_cached_artisan", JSON.stringify(art));
+          } catch {}
+        }
+        return art;
       }
     } catch (err) {
       console.warn("Backend API profile lookup notice:", err);
@@ -214,6 +257,11 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         await applyUserData(session.user);
       } else if (event === "SIGNED_OUT") {
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.removeItem("vernacular_cached_artisan");
+          } catch {}
+        }
         if (mounted) {
           setArtisanId(null);
           setProfileName("");
@@ -336,6 +384,7 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       try {
         localStorage.removeItem("user_role");
         localStorage.removeItem("intended_role");
+        localStorage.removeItem("vernacular_cached_artisan");
       } catch {
         // ignore
       }

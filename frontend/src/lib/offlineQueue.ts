@@ -169,13 +169,20 @@ export const useOfflineSync = (
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
   const [queueCount, setQueueCount] = useState<number>(0);
+  const [isQueueLoading, setIsQueueLoading] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncResult, setLastSyncResult] = useState<{ synced: number; failed: number } | null>(null);
 
-  // Refresh current queue length
+  // Refresh current queue length non-blockingly
   const refreshQueueCount = useCallback(async () => {
-    const queue = await getOfflineQueue();
-    setQueueCount(queue.length);
+    try {
+      const queue = await getOfflineQueue();
+      setQueueCount(queue.length);
+    } catch {
+      setQueueCount(0);
+    } finally {
+      setIsQueueLoading(false);
+    }
   }, []);
 
   // Sync execution handler
@@ -198,9 +205,19 @@ export const useOfflineSync = (
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const timer = setTimeout(() => {
-      refreshQueueCount();
-    }, 0);
+    // Decouple IndexedDB reads: schedule after initial component mount & first paint
+    let idleHandle: number | null = null;
+    let timerHandle: ReturnType<typeof setTimeout> | null = null;
+
+    if (typeof window.requestIdleCallback === "function") {
+      idleHandle = window.requestIdleCallback(() => {
+        refreshQueueCount();
+      }, { timeout: 1200 });
+    } else {
+      timerHandle = setTimeout(() => {
+        refreshQueueCount();
+      }, 50);
+    }
 
     const handleOnline = () => {
       setIsOnline(true);
@@ -216,7 +233,12 @@ export const useOfflineSync = (
     window.addEventListener("offline", handleOffline);
 
     return () => {
-      clearTimeout(timer);
+      if (idleHandle !== null && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleHandle);
+      }
+      if (timerHandle !== null) {
+        clearTimeout(timerHandle);
+      }
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
@@ -225,6 +247,7 @@ export const useOfflineSync = (
   return {
     isOnline,
     queueCount,
+    isQueueLoading,
     isSyncing,
     lastSyncResult,
     refreshQueueCount,
