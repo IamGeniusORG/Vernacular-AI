@@ -7,6 +7,7 @@
 [![Gemini AI](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-4285F4?style=flat&logo=google)](https://deepmind.google/technologies/gemini/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database%20%7C%20Auth%20%7C%20Storage-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable%20%7C%20Offline%20Mode-blue?style=flat&logo=pwa)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
+[![Zero-Leak DevSecOps](https://img.shields.io/badge/DevSecOps-Zero--Leak%20Pre--Commit-success?style=flat&logo=git)](https://github.com/IamGeniusORG/Vernacular-AI)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0+-38B2AC?style=flat&logo=tailwind-css)](https://tailwindcss.com/)
 [![Seva First Innovation Challenge](https://img.shields.io/badge/Hackathon-Seva%20First%20Innovation%20Challenge-orange)](#)
@@ -87,23 +88,31 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
 * **Gemini 2.5 Flash Intent Extraction:** Backed by `POST /api/v1/products/search-intent`, which prompts Gemini to return strict JSON search parameters (`color`, `material`, `region`, `max_price`).
 * **Reactive Directory Filtering:** Instant client-side filtering across the artisan catalog without full page refreshes.
 
-### 7. PWA Offline Studio Mode & Auto-Sync (`/studio`)
-* **Progressive Web App (PWA):** Native Web App Manifest (`manifest.json`) and Service Worker (`sw.js`) enabling installability on Android, iOS, and desktop.
-* **1-Tap App Install Prompt:** Contextual install button in the Studio navigation bar.
-* **Unified Mobile APK:** Compatible with lightweight Trusted Web Activity (TWA) / WebView APK wrappers distributed in GitHub Releases, ensuring automatic, zero-rebuild over-the-air updates.
-* **IndexedDB Offline Queue (`idb-keyval`):** When rural artisans work with spotty cellular connectivity, draft photos and voice notes are stored safely in local browser storage.
-* **Auto-Sync Manager:** Detects `navigator.onLine` and automatically flushes queued drafts to the FastAPI backend upon network restoration.
+### 7. PWA Offline Studio & Global Interception Protocol (`/studio`)
+* **Immediate Client Claiming:** Service worker (`public/sw.js`) calls `self.skipWaiting()` during installation and `self.clients.claim()` upon activation, seizing control of pages on the very first visit and eliminating first-reload offline drops.
+* **Resilient App Shell Pre-Caching:** Core layout routes (`/`, `/shop`, `/studio`, `/profile`, `/login`), offline shells, and critical icons are aggressively cached on install with individual non-blocking fetch handlers.
+* **Dynamic Stale-While-Revalidate:** All navigation requests (`mode: 'navigate'`) and Next.js static chunks serve cached versions instantly, with background network synchronization to prevent timeout delays.
+* **Global Offline Action Queue (`idb-keyval`):** Interactive actions beyond catalog uploads (e.g. updating profile details, saving storefront banners, adjusting product stock levels, recording tips) are intercepted when offline. They are safely committed to local state and queued into IndexedDB with user confirmation (*"Saved offline. Will sync when internet returns."*).
+* **Automated Background Sync:** Automatically triggers upon `online` network reconnection, seamlessly synchronizing both offline catalog drafts and queued administrative actions with the FastAPI backend.
+* **Zero Mobile Tap Delay:** Enforces global `touch-action: manipulation;` and tactile depression states (`active:scale-95`) across all interactive elements, eliminating the default 300ms mobile touch delay.
 
 ### 8. Visitor Telemetry & Analytics
 * **Non-Blocking Telemetry:** Light-weight asynchronous view logging (`POST /api/v1/analytics/view`) recording traffic origin (Domestic vs. International).
 * **Supabase Telemetry Ledger:** Stores aggregated visitor sessions in the `product_views` table for artisan performance insights.
 
-### 9. Privacy, Compliance & Production Hardening
-* **Complete Account & Data Deletion:** Permanent account erasure flow in `/studio` with a sincere confirmation modal and backend `DELETE /api/v1/artisans/{artisan_id}` endpoint. Automatically purges all garment photos (`product-images`), voice recordings (`product-audio`), and branding assets (`artisan-assets`) from Supabase Storage before cascading database record deletions and deleting the user from Supabase Auth.
-* **Strict JWT Bearer Authentication:** Enforces authenticated session token checks across all sensitive backend mutations (`PATCH /artisans/{id}`, `DELETE /artisans/{id}`, `POST /products/generate`, `PATCH /products/{id}/price`), preventing unauthorized requests or impersonation via direct cURL calls.
-* **Persistent Multi-Lingual Cookie Consent:** Privacy-compliant cookie banner (`CookieConsent.tsx`) supporting English, Hindi, and Bengali, permanently persisting user consent to `localStorage` to avoid repetitive displays on subsequent page loads.
-* **Streamlined Onboarding Flow:** Fixed role-lock race conditions during Google 1-Tap OAuth sign-up, ensuring newly registered weavers transition directly into their active Studio dashboard without infinite setup loops.
+### 9. Privacy, Compliance & Account Lifecycle
+* **Complete Account & Data Deletion:** Permanent account erasure flow in `/studio` with confirmation modal and backend `DELETE /api/v1/artisans/{artisan_id}`. Automatically purges all garment photos (`product-images`), voice recordings (`product-audio`), and branding assets (`artisan-assets`) from Supabase Storage before cascading database record deletions and purging the Supabase Auth user.
+* **Strict JWT Bearer Authentication:** Enforces authenticated session token verification across sensitive backend mutations (`PATCH /artisans/{id}`, `DELETE /artisans/{id}`, `POST /products/generate`), preventing unauthorized requests or impersonation.
+* **Persistent Multi-Lingual Cookie Consent:** Privacy-compliant cookie banner (`CookieConsent.tsx`) supporting English, Hindi, and Bengali, permanently persisting user consent to `localStorage`.
 * **PKCE OAuth Code Exchange:** Route Handler (`src/app/auth/callback/route.ts`) explicitly binds session cookies to outgoing `NextResponse.redirect` headers with reverse-proxy host resolution on Render.
+
+### 10. Zero-Leak DevSecOps & Enterprise Security Architecture
+* **Automated Pre-Commit Secret Scanning:** Pre-commit hooks (`husky` + `lint-staged`) run an automated regex scanner (`scripts/scan_secrets.py`) targeting Supabase keys (`sb_secret_`, `sb_publishable_`), Resend keys (`re_`), Stripe/service credentials (`sk_test_`, `sk_live_`, `sk-`), JWT signatures (`eyJ...`), Google keys (`AIza...`), and private key blocks before any commit is accepted.
+* **Hardened Multi-Tier GitIgnore:** Root, frontend, and backend `.gitignore` rules strictly isolate all `.env` variants, Python caches (`.pytest_cache`, `__pycache__`), SQLite dumps, and files matching `*.pem`, `*.key`, or `*secret*`.
+* **Fail-Fast Environment Validation:**
+  * **FastAPI Backend:** Enforces strict `pydantic-settings` validation on startup, halting the server if `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, or `OPENROUTER_API_KEY` are unconfigured.
+  * **Next.js Frontend:** Validates `process.env` against a strict `zod` schema during `npm run build` and `npm run dev`, halting the build with terminal diagnostics if client credentials are missing.
+* **Transactional Email Engine (Resend):** Integrated transactional notifications (`resend>=2.6.0`) with HTML templates for order confirmations and artisan onboarding alerts.
 
 ---
 
@@ -111,6 +120,13 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
 
 ```mermaid
 flowchart TD
+    subgraph DevSecOps ["DevSecOps & Zero-Leak Security Layer"]
+        H1["Husky Pre-Commit Hook & lint-staged"] --> SC["Regex Secret Scanner (scan_secrets.py)"]
+        SC -- Blocks Leaks --> G0["Git Commit / Push"]
+        V1["Zod Build-Time Validator (Frontend)"] --> NB["Next.js Build & Runtime"]
+        V2["Pydantic BaseSettings Validator (Backend)"] --> FB["FastAPI Startup Lifespan"]
+    end
+
     subgraph Client ["Client Layer (Next.js 16 App Router & PWA)"]
         A["Shopper / Global Collector / Rural Artisan"] --> B["Responsive Web UI (Tailwind CSS 4)"]
         B --> C["/shop (Discovery Marketplace & Gemini Voice Search)"]
@@ -144,6 +160,7 @@ flowchart TD
         Q["Supabase Storage CDN (product-images, product-audio, artisan-assets)"]
         R["Google Gemini 2.5 Flash (via OpenRouter API)"]
         S["PayPal Developer Platform (Sandbox APIs)"]
+        T["Resend API (Transactional Email Gateway)"]
     end
 
     C & D & E & F <--> G
@@ -152,6 +169,7 @@ flowchart TD
     G <--> P
     G <--> Q
     G <--> R
+    G <--> T
 ```
 
 ---
@@ -160,24 +178,31 @@ flowchart TD
 
 ```
 .
+├── .husky/                          # Git hooks (pre-commit secret scanner)
+│   └── pre-commit                   # Executes lint-staged on commit
+├── scripts/
+│   └── scan_secrets.py              # Zero-leak regex scanner & pre-commit validator
 ├── backend/
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── analytics.py         # Visitor telemetry & view analytics endpoint
 │   │   │   ├── artisans.py          # Artisan registration, profile sync, QR uploads & tip logging
+│   │   │   ├── orders.py            # Order management & newsletter subscription
 │   │   │   └── products.py          # Multimodal Gemini cataloging, voice search intent & pricing
 │   │   ├── core/
-│   │   │   ├── config.py            # Pydantic BaseSettings environment loader
+│   │   │   ├── config.py            # Pydantic BaseSettings strict environment loader & validator
+│   │   │   ├── limiter.py           # SlowAPI rate limiting configuration
 │   │   │   └── supabase_client.py   # Service-role Supabase client
 │   │   ├── schemas/
 │   │   │   └── product.py           # Pydantic models with USD price & export description
 │   │   └── services/
 │   │       ├── ai_service.py        # Gemini 2.5 Flash prompt for dual-pricing & export narrative
+│   │       ├── email_service.py     # Resend email notifications for orders and registrations
 │   │       └── storage_service.py   # Supabase Storage asset uploader & DB persister
-│   ├── main.py                      # FastAPI entrypoint with regex CORS middleware
+│   ├── main.py                      # FastAPI entrypoint with lifespan validation & keep-alive
 │   ├── schema.sql                   # Database schema (artisans, products, tips, product_views)
 │   ├── auth_trigger.sql             # PostgreSQL trigger syncing auth.users to public.artisans
-│   ├── delete_demo_artisan.sql      # Devpost presentation cleanup script (purges demo artisan)
+│   ├── delete_demo_artisan.sql      # Presentation cleanup script (purges demo artisan)
 │   ├── requirements.txt             # Pinned backend dependencies
 │   ├── .env.example                 # Environment template for backend
 │   └── .gitignore                   # Backend-specific ignore rules
@@ -186,7 +211,7 @@ flowchart TD
 │   ├── public/
 │   │   ├── icons/                   # Valid 192x192 & 512x512 PWA icons
 │   │   ├── manifest.json            # PWA manifest for mobile installability
-│   │   └── sw.js                    # Native Service Worker for offline asset caching
+│   │   └── sw.js                    # Native Service Worker (v3) with immediate claiming & offline caching
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── auth/
@@ -204,6 +229,7 @@ flowchart TD
 │   │   │   ├── ArtisanAvatar.tsx    # Deterministic hashed gradient avatar component
 │   │   │   ├── CookieConsent.tsx    # Trilingual GDPR/ePrivacy compliant cookie notice
 │   │   │   ├── Marquee.tsx          # Animated direct-to-weaver announcement ticker
+│   │   │   ├── PwaRegister.tsx      # Immediate Service Worker registration component
 │   │   │   ├── ProfileDrawer.tsx    # Slide-out drawer for branding, UPI, PayPal & QR
 │   │   │   └── LanguageToggle.tsx   # Floating multi-lingual switcher (EN/HI/BN)
 │   │   ├── context/
@@ -214,14 +240,17 @@ flowchart TD
 │   │   │   └── dictionaries.ts      # English, Hindi, and Bengali localization strings
 │   │   ├── lib/
 │   │   │   ├── api.ts               # Strongly-typed TypeScript interfaces
+│   │   │   ├── env.ts               # Zod runtime & build-time environment validator
+│   │   │   ├── offlineQueue.ts      # IndexedDB draft catalog & offline action sync manager
 │   │   │   └── uploadAsset.ts       # Canvas client compression & asset upload pipeline
 │   │   └── utils/
 │   │       └── supabase/            # Client, Server, and Middleware Supabase SSR SDKs
-│   ├── next.config.mjs              # Next.js config with Supabase & Google image domains
-│   ├── package.json                 # Dependencies (Next 16, @paypal/react-paypal-js, Tailwind 4, idb-keyval)
+│   ├── next.config.mjs              # Next.js config with Zod validation & image domains
+│   ├── package.json                 # Dependencies (Next 16, @paypal/react-paypal-js, Tailwind 4, idb-keyval, zod)
 │   ├── .env.example                 # Environment template for frontend
 │   └── .gitignore                   # Frontend-specific ignore rules
 │
+├── package.json                     # Monorepo root config (Husky & lint-staged)
 ├── .gitignore                       # Master root gitignore
 └── README.md                        # Master project documentation
 ```
@@ -235,10 +264,24 @@ flowchart TD
 * **Python** (3.10+)
 * **Supabase** account with an active project
 * **PayPal Developer** account (for Sandbox Client ID)
+* **Resend** account (for transactional notifications)
 
 ---
 
-### 1. Database & Supabase Configuration
+### 1. Monorepo DevSecOps Initialization
+
+From the repository root:
+```bash
+# Install root dependencies & configure husky pre-commit hooks
+npm install
+
+# Run manual pre-commit secret leak audit across the entire workspace
+npm run scan:secrets
+```
+
+---
+
+### 2. Database & Supabase Configuration
 
 1. In your Supabase project's **SQL Editor**, execute [`backend/schema.sql`](file:///C:/Users/IamTeddy/OneDrive/Desktop/IamGenius/Seva%20Innovation%20Challenge%20Project/Vernacular%20AI%20E-Commerce%20Enabler/backend/schema.sql):
    ```sql
@@ -259,7 +302,7 @@ flowchart TD
 
 ---
 
-### 2. Backend Setup (FastAPI)
+### 3. Backend Setup (FastAPI)
 
 ```bash
 cd backend
@@ -283,6 +326,8 @@ OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key-here
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key-here
 SUPABASE_BUCKET=product-images
+RESEND_API_KEY=re_your_resend_api_key_here
+FROM_EMAIL="Vernacular AI <onboarding@resend.dev>"
 ```
 
 Start the backend server:
@@ -292,9 +337,11 @@ uvicorn main:app --reload --port 8000
 * Interactive API Documentation: `http://127.0.0.1:8000/docs`
 * Health Check: `http://127.0.0.1:8000/api/v1/health`
 
+> **Note:** Backend lifespan strictly verifies that all required secrets are loaded from the environment on startup. If keys are missing, the server will abort with a clear DevSecOps diagnostic error.
+
 ---
 
-### 3. Frontend Setup (Next.js 16)
+### 4. Frontend Setup (Next.js 16)
 
 ```bash
 cd frontend
@@ -317,9 +364,11 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+> **Note:** Next.js uses Zod schema validation in `next.config.mjs` and `src/lib/env.ts` to fail fast if required environment variables are not present.
+
 ---
 
-### 4. Production Build & Lint Verification
+### 5. Production Build & Lint Verification
 
 Run the verification suite:
 ```bash
@@ -330,19 +379,25 @@ npm run build
 
 Expected output:
 ```
-✓ Compiled successfully
+✓ Compiled successfully in ~1.8s
   Running TypeScript ...
-  Finished TypeScript in ~2.7s
-✓ Generating static pages using 11 workers (8/8)
+  Finished TypeScript in ~2.2s
+✓ Generating static pages using 15 workers (12/12)
 Finalizing page optimization ...
 
 Route (app)
 ┌ ○ /
 ├ ○ /_not-found
+├ ƒ /api/health
+├ ƒ /api/warmup
+├ ○ /apple-icon.png
 ├ ƒ /auth/callback
 ├ ○ /auth/sync
+├ ƒ /health
+├ ○ /icon.png
 ├ ○ /login
-├ ƒ /shop
+├ ○ /profile
+├ ○ /shop
 ├ ƒ /shop/[artisan_id]
 └ ○ /studio
 ```
@@ -368,16 +423,18 @@ Both frontend and backend are live on [Render](https://render.com/):
 | `NEXT_PUBLIC_API_URL` | Frontend | Target URL for backend FastAPI service |
 | `NEXT_PUBLIC_PAYPAL_CLIENT_ID` | Frontend | PayPal Developer Sandbox / Live client identifier |
 | `OPENROUTER_API_KEY` | Backend | Multimodal access token for Google Gemini 2.5 Flash |
+| `RESEND_API_KEY` | Backend | API Key for transactional order & registration emails |
 
 ---
 
-## 🔒 Security & Git Hygiene Standards
+## 🔒 Security, DevSecOps & Git Hygiene Standards
 
-* **Zero Hardcoded Credentials:** Supabase keys, Gemini/OpenRouter keys, and PayPal credentials are exclusively read from runtime environment variables.
-* **Strict Git Hygiene:** All `.env`, `.env.local`, `.venv/`, `node_modules/`, and `.next/` directories are strictly excluded via `.gitignore`.
-* **CORS Whitelist:** FastAPI backend allows local development (`localhost:3000`) and dynamically matches production domains.
+* **Zero-Leak Pre-Commit Gatekeeper:** Automated pre-commit hook using `husky` and `lint-staged` triggers `scripts/scan_secrets.py --staged` on every commit, halting any attempt to stage credentials (`sb_secret_`, `re_`, `sk_test_`, `eyJ`, `AIza`) or sensitive files (`.env*`, `*.pem`, `*.key`).
+* **Multi-Tier GitIgnore Hardening:** Enforced across root, frontend, and backend directories to permanently exclude `.env*`, `.venv/`, `node_modules/`, `__pycache__/`, `.pytest_cache/`, and SQLite databases.
+* **Fail-Fast Configuration Validation:** Startup validation guarantees that services refuse to run without mandatory environment credentials, preventing fallback to insecure hardcoding.
+* **CORS Security:** FastAPI backend enforces an explicit CORS whitelist allowing local development (`localhost:3000`) and validated production domains.
 * **Cookie Security & SSR Integrity:** Enforces `SameSite=Lax`, `Path=/`, and `Secure=true` on HTTPS domains, ensuring cookies are preserved across reverse proxies.
-* **Service-Role Boundary:** Public clients interact using restricted anonymous tokens. High-privilege writes (such as automated profile provisioning and AI catalog insertions) execute server-side using the `SUPABASE_SERVICE_KEY`.
+* **Strict Service-Role Boundary:** Public clients interact exclusively using restricted anonymous tokens. High-privilege operations execute strictly server-side using `SUPABASE_SERVICE_ROLE_KEY`.
 
 ---
 
@@ -392,10 +449,11 @@ Both frontend and backend are live on [Render](https://render.com/):
 | **Direct Patronage / Tips** | None or high platform cut | **100% Zero-Cut Tipping** (UPI QR / PayPal `NO_SHIPPING`, min ₹10) |
 | **Domestic Payments** | Delayed bank transfers (7–14 days) | **Instant Direct UPI QR** (PhonePe/GPay/Paytm with missing QR notice) |
 | **Global Export Payments** | High barrier, unavailable for rural weavers | **Seamless PayPal React SDK** with sandbox USD payments |
-| **Offline Village Resilience** | Requires continuous high-speed cellular data | **PWA + IndexedDB Queue** (auto-flushes to backend on reconnect) |
+| **Offline Village Resilience** | Requires continuous high-speed cellular data | **PWA + IndexedDB Queue** (auto-flushes drafts & actions on reconnect) |
 | **Linguistic Inclusion** | English only | **Trilingual Voice & UI** (Bengali, Hindi, English) |
 | **Buyer Discovery & Search** | Manual keyword typing in English | **Conversational Voice Search** (Gemini AI strict JSON filtering) |
 | **Cultural Provenance** | Generic mass-manufactured textile description | **Authentic Heritage Story** with audio snippet player |
+| **Security & Leak Prevention** | Ad-hoc manual code reviews | **Automated Zero-Leak Pre-Commit Scanner** + Zod/Pydantic Fail-Fast |
 
 ---
 
