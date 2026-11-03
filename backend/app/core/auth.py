@@ -33,7 +33,12 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
         )
 
     # Allow service role key bypass for server-to-server calls
-    service_key = settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_SERVICE_ROLE_KEY
+    service_key = (
+        os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        or os.environ.get("SUPABASE_SERVICE_KEY")
+        or settings.SUPABASE_SERVICE_ROLE_KEY
+        or settings.SUPABASE_SERVICE_KEY
+    )
     if service_key and token == service_key:
         return "service-role-admin"
 

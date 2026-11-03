@@ -1,10 +1,16 @@
+import os
 from typing import Optional
 from supabase import create_client, Client
 from app.core.config import settings
 
 def get_supabase() -> Optional[Client]:
-    url = settings.SUPABASE_URL
-    key = settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_SERVICE_ROLE_KEY
+    url = os.environ.get("SUPABASE_URL") or settings.SUPABASE_URL
+    key = (
+        os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        or os.environ.get("SUPABASE_SERVICE_KEY")
+        or settings.SUPABASE_SERVICE_ROLE_KEY
+        or settings.SUPABASE_SERVICE_KEY
+    )
     if not url or not key:
         url = "https://placeholder.supabase.co"
         key = "placeholder-key"

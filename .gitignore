@@ -46,7 +46,9 @@ venv/
 # Env & Secrets
 .env
 .env.local
-.env.*.local
+.env.*
+.env*.local
+*.env
 .env.production
 .env.development
 *.pem

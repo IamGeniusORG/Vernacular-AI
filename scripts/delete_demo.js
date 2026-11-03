@@ -4,8 +4,15 @@
  * Uses native Node.js fetch (Node 18+) — requires zero npm dependencies.
  */
 
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://jkyghxkkhunmdwzbqtrz.supabase.co";
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpreWdoeGtraHVubWR3emJxdHJ6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MTE4NTE4NiwiZXhwIjoyMTA2NzYxMTg2fQ.VICwzDM2p3TcTceKsN_KpH5AoD0PxlbDMoIdro9tTa0";
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error("❌ Error: Missing required Supabase environment variables.");
+  console.error("Please ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in your environment.");
+  console.error("Usage: SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<key> node scripts/delete_demo.js");
+  process.exit(1);
+}
 
 async function purgeDemoArtisan() {
   console.log("🔍 Checking for 'Demo Artisan' in Supabase database...");
