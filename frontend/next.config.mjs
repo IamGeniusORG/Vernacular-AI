@@ -59,6 +59,15 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/shop',
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

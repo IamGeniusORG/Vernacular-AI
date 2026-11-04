@@ -36,10 +36,12 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // IMPORTANT: Avoid writing any logic between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-  await supabase.auth.getUser()
+  // Safely refresh session without crashing or timing out if network is degraded
+  try {
+    await supabase.auth.getUser()
+  } catch (err) {
+    console.warn('[Middleware] Supabase auth refresh notice:', err)
+  }
 
   return supabaseResponse
 }
