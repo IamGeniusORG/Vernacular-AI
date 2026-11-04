@@ -1,7 +1,7 @@
-// Vernacular AI Native Service Worker (v4)
-// Immediate Client Claiming, Aggressive Pre-Caching & Resilient Offline Routing
+// Vernacular AI Native Service Worker (v5)
+// Immediate Client Claiming, Aggressive Pre-Caching, Timeout Racing & Resilient Offline Routing
 
-const CACHE_NAME = "vernacular-ai-v4";
+const CACHE_NAME = "vernacular-cache-v5";
 const URLS_TO_PRECACHE = [
   "/",
   "/shop",
@@ -16,6 +16,14 @@ const URLS_TO_PRECACHE = [
   "/apple-icon.png",
   "/B%20logo.png",
 ];
+
+// Message Listener: Support on-demand skipWaiting from PWA update prompts
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    console.log("[SW] Received SKIP_WAITING signal. Activating new worker...");
+    self.skipWaiting();
+  }
+});
 
 // 1. Install Event: Immediate skipWaiting & Aggressive Pre-caching
 self.addEventListener("install", (event) => {
@@ -43,23 +51,26 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// 2. Activate Event: Immediate Client Claiming
+// 2. Activate Event: Purge Legacy Caches & Immediate Client Claiming
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((name) => {
-          if (name !== CACHE_NAME) {
-            console.log(`[SW] Evicting legacy cache: ${name}`);
-            return caches.delete(name);
-          }
-        })
-      );
-    }).then(() => {
-      // Take immediate control of all open pages on the very first visit
-      console.log("[SW] Claiming all clients immediately.");
-      return self.clients.claim();
-    })
+    caches
+      .keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((name) => {
+            if (name !== CACHE_NAME) {
+              console.log(`[SW] Purging outdated cache: ${name}`);
+              return caches.delete(name);
+            }
+          })
+        );
+      })
+      .then(() => {
+        // Take immediate control of all open pages on the very first visit
+        console.log("[SW] Cache purge complete. Claiming all clients immediately.");
+        return self.clients.claim();
+      })
   );
 });
 
@@ -155,8 +166,13 @@ self.addEventListener("fetch", (event) => {
       caches.open(CACHE_NAME).then(async (cache) => {
         const cached = await cache.match(request, { ignoreSearch: true });
 
-        // Background network fetch to dynamically cache every page the user visits
-        const fetchPromise = fetch(request)
+        // Network timeout race: abort wait after 4 seconds (handles Render cold starts / slow networks)
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("NETWORK_TIMEOUT")), 4000)
+        );
+
+        // Race network fetch against the 4s timeout
+        const fetchPromise = Promise.race([fetch(request), timeoutPromise])
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
               cache.put(request, networkResponse.clone());
@@ -164,8 +180,10 @@ self.addEventListener("fetch", (event) => {
             }
             return networkResponse;
           })
-          .catch(async () => {
-            // When offline:
+          .catch(async (err) => {
+            console.warn(`[SW] Navigation fetch timed out or failed for ${url.pathname}:`, err.message || err);
+
+            // When offline or server timed out:
             if (cached) return cached;
             const pathCached = await cache.match(url.pathname);
             if (pathCached) return pathCached;

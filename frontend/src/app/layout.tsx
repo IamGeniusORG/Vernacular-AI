@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
@@ -29,8 +29,17 @@ import { ArtisanProvider } from "@/context/ArtisanContext";
 import { LanguageTransitionProvider } from "@/components/LanguageTransitionProvider";
 import BackendKeepAlive from "@/components/BackendKeepAlive";
 import PwaRegister from "@/components/PwaRegister";
+import PwaUpdater from "@/components/PwaUpdater";
 import CookieConsent from "@/components/CookieConsent";
 import MobileBottomNav from "@/components/MobileBottomNav";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -114,6 +123,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <MobileBottomNav />
                 <BackendKeepAlive />
                 <PwaRegister />
+                <PwaUpdater />
                 <CookieConsent />
               </LanguageTransitionProvider>
             </ArtisanProvider>
