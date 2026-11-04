@@ -2,7 +2,8 @@ import re
 import uuid
 from typing import Optional, List
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header, BackgroundTasks, Request
+from app.core.limiter import limiter
 from app.core.supabase_client import supabase
 from app.core.config import settings
 from app.core.auth import verify_artisan_owner
@@ -209,7 +210,8 @@ async def upload_artisan_asset(
 
 
 @router.post("/{artisan_id}/tip")
-async def record_artisan_tip(artisan_id: str, tip: TipRequest, background_tasks: BackgroundTasks):
+@limiter.limit("10/minute")
+async def record_artisan_tip(request: Request, artisan_id: str, tip: TipRequest, background_tasks: BackgroundTasks):
     """Record a direct patronage tip to an artisan and dispatch an email alert."""
     if tip.amount <= 0:
         raise HTTPException(status_code=400, detail="Tip amount must be greater than zero")
