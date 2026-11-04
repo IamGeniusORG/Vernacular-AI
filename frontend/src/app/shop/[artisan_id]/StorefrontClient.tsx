@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ShoppingBag, MessageCircle, BadgeCheck, Camera, Zap, X, Copy, Check, ArrowLeft, Volume2, Globe, Heart, AlertCircle, Share2, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ShoppingBag, MessageCircle, BadgeCheck, Camera, Zap, X, Copy, Check, ArrowLeft, Volume2, Globe, Heart, AlertCircle, Share2, Loader2, Clock, Play, Pause } from "lucide-react";
 import { Product, Artisan } from "@/lib/api";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -51,6 +51,34 @@ export default function StorefrontClient({ products, artisan }: Props) {
   const [isQrLightboxOpen, setIsQrLightboxOpen] = useState(false);
   const [lightboxSubtitle, setLightboxSubtitle] = useState<string>("");
   const [lightboxUri, setLightboxUri] = useState<string>("");
+  const [playingAudioUrl, setPlayingAudioUrl] = useState<string | null>(null);
+  const mobileAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleToggleMobileAudio = (audioUrl: string) => {
+    if (!mobileAudioRef.current) {
+      mobileAudioRef.current = new Audio(audioUrl);
+      mobileAudioRef.current.onended = () => setPlayingAudioUrl(null);
+    }
+    if (playingAudioUrl === audioUrl) {
+      mobileAudioRef.current.pause();
+      setPlayingAudioUrl(null);
+    } else {
+      mobileAudioRef.current.src = audioUrl;
+      mobileAudioRef.current
+        .play()
+        .then(() => setPlayingAudioUrl(audioUrl))
+        .catch(() => showToast("Could not play voice story."));
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (mobileAudioRef.current) {
+        mobileAudioRef.current.pause();
+        mobileAudioRef.current = null;
+      }
+    };
+  }, []);
 
   const { artisanId } = useArtisan();
   const { t } = useLanguage();
@@ -138,11 +166,24 @@ export default function StorefrontClient({ products, artisan }: Props) {
     const cleanPhone = digits.length === 10 ? `91${digits}` : digits;
     const price = product.price || product.price_inr || 1500;
     const productTitle = product.ai_title_en || product.ai_title_local || "Handloom Creation";
-    const text = `Namaste ${artisan.full_name}, I would like to purchase "${productTitle}" listed at ₹${price} on your Artisan Storefront: ${typeof window !== "undefined" ? window.location.href : ""}`;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const deepLink = `${origin}/shop/${artisan.id}/${product.id}`;
+
+    const stock = product.stock_quantity !== undefined && product.stock_quantity !== null
+      ? product.stock_quantity
+      : (product.in_stock === false ? 0 : 1);
+    const isSoldOut = stock <= 0 || product.in_stock === false;
+
+    let text = "";
+    if (isSoldOut) {
+      text = `Namaste ${artisan.full_name}, I see this product "${productTitle}" is currently out of stock. I would like to place a custom order for it: ${deepLink}`;
+    } else {
+      text = `Namaste ${artisan.full_name}, I would like to purchase "${productTitle}" listed at ₹${price} on your Artisan Storefront: ${deepLink}`;
+    }
     
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
     window.open(whatsappUrl, "_blank");
-    showToast("Opening WhatsApp...");
+    showToast(isSoldOut ? "Opening WhatsApp for custom order..." : "Opening WhatsApp...");
   };
 
   const handleCopyUpi = (upiId: string) => {
@@ -177,7 +218,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
 
   const handleShareProduct = async (product: Product) => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const url = `${origin}/shop/${artisan.id}#product-${product.id}`;
+    const url = `${origin}/shop/${artisan.id}/${product.id}`;
     const productTitle = product.ai_title_en || product.ai_title_local || "Handcrafted Masterpiece";
     const title = `${productTitle} by ${artisan.full_name} | Vernacular AI`;
     const text = `Check out this handcrafted masterpiece by ${artisan.full_name} on Vernacular AI:`;
@@ -741,7 +782,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
           <div className="flex-1 h-px bg-stone-300"></div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 md:gap-x-6 md:gap-y-12">
           {gridProducts.map((product) => {
             const displayPrice = product.price || product.price_inr;
             const usdPrice = getProductUsdPrice(product);
@@ -750,6 +791,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
               : (product.in_stock === false ? 0 : 1);
             const isSoldOut = stock <= 0 || product.in_stock === false;
             const isLowStock = !isSoldOut && stock >= 1 && stock <= 3;
+            const weavingDays = product.estimated_weaving_days;
 
             return (
               <div
@@ -758,16 +800,19 @@ export default function StorefrontClient({ products, artisan }: Props) {
                 className="group flex flex-col bg-transparent relative"
               >
                 {/* Image Container with Next.js Image Optimization */}
-                <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-white border border-stone-200 mb-4">
-                  <Image
-                    src={product.image_url}
-                    alt={product.ai_title_en || product.ai_title_local || "Handloom Creation"}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    unoptimized={Boolean(product.image_url?.startsWith("http"))}
-                    className="object-cover object-top transition-transform duration-500 ease-in-out group-hover:scale-105"
-                  />
-                  <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm text-neutral-900 text-sm font-semibold px-3 py-1 rounded-full shadow-sm z-10">
+                <div className="relative w-full aspect-[3/4] h-40 sm:h-52 md:h-64 rounded-xl overflow-hidden bg-white border border-stone-200 mb-2 sm:mb-4">
+                  <Link href={`/shop/${artisan.id}/${product.id}`} className="block relative w-full h-full">
+                    <Image
+                      src={product.image_url}
+                      alt={product.ai_title_en || product.ai_title_local || "Handloom Creation"}
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                      unoptimized={Boolean(product.image_url?.startsWith("http"))}
+                      className="object-cover object-top transition-transform duration-500 ease-in-out group-hover:scale-105"
+                    />
+                  </Link>
+
+                  <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-white/95 backdrop-blur-sm text-neutral-900 text-xs sm:text-sm font-semibold px-2 py-0.5 sm:px-3 sm:py-1 rounded-full shadow-sm z-10 border border-stone-200/60">
                     {destination === "international" ? `$${usdPrice.toFixed(2)} USD` : `₹${displayPrice || 1500}`}
                   </div>
 
@@ -775,40 +820,42 @@ export default function StorefrontClient({ products, artisan }: Props) {
                   <button
                     type="button"
                     onClick={() => handleShareProduct(product)}
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-neutral-700 hover:text-neutral-900 flex items-center justify-center shadow transition z-10 cursor-pointer active:scale-95"
+                    className="absolute top-2 right-2 sm:top-3 sm:right-3 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-white text-neutral-700 hover:text-neutral-900 flex items-center justify-center shadow transition z-10 cursor-pointer active:scale-95"
                     title="Share Creation"
                   >
-                    <Share2 size={13} />
+                    <Share2 size={12} className="sm:w-[13px] sm:h-[13px]" />
                   </button>
 
                   {/* Sold Out / Low Stock Badges */}
                   {isSoldOut ? (
-                    <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] flex items-center justify-center z-10">
-                      <span className="bg-neutral-900/95 text-white text-[11px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-md border border-white/20">
+                    <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] flex items-center justify-center z-10 pointer-events-none">
+                      <span className="bg-neutral-900/95 text-white text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full shadow-md border border-white/20">
                         {t('sold_out', 'Sold Out')}
                       </span>
                     </div>
                   ) : isLowStock ? (
-                    <div className="absolute top-3 left-3 bg-rose-600/95 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow z-10 animate-pulse">
+                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-rose-600/95 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full shadow z-10 animate-pulse">
                       Only {stock} left!
                     </div>
                   ) : null}
                 </div>
 
                 {/* Details */}
-                <div className="flex flex-col flex-grow space-y-3 px-1">
+                <div className="flex flex-col flex-grow space-y-1.5 sm:space-y-3 px-0.5 sm:px-1">
                   <div className="flex-grow">
-                    <h4 className={`text-neutral-900 text-base sm:text-lg mb-1 leading-normal sm:leading-relaxed ${playfair.className}`}>
-                      {product.ai_title_local}
-                    </h4>
-                    <p className="text-neutral-500 text-sm font-light leading-snug line-clamp-2">
+                    <Link href={`/shop/${artisan.id}/${product.id}`} className="hover:underline">
+                      <h4 className={`text-neutral-900 text-xs sm:text-base md:text-lg mb-0.5 sm:mb-1 leading-snug sm:leading-relaxed line-clamp-2 ${playfair.className}`}>
+                        {product.ai_title_local}
+                      </h4>
+                    </Link>
+                    <p className="text-neutral-500 text-[11px] sm:text-sm font-light leading-snug line-clamp-1 sm:line-clamp-2 hidden sm:block">
                       {destination === "international" && product.export_description
                         ? product.export_description
                         : product.ai_title_en}
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5 py-1">
+                  <div className="hidden sm:flex flex-wrap gap-1.5 py-1">
                     {product.tags.slice(0, 3).map((tag, i) => (
                       <span key={i} className="px-2.5 py-0.5 border border-stone-200 text-neutral-500 text-xs font-medium rounded-full">
                         {tag}
@@ -816,124 +863,164 @@ export default function StorefrontClient({ products, artisan }: Props) {
                     ))}
                   </div>
 
+                  {/* Audio Player: Desktop Full Controls, Mobile Compact Listen Toggle */}
                   {product.audio_url && (
-                    <div className="mt-2 w-full pt-1">
-                      <span className="block text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Volume2 size={12} className="text-amber-600" />
-                        {t("voice_of_weaver")}
-                      </span>
-                      <audio 
-                        controls 
-                        preload="metadata"
-                        src={product.audio_url} 
-                        aria-label={`Voice note story of ${product.ai_title_en || 'Handloom Creation'} narrated by artisan ${artisan.full_name}`}
-                        className="w-full h-8 rounded-full bg-stone-50 [&::-webkit-media-controls-panel]:bg-stone-50"
-                      >
-                        <source src={product.audio_url} type="audio/webm" />
-                        <source src={product.audio_url} type="audio/mp4" />
-                        <source src={product.audio_url} type="audio/mpeg" />
-                        Your browser does not support audio.
-                      </audio>
+                    <div className="w-full pt-0.5 sm:pt-1">
+                      {/* Desktop Full Audio Player */}
+                      <div className="hidden md:block">
+                        <span className="block text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                          <Volume2 size={12} className="text-amber-600" />
+                          {t("voice_of_weaver")}
+                        </span>
+                        <audio 
+                          controls 
+                          preload="metadata"
+                          src={product.audio_url} 
+                          aria-label={`Voice note story of ${product.ai_title_en || 'Handloom Creation'} narrated by artisan ${artisan.full_name}`}
+                          className="w-full h-8 rounded-full bg-stone-50 [&::-webkit-media-controls-panel]:bg-stone-50"
+                        >
+                          <source src={product.audio_url} type="audio/webm" />
+                          <source src={product.audio_url} type="audio/mp4" />
+                          <source src={product.audio_url} type="audio/mpeg" />
+                          Your browser does not support audio.
+                        </audio>
+                      </div>
+
+                      {/* Mobile Compact Listen Toggle */}
+                      <div className="block md:hidden">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleMobileAudio(product.audio_url!)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50/90 border border-amber-200/90 text-amber-900 text-[10px] font-semibold active:scale-95 transition"
+                        >
+                          {playingAudioUrl === product.audio_url ? (
+                            <>
+                              <Pause size={10} className="shrink-0" />
+                              <span>Pause</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play size={10} className="fill-amber-900 shrink-0" />
+                              <span>Listen</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Estimated Weaving Time Badge */}
+                  {isSoldOut && weavingDays && weavingDays > 0 && (
+                    <div className="text-[10px] sm:text-xs font-semibold text-amber-900 bg-amber-50/90 border border-amber-200/80 rounded-md px-1.5 py-0.5 flex items-center gap-1">
+                      <Clock size={11} className="text-amber-700 shrink-0" />
+                      <span className="truncate">Takes ~{weavingDays}d to weave</span>
                     </div>
                   )}
 
                   {/* Actions */}
-                  {isSoldOut ? (
-                    <button
-                      disabled
-                      className="w-full mt-2 py-3 bg-stone-200 text-stone-400 rounded-lg text-sm font-semibold cursor-not-allowed uppercase tracking-wider"
-                    >
-                      {t('sold_out')}
-                    </button>
-                  ) : destination === "international" ? (
-                    <div className="flex flex-col gap-2 mt-2 w-full">
+                  {destination === "international" ? (
+                    <div className="flex flex-col gap-1.5 sm:gap-2 mt-1 sm:mt-2 w-full">
                       <div className="flex items-center justify-between px-1">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
-                          <Globe size={12} className="text-emerald-600" /> {t("insured_export")}
+                        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
+                          <Globe size={11} className="text-emerald-600 sm:w-3 sm:h-3" /> {t("insured_export")}
                         </span>
-                        <span className="text-xs font-bold text-stone-900">${usdPrice.toFixed(2)} USD</span>
+                        <span className="text-[11px] sm:text-xs font-bold text-stone-900">${usdPrice.toFixed(2)} USD</span>
                       </div>
-                      {hasPayPal ? (
+                      {isSoldOut ? (
+                        <div className="flex flex-col gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleBuy(product)}
+                            className="w-full py-1.5 sm:py-2.5 px-2 rounded-lg text-xs sm:text-sm font-medium tracking-wide flex items-center justify-center gap-1.5 bg-neutral-900 text-white hover:bg-neutral-800 transition-colors shadow-2xs active:scale-[0.98]"
+                          >
+                            <MessageCircle size={14} className="opacity-90 shrink-0" />
+                            <span className="truncate">Order on WhatsApp</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled
+                            className="w-full py-1.5 px-2 bg-gray-200 text-gray-400 rounded-lg text-[10px] sm:text-xs font-semibold cursor-not-allowed pointer-events-none border border-gray-300 uppercase tracking-wider"
+                          >
+                            {t("sold_out", "Sold Out")}
+                          </button>
+                        </div>
+                      ) : hasPayPal ? (
                         <div className="w-full relative z-10">
-                        <PayPalButtons
-                          style={{
-                            layout: "vertical",
-                            height: 38,
-                            shape: "rect",
-                            color: "gold",
-                            tagline: false,
-                          }}
-                          createOrder={(data, actions) => {
-                            return actions.order.create({
-                              intent: "CAPTURE",
-                              purchase_units: [
-                                {
-                                  description: `${product.ai_title_en || product.ai_title_local || "Artisan Handloom Saree"} (Artisan: ${artisan.full_name})`,
-                                  amount: {
-                                    currency_code: "USD",
-                                    value: usdPrice.toFixed(2),
+                          <PayPalButtons
+                            style={{
+                              layout: "vertical",
+                              height: 36,
+                              shape: "rect",
+                              color: "gold",
+                              tagline: false,
+                            }}
+                            createOrder={(data, actions) => {
+                              return actions.order.create({
+                                intent: "CAPTURE",
+                                purchase_units: [
+                                  {
+                                    description: `${product.ai_title_en || product.ai_title_local || "Artisan Handloom Saree"} (Artisan: ${artisan.full_name})`,
+                                    amount: {
+                                      currency_code: "USD",
+                                      value: usdPrice.toFixed(2),
+                                    },
                                   },
-                                },
-                              ],
-                            });
-                          }}
-                          onApprove={async (data, actions) => {
-                            if (actions.order) {
-                              const details = await actions.order.capture();
-                              const orderId = details.id || data.orderID || "SANDBOX-ORDER";
-                              setPaypalSuccessOrder({
-                                orderId,
-                                productTitle: product.ai_title_en || product.ai_title_local || "Handcrafted Heritage Creation",
-                                amount: `$${usdPrice.toFixed(2)} USD`,
+                                ],
                               });
-                              // Record order into database and atomically decrement stock
-                              await handleRecordOrder(
-                                product,
-                                "paypal",
-                                "completed",
-                                usdPrice,
-                                "USD",
-                                orderId,
-                                details.payer?.name?.given_name || "Valued Global Patron"
-                              );
-                            }
-                          }}
-                          onError={(err) => {
-                            console.error("PayPal Checkout Error:", err);
-                            showToast("PayPal transaction error. Please try again.");
-                          }}
-                          onCancel={() => {
-                            showToast("PayPal transaction cancelled.");
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-full p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-center space-y-1.5">
-                        <p className="text-[11px] font-semibold text-amber-900">
-                          Global Checkout Pending Setup
-                        </p>
-                        <p className="text-[10px] text-amber-700 leading-tight">
-                          PayPal direct checkout is not linked yet. Inquire directly on WhatsApp for international shipping.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!hasWhatsApp) {
-                              showToast("Artisan hasn't added their WhatsApp number yet.");
-                              return;
-                            }
-                            handleBuy(product);
-                          }}
-                          className="w-full py-1.5 bg-neutral-900 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-neutral-800 transition active:scale-[0.99]"
-                        >
-                          <MessageCircle size={13} /> Inquire for Export
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                    <div className="flex flex-col gap-2 mt-2">
-                      {/* WhatsApp Checkout */}
+                            }}
+                            onApprove={async (data, actions) => {
+                              if (actions.order) {
+                                const details = await actions.order.capture();
+                                const orderId = details.id || data.orderID || "SANDBOX-ORDER";
+                                setPaypalSuccessOrder({
+                                  orderId,
+                                  productTitle: product.ai_title_en || product.ai_title_local || "Handcrafted Heritage Creation",
+                                  amount: `$${usdPrice.toFixed(2)} USD`,
+                                });
+                                await handleRecordOrder(
+                                  product,
+                                  "paypal",
+                                  "completed",
+                                  usdPrice,
+                                  "USD",
+                                  orderId,
+                                  details.payer?.name?.given_name || "Valued Global Patron"
+                                );
+                              }
+                            }}
+                            onError={(err) => {
+                              console.error("PayPal Checkout Error:", err);
+                              showToast("PayPal transaction error. Please try again.");
+                            }}
+                            onCancel={() => {
+                              showToast("PayPal transaction cancelled.");
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-full p-2 bg-amber-50/80 border border-amber-200/80 rounded-xl text-center space-y-1">
+                          <p className="text-[10px] sm:text-[11px] font-semibold text-amber-900">
+                            Global Checkout Pending
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!hasWhatsApp) {
+                                showToast("Artisan hasn't added their WhatsApp number yet.");
+                                return;
+                              }
+                              handleBuy(product);
+                            }}
+                            className="w-full py-1.5 bg-neutral-900 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-neutral-800 transition active:scale-[0.99]"
+                          >
+                            <MessageCircle size={13} /> Inquire for Export
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row md:flex-col gap-1.5 sm:gap-2 mt-1 sm:mt-2">
+                      {/* WhatsApp Checkout (or Custom Order if Sold Out) */}
                       <button
                         onClick={() => {
                           if (!hasWhatsApp) {
@@ -942,29 +1029,37 @@ export default function StorefrontClient({ products, artisan }: Props) {
                           }
                           handleBuy(product);
                         }}
-                        className={`w-full py-2.5 rounded-lg text-sm font-medium tracking-wide flex items-center justify-center gap-2 transition-colors shadow-sm active:scale-[0.99] ${
+                        className={`w-full py-1.5 sm:py-2.5 px-2 rounded-lg text-xs sm:text-sm font-medium tracking-wide flex items-center justify-center gap-1.5 sm:gap-2 transition-colors shadow-2xs active:scale-[0.99] ${
                           hasWhatsApp
                             ? "bg-neutral-900 text-white hover:bg-neutral-800"
                             : "bg-stone-200 text-stone-500 hover:bg-stone-300"
                         }`}
-                        title={hasWhatsApp ? "Order on WhatsApp" : "Artisan has not set up WhatsApp yet"}
+                        title={isSoldOut ? "Order on WhatsApp" : "Buy on WhatsApp"}
                       >
-                        <MessageCircle size={16} className="opacity-90" /> {t("buy_on_whatsapp")}
+                        <MessageCircle size={14} className="opacity-90 shrink-0" />
+                        <span className="truncate">{isSoldOut ? "Order on WhatsApp" : t("buy_on_whatsapp")}</span>
                       </button>
 
-                      {/* Instant UPI Pay Modal Trigger */}
+                      {/* Instant UPI Pay Modal Trigger (Locked out when Sold Out) */}
                       <button
+                        disabled={isSoldOut}
                         onClick={() => {
+                          if (isSoldOut) return;
                           if (!hasPaymentConfigured) {
                             showToast("The artisan hasn't added their payment QR yet. Try again later!");
                             return;
                           }
                           setActiveUpiProduct(product);
                         }}
-                        className="w-full py-2.5 bg-amber-50 text-amber-950 border border-amber-300/80 rounded-lg text-xs font-bold tracking-wide flex items-center justify-center gap-1.5 hover:bg-amber-100/90 transition-colors shadow-sm active:scale-[0.99]"
+                        className={`w-full py-1.5 sm:py-2.5 px-2 rounded-lg text-[11px] sm:text-xs font-bold tracking-wide flex items-center justify-center gap-1 sm:gap-1.5 transition-colors shadow-2xs active:scale-[0.99] border ${
+                          isSoldOut
+                            ? "opacity-50 cursor-not-allowed pointer-events-none text-gray-500 bg-gray-200 border-gray-300"
+                            : "bg-amber-50 text-amber-950 border-amber-300/80 hover:bg-amber-100/90"
+                        }`}
+                        title={isSoldOut ? "Sold Out" : t('instant_upi_pay')}
                       >
-                        <Zap size={14} className="text-amber-600 fill-amber-500 shrink-0" />
-                        {t('instant_upi_pay')}
+                        <Zap size={13} className={`shrink-0 ${isSoldOut ? "text-gray-400" : "text-amber-600 fill-amber-500"}`} />
+                        <span className="truncate">{isSoldOut ? t('sold_out', 'Sold Out') : t('instant_upi_pay')}</span>
                       </button>
                     </div>
                   )}

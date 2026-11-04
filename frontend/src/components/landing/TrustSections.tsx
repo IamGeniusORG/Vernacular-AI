@@ -113,23 +113,25 @@ export default function TrustSections() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide space-x-4 pb-4 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-8 md:space-x-0">
             {whyChooseFeatures.map((feature) => {
               const Icon = feature.icon;
               return (
                 <div
                   key={feature.title}
-                  className="bg-white p-7 sm:p-8 rounded-3xl border border-stone-200/90 shadow-sm hover:shadow-md transition-all group"
+                  className="min-w-[80%] md:min-w-0 snap-center bg-white p-7 sm:p-8 rounded-3xl border border-stone-200/90 shadow-sm hover:shadow-md transition-all group shrink-0 md:shrink flex flex-col justify-between"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-[#F7F4EE] text-[#C85A32] flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                    <Icon size={24} />
+                  <div>
+                    <div className="w-12 h-12 rounded-2xl bg-[#F7F4EE] text-[#C85A32] flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                      <Icon size={24} />
+                    </div>
+                    <h3 className={`text-xl font-bold text-neutral-900 mb-2 ${playfair.className}`}>
+                      {feature.title}
+                    </h3>
+                    <p className="text-sm text-neutral-600 leading-relaxed">
+                      {feature.desc}
+                    </p>
                   </div>
-                  <h3 className={`text-xl font-bold text-neutral-900 mb-2 ${playfair.className}`}>
-                    {feature.title}
-                  </h3>
-                  <p className="text-sm text-neutral-600 leading-relaxed">
-                    {feature.desc}
-                  </p>
                 </div>
               );
             })}
@@ -152,13 +154,13 @@ export default function TrustSections() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide space-x-4 pb-4 md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 md:space-x-0">
             {empowerArtisanFeatures.map((item) => {
               const Icon = item.icon;
               return (
                 <div
                   key={item.title}
-                  className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-300"
+                  className="min-w-[80%] md:min-w-0 snap-center bg-white p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-300 shrink-0 md:shrink"
                 >
                   <div>
                     <div className="w-10 h-10 rounded-xl bg-[#EDF3EC] text-[#2E5A36] flex items-center justify-center mb-4">
@@ -193,13 +195,13 @@ export default function TrustSections() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+          <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide space-x-4 pb-4 md:grid md:grid-cols-3 md:gap-8 md:space-x-0">
             {trustHighlights.map((col) => {
               const Icon = col.icon;
               return (
                 <div
                   key={col.title}
-                  className="bg-white p-8 rounded-3xl border border-stone-200/90 shadow-sm flex flex-col items-center text-center hover:shadow-md transition"
+                  className="min-w-[80%] md:min-w-0 snap-center bg-white p-8 rounded-3xl border border-stone-200/90 shadow-sm flex flex-col items-center text-center hover:shadow-md transition shrink-0 md:shrink"
                 >
                   <div className="w-14 h-14 rounded-2xl bg-[#FDF6F0] text-[#C85A32] flex items-center justify-center mb-5">
                     <Icon size={28} />

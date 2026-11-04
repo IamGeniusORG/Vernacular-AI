@@ -114,6 +114,20 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
   * **Next.js Frontend:** Validates `process.env` against a strict `zod` schema during `npm run build` and `npm run dev`, halting the build with terminal diagnostics if client credentials are missing.
 * **Transactional Email Engine (Resend):** Integrated transactional notifications (`resend>=2.6.0`) with HTML templates for order confirmations and artisan onboarding alerts.
 
+### 11. Product Deep Linking & Rich OpenGraph Previews (`/shop/[artisan_id]/[product_id]`)
+* **Dynamic Next.js Product Route:** Dedicated server-rendered deep link route for individual artisanal creations (`/shop/[artisan_id]/[product_id]`).
+* **Rich Social Previews via `generateMetadata`:** Dynamic OpenGraph (`og:title`, `og:description`, `og:image`) and Twitter Card tags dynamically generated on the server so WhatsApp, Facebook, and Twitter render rich media preview cards when links are shared.
+* **Deep Link Native Share:** The native share button on product cards explicitly generates and shares canonical deep links (`${origin}/shop/${artisan_id}/${product_id}`).
+* **Branded PWA Offline Fallback Shell (`/offline`):** When navigating to deep links or catalog pages while offline, the Service Worker delivers an immediate branded offline fallback UI instead of a default browser network dinosaur error.
+
+### 12. Mobile-First Responsive UX, Dynamic Pre-Orders & Weaving Estimation
+* **2-Column Mobile Catalog Grid:** Upgraded mobile storefront grid from single-column vertical stacking to an optimized 2-column layout (`grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3`) with compact product cards (`h-40 md:h-64`) and two-line clamped titles.
+* **Compact Audio Toggle:** Keeps full `<audio controls>` player on desktop while rendering a space-efficient `▶ Listen` / `⏸ Pause` toggle button on mobile without breaking 2-column card heights.
+* **Sold Out UX & Custom Pre-Order Flow:** When `stock_quantity <= 0`, instant payment buttons (UPI, PayPal) are cleanly locked and disabled. The primary WhatsApp action dynamically switches to "Order on WhatsApp" with pre-filled pre-order intent text: *"Namaste, I see this product is currently out of stock. I would like to place a custom order for it: [Product URL]"*.
+* **Estimated Weaving Time Feature:** Artisans can specify crafting duration in days (`estimated_weaving_days`) in the Studio and offline queue. When an item is sold out, storefront cards display a badge (`⏱️ Takes ~[X] days to weave`) informing buyers of custom delivery timelines.
+* **Horizontal Swipe Carousels & Sticky Navigation:** Converted the artisan directory and landing page feature cards into smooth horizontal swipe carousels on mobile (`flex overflow-x-auto snap-x snap-mandatory`), paired with sticky search and craft filter pills (`sticky top-16 z-30`).
+* **Native Mobile Bottom Navigation:** Added a fixed mobile navigation bar (`MobileBottomNav.tsx`) offering 1-tap navigation between Market, Studio, Profile, and quick Language selection.
+
 ---
 
 ## 🏗️ System Architecture

@@ -12,7 +12,7 @@ from app.services.ai_service import generate_product_listing, parse_search_inten
 from app.services.storage_service import upload_image, save_product, upload_audio
 from app.services.image_service import remove_background_with_fallback
 from app.services.email_service import send_new_product_notification, send_back_in_stock_notification
-from app.schemas.product import BatchProductResponse, GeneratedProduct
+from app.schemas.product import BatchProductResponse, GeneratedProduct, ProductPatchUpdate
 
 router = APIRouter()
 
@@ -67,6 +67,7 @@ async def _process_single_image(
     audio_url: str,
     manual_price: Optional[int] = None,
     stock_quantity: int = 1,
+    estimated_weaving_days: Optional[int] = None,
 ) -> GeneratedProduct:
     """Upload image to Supabase, call AI, save to DB, return product."""
     image_bytes = await image_file.read()
@@ -101,12 +102,14 @@ async def _process_single_image(
         ai_data,
         manual_price,
         stock_quantity,
+        estimated_weaving_days,
     )
     product_id = str(saved.get("id", ""))
     effective_price = saved.get("price") or saved.get("price_inr") or manual_price or ai_data.get("price_inr")
     effective_usd = saved.get("price_usd") or ai_data.get("suggested_usd_price")
     export_desc = saved.get("export_description") or ai_data.get("export_description", "")
     qty = saved.get("stock_quantity", stock_quantity)
+    weaving_days = saved.get("estimated_weaving_days", estimated_weaving_days)
 
     return GeneratedProduct(
         product_id=product_id,
@@ -125,6 +128,7 @@ async def _process_single_image(
         whatsapp_link=_build_whatsapp_link(ai_data, product_id),
         stock_quantity=qty,
         in_stock=qty > 0,
+        estimated_weaving_days=weaving_days,
     )
 
 
@@ -138,6 +142,7 @@ async def generate_listing(
     audio: UploadFile = File(...),
     manual_price: Optional[int] = Form(None),
     stock_quantity: Optional[int] = Form(1),
+    estimated_weaving_days: Optional[int] = Form(None),
     authorization: Optional[str] = Header(None),
 ):
     # Strict authentication: ensure the caller is authorized for this artisan_id
@@ -184,6 +189,7 @@ async def generate_listing(
                 audio_url,
                 manual_price,
                 effective_qty,
+                estimated_weaving_days,
             )
             for img in images
         ]
@@ -233,6 +239,101 @@ async def get_artisan_products(artisan_id: str):
             .execute()
         )
         return {"status": "success", "products": response.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{product_id}")
+async def get_single_product(product_id: str):
+    """Fetch a single product along with artisan details for deep linking."""
+    try:
+        prod_res = (
+            supabase.table("products")
+            .select("*, artisan:artisans(*)")
+            .eq("id", product_id)
+            .execute()
+        )
+        if not prod_res.data:
+            raise HTTPException(status_code=404, detail="Product not found")
+        return {"status": "success", "product": prod_res.data[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/{product_id}")
+async def patch_product(
+    product_id: str,
+    update: ProductPatchUpdate,
+    background_tasks: BackgroundTasks,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Unified Product Patch Endpoint:
+    Allows artisans to update price, stock_quantity, and estimated_weaving_days.
+    """
+    caller_id = await get_current_user_id(authorization)
+
+    prod_res = (
+        supabase.table("products")
+        .select("artisan_id, stock_quantity, ai_title_en, image_url, price, price_inr")
+        .eq("id", product_id)
+        .execute()
+    )
+    if not prod_res.data:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    prod = prod_res.data[0]
+    prod_owner = str(prod.get("artisan_id", ""))
+    if caller_id != "service-role-admin" and prod_owner.lower() != caller_id.lower():
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: You can only modify your own creations.",
+        )
+
+    patch_data = {}
+    val = update.price if update.price is not None else update.price_inr
+    if val is not None:
+        patch_data["price_inr"] = val
+        patch_data["price"] = val
+    if update.price_usd is not None:
+        patch_data["price_usd"] = update.price_usd
+        patch_data["suggested_usd_price"] = update.price_usd
+    if update.stock_quantity is not None:
+        if update.stock_quantity < 0:
+            raise HTTPException(status_code=400, detail="Stock quantity cannot be negative")
+        patch_data["stock_quantity"] = update.stock_quantity
+        patch_data["in_stock"] = update.stock_quantity > 0
+    if update.estimated_weaving_days is not None:
+        patch_data["estimated_weaving_days"] = update.estimated_weaving_days if update.estimated_weaving_days > 0 else None
+
+    if not patch_data:
+        raise HTTPException(status_code=400, detail="No valid update fields provided")
+
+    try:
+        supabase.table("products").update(patch_data).eq("id", product_id).execute()
+        
+        # Check restock trigger for notifications
+        previous_stock = prod.get("stock_quantity") or 0
+        new_stock = patch_data.get("stock_quantity")
+        if new_stock is not None and previous_stock == 0 and new_stock > 0:
+            try:
+                artisan_res = supabase.table("artisans").select("full_name").eq("id", prod_owner).execute()
+                artisan_name = artisan_res.data[0]["full_name"] if (artisan_res.data and len(artisan_res.data) > 0) else "Artisan"
+                background_tasks.add_task(
+                    send_back_in_stock_notification,
+                    artisan_name=artisan_name,
+                    product_title=prod.get("ai_title_en") or "Heritage Handloom Creation",
+                    image_url=prod.get("image_url") or "",
+                    product_id=product_id,
+                    price_inr=prod.get("price") or prod.get("price_inr"),
+                    artisan_id=prod_owner,
+                )
+            except Exception as bg_err:
+                print(f"Notice: Restock email scheduling deferred: {bg_err}")
+
+        return {"status": "success", "updated": patch_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

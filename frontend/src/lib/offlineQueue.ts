@@ -26,6 +26,7 @@ export interface QueuedListing {
   timestamp: number;
   manualPrice?: number | null;
   stockQuantity?: number | null;
+  estimatedWeavingDays?: number | null;
 }
 
 export interface QueuedOfflineAction {
@@ -132,6 +133,9 @@ export const syncOfflineQueue = async (
       }
       if (item.stockQuantity) {
         formData.append("stock_quantity", item.stockQuantity.toString());
+      }
+      if (item.estimatedWeavingDays) {
+        formData.append("estimated_weaving_days", item.estimatedWeavingDays.toString());
       }
 
       // Reconstitute images

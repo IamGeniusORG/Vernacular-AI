@@ -1,13 +1,14 @@
-// Vernacular AI Native Service Worker (v3)
+// Vernacular AI Native Service Worker (v4)
 // Immediate Client Claiming, Aggressive Pre-Caching & Resilient Offline Routing
 
-const CACHE_NAME = "vernacular-ai-v3";
+const CACHE_NAME = "vernacular-ai-v4";
 const URLS_TO_PRECACHE = [
   "/",
   "/shop",
   "/studio",
   "/profile",
   "/login",
+  "/offline",
   "/manifest.json",
   "/favicon.ico",
   "/icon.png",
@@ -169,17 +170,21 @@ self.addEventListener("fetch", (event) => {
             const pathCached = await cache.match(url.pathname);
             if (pathCached) return pathCached;
 
-            // Fallback shells for main routes
+            // Fallback shells for main routes and deep links
             if (url.pathname.startsWith("/studio")) {
-              return (await cache.match("/studio")) || (await cache.match("/"));
+              return (await cache.match("/studio")) || (await cache.match("/offline")) || (await cache.match("/"));
+            }
+            if (url.pathname.startsWith("/shop/")) {
+              // Deep link offline fallback: if exact product page isn't cached, show branded offline UI
+              return (await cache.match("/offline")) || (await cache.match("/shop")) || (await cache.match("/"));
             }
             if (url.pathname.startsWith("/shop")) {
-              return (await cache.match("/shop")) || (await cache.match("/"));
+              return (await cache.match("/shop")) || (await cache.match("/offline")) || (await cache.match("/"));
             }
             if (url.pathname.startsWith("/profile")) {
-              return (await cache.match("/profile")) || (await cache.match("/"));
+              return (await cache.match("/profile")) || (await cache.match("/offline")) || (await cache.match("/"));
             }
-            return (await cache.match("/")) || Response.error();
+            return (await cache.match("/offline")) || (await cache.match("/")) || Response.error();
           });
 
         return cached || fetchPromise;

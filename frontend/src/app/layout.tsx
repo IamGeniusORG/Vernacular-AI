@@ -30,6 +30,7 @@ import { LanguageTransitionProvider } from "@/components/LanguageTransitionProvi
 import BackendKeepAlive from "@/components/BackendKeepAlive";
 import PwaRegister from "@/components/PwaRegister";
 import CookieConsent from "@/components/CookieConsent";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -110,6 +111,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <ArtisanProvider>
               <LanguageTransitionProvider>
                 {children}
+                <MobileBottomNav />
                 <BackendKeepAlive />
                 <PwaRegister />
                 <CookieConsent />

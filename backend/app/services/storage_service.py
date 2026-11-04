@@ -63,6 +63,7 @@ def save_product(
     ai_data: dict,
     manual_price: Optional[int] = None,
     stock_quantity: int = 1,
+    estimated_weaving_days: Optional[int] = None,
 ) -> dict:
     """Insert a generated product into Supabase products table. Returns inserted row."""
     # Determine default price: manual price -> ai price -> parsed suggested price -> 1500 fallback
@@ -114,6 +115,7 @@ def save_product(
         "price_usd":      final_usd,
         "in_stock":       qty > 0,
         "stock_quantity": qty,
+        "estimated_weaving_days": estimated_weaving_days if (estimated_weaving_days is not None and estimated_weaving_days > 0) else None,
         "tags":           ai_data.get("tags", []),
     }
     try:
@@ -121,10 +123,10 @@ def save_product(
         return response.data[0] if response.data else row
     except Exception as e:
         err_msg = str(e)
-        if "PGRST204" in err_msg or "export_description" in err_msg or "stock_quantity" in err_msg or "schema cache" in err_msg:
-            # Safe fallback if export_description / price_usd / stock_quantity column hasn't been added to remote DB yet
+        if "PGRST204" in err_msg or "export_description" in err_msg or "stock_quantity" in err_msg or "estimated_weaving_days" in err_msg or "schema cache" in err_msg:
+            # Safe fallback if export_description / price_usd / stock_quantity / estimated_weaving_days column hasn't been added to remote DB yet
             safe_row = row.copy()
-            for col in ["export_description", "suggested_usd_price", "price_usd", "stock_quantity"]:
+            for col in ["export_description", "suggested_usd_price", "price_usd", "stock_quantity", "estimated_weaving_days"]:
                 safe_row.pop(col, None)
             response = supabase.table("products").insert(safe_row).execute()
             saved = response.data[0] if response.data else safe_row
@@ -132,6 +134,7 @@ def save_product(
             saved["suggested_usd_price"] = final_usd
             saved["price_usd"] = final_usd
             saved["stock_quantity"] = qty
+            saved["estimated_weaving_days"] = estimated_weaving_days
             return saved
         raise e
 

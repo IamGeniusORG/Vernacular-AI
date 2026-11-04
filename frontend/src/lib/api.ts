@@ -18,6 +18,7 @@ export interface Product {
   tags: string[];
   in_stock?: boolean | null;
   stock_quantity?: number | null;
+  estimated_weaving_days?: number | null;
   created_at: string;
 }
 
@@ -107,6 +108,41 @@ export async function getArtisanProducts(artisanId: string): Promise<Product[]> 
   }
 
   return [];
+}
+
+export async function getProduct(productId: string): Promise<Product | null> {
+  // 1. Try backend API with ISR caching (60s)
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/products/${productId}`, {
+      next: { revalidate: 60 },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.product) return data.product;
+    }
+  } catch {
+    // Backend API unreachable, continue to Supabase fallback
+  }
+
+  // 2. Direct Supabase Fallback
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (supabaseUrl && supabaseKey) {
+      const { createClient } = await import("@supabase/supabase-js");
+      const client = createClient(supabaseUrl, supabaseKey);
+      const { data, error } = await client
+        .from("products")
+        .select("*")
+        .eq("id", productId)
+        .maybeSingle();
+      if (!error && data) return data;
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
 }
 
 export async function deleteArtisanAccount(artisanId: string, token: string): Promise<{ success: boolean; message?: string }> {

@@ -508,8 +508,8 @@ export default function ShopDirectoryClient({ artisans }: Props) {
             {t("directory_sub")}
           </p>
 
-          {/* Integrated Search Bar with Native Voice Recognition */}
-          <div className="w-full max-w-xl mx-auto mt-8 flex flex-col items-center">
+          {/* Integrated Search Bar with Native Voice Recognition (Sticky on Scroll) */}
+          <div className="w-full max-w-xl mx-auto mt-6 sticky top-16 z-30 bg-[#F9F8F6]/95 backdrop-blur-md p-3 rounded-3xl border border-stone-200/80 shadow-xs flex flex-col items-center">
             <div className="relative w-full">
               <div className="absolute inset-y-0 left-4 sm:left-5 flex items-center pointer-events-none text-neutral-400">
                 <Search size={18} />
@@ -519,7 +519,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                 placeholder={isListening ? t("voice_search_listening") : t("search_placeholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-11 sm:pl-12 pr-12 py-3.5 sm:py-4 bg-white border rounded-full text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:border-transparent shadow-sm transition-all text-sm font-medium ${
+                className={`w-full pl-11 sm:pl-12 pr-12 py-3 sm:py-3.5 bg-white border rounded-full text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:border-transparent shadow-2xs transition-all text-sm font-medium ${
                   isListening
                     ? "border-red-400 ring-2 ring-red-300"
                     : "border-stone-200 focus:ring-stone-400"
@@ -530,13 +530,13 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                 type="button"
                 onClick={handleVoiceSearch}
                 title={isListening ? t("voice_search_listening") : t("voice_search_tooltip")}
-                className={`absolute inset-y-0 right-2.5 my-auto h-9 w-9 rounded-full flex items-center justify-center transition-all ${
+                className={`absolute inset-y-0 right-2.5 my-auto h-8 w-8 sm:h-9 sm:w-9 rounded-full flex items-center justify-center transition-all ${
                   isListening
                     ? "bg-red-500 text-white animate-pulse shadow-md shadow-red-500/40"
                     : "text-neutral-400 hover:text-neutral-800 hover:bg-stone-100"
                 }`}
               >
-                {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                {isListening ? <MicOff size={16} /> : <Mic size={16} />}
               </button>
             </div>
 
@@ -558,7 +558,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
 
             {/* Active AI Intent Filter Pills */}
             {voiceIntent && (
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
                 <span className="text-xs font-semibold text-neutral-500 flex items-center gap-1">
                   <Sparkles size={12} className="text-[#C85A32]" /> AI Extracted:
                 </span>
@@ -593,12 +593,12 @@ export default function ShopDirectoryClient({ artisans }: Props) {
             )}
 
             {/* Craft Filter Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto max-w-full py-3 px-1 scrollbar-hide mt-3">
+            <div className="flex items-center gap-2 overflow-x-auto max-w-full py-2 px-1 scrollbar-hide mt-2">
               {CRAFT_FILTERS.map((craft) => (
                 <button
                   key={craft}
                   onClick={() => setSelectedCraft(craft)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shadow-2xs ${
+                  className={`px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all shadow-2xs ${
                     selectedCraft === craft
                       ? "bg-neutral-900 text-white shadow-neutral-900/20"
                       : "bg-white text-stone-600 border border-stone-200 hover:border-stone-400 hover:bg-stone-50"
@@ -611,7 +611,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
           </div>
         </div>
 
-        {/* Dynamic Artisan Cards Grid */}
+        {/* Dynamic Artisan Cards Container: Swipeable Carousel on Mobile, Grid on Desktop */}
         {filteredArtisans.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-stone-200 p-8 max-w-lg mx-auto">
             <p className="text-base font-semibold text-neutral-700">{t("no_artisans_found")}</p>
@@ -627,7 +627,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-6 sm:gap-8">
+          <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide space-x-4 pb-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 md:gap-8 md:space-x-0">
             {filteredArtisans.map((artisan) => {
               const crafts = ["Jamdani", "Taant", "Silk", "Khadi", "Baluchari"];
               const craftTag = crafts[artisan.id.charCodeAt(0) % crafts.length];
@@ -639,7 +639,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                 <Link
                   key={artisan.id}
                   href={`/shop/${artisan.id}`}
-                  className="group block bg-white rounded-3xl overflow-hidden border border-stone-200/90 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative flex flex-col justify-between"
+                  className="group min-w-[84%] sm:min-w-[46%] md:min-w-0 snap-center block bg-white rounded-3xl overflow-hidden border border-stone-200/90 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative flex flex-col justify-between shrink-0 md:shrink"
                 >
                   <div>
                     {/* Top Half: Cover Banner with Next/Image optimization */}

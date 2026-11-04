@@ -19,9 +19,18 @@ class GeneratedProduct(BaseModel):
     whatsapp_link: str
     stock_quantity: Optional[int] = 1
     in_stock: Optional[bool] = True
+    estimated_weaving_days: Optional[int] = None
 
 
 class BatchProductResponse(BaseModel):
     status: str
     products: List[GeneratedProduct]
     count: int
+
+
+class ProductPatchUpdate(BaseModel):
+    price: Optional[int] = None
+    price_inr: Optional[int] = None
+    price_usd: Optional[float] = None
+    stock_quantity: Optional[int] = None
+    estimated_weaving_days: Optional[int] = None

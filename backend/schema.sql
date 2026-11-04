@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS products (
     suggested_price_range TEXT,
     suggested_usd_price NUMERIC,
     in_stock        BOOLEAN DEFAULT TRUE,
+    stock_quantity  INTEGER DEFAULT 1,
+    estimated_weaving_days INTEGER DEFAULT NULL,
     tags            JSONB DEFAULT '[]',
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
@@ -59,6 +61,7 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS export_description TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price INTEGER;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS audio_url TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS in_stock BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS estimated_weaving_days INTEGER;
 
 -- Ensure ON DELETE CASCADE constraints for clean account deletion
 ALTER TABLE IF EXISTS public.products

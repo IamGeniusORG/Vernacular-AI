@@ -250,6 +250,7 @@ export default function Home() {
   // Craft Tab Initial Pricing & Stock State
   const [uploadPrice, setUploadPrice] = useState<string>("");
   const [uploadStock, setUploadStock] = useState<number>(1);
+  const [uploadWeavingDays, setUploadWeavingDays] = useState<string>("");
 
   // Offline Synchronization & PWA State
   useNetworkStatus(showToast);
@@ -1263,6 +1264,7 @@ export default function Home() {
           timestamp: getTimestamp(),
           manualPrice: uploadPrice ? parseInt(uploadPrice, 10) : undefined,
           stockQuantity: uploadStock || 1,
+          estimatedWeavingDays: uploadWeavingDays ? parseInt(uploadWeavingDays, 10) : undefined,
         };
 
         await enqueueListing(offlineItem);
@@ -1274,6 +1276,7 @@ export default function Home() {
         setAudioBlob(null);
         setUploadPrice("");
         setUploadStock(1);
+        setUploadWeavingDays("");
       } catch (queueErr) {
         console.error("Offline save error:", queueErr);
         setErrorMsg("Failed to save draft offline.");
@@ -1294,6 +1297,9 @@ export default function Home() {
       formData.append("manual_price", uploadPrice);
     }
     formData.append("stock_quantity", String(uploadStock || 1));
+    if (uploadWeavingDays) {
+      formData.append("estimated_weaving_days", uploadWeavingDays);
+    }
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -1356,6 +1362,7 @@ export default function Home() {
             timestamp: getTimestamp(),
             manualPrice: uploadPrice ? parseInt(uploadPrice, 10) : undefined,
             stockQuantity: uploadStock || 1,
+            estimatedWeavingDays: uploadWeavingDays ? parseInt(uploadWeavingDays, 10) : undefined,
           });
           await refreshQueueCount();
           showToast("Network dropped. Saved draft to offline queue!");
@@ -1364,6 +1371,7 @@ export default function Home() {
           setAudioBlob(null);
           setUploadPrice("");
           setUploadStock(1);
+          setUploadWeavingDays("");
           return;
         } catch {
           // ignore
@@ -1412,7 +1420,7 @@ export default function Home() {
   const reset = () => {
     setImages([]); setImagePreviews([]); setAudioBlob(null);
     setResults(null); setErrorMsg(null); setRecordingTime(0);
-    setUploadPrice(""); setUploadStock(1);
+    setUploadPrice(""); setUploadStock(1); setUploadWeavingDays("");
   };
 
   const canGenerate = images.length > 0 && !!audioBlob && !isLoading;
@@ -2509,7 +2517,7 @@ export default function Home() {
                 </div>
 
                 <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">
                         Price (₹) <span className="text-slate-400 font-normal lowercase">(optional)</span>
@@ -2556,6 +2564,21 @@ export default function Home() {
                         </button>
                       </div>
                       <p className="text-[10px] text-slate-400 mt-1">Units available</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">
+                        Days to weave <span className="text-slate-400 font-normal lowercase">(optional)</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 7"
+                        value={uploadWeavingDays}
+                        onChange={(e) => setUploadWeavingDays(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Days to weave when out of stock</p>
                     </div>
                   </div>
                 </div>
