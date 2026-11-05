@@ -14,6 +14,7 @@ import UserDropdown from "@/components/UserDropdown";
 import LanguageToggle from "@/components/LanguageToggle";
 import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 import { createClient } from "@/utils/supabase/client";
+import { getProductImage } from "@/lib/placeholders";
 
 // Modular Landing Page Components
 import DynamicWeaveCanvas from "@/components/DynamicWeaveCanvas";
@@ -359,6 +360,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                   height={108}
                   quality={100}
                   priority={true}
+                  unoptimized={true}
                   sizes="(max-width: 640px) 116px, 174px"
                   className="h-full w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
                 />
@@ -485,6 +487,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                 height={874}
                 quality={100}
                 priority={true}
+                unoptimized={true}
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 720px"
                 className="w-full h-auto object-contain mix-blend-multiply select-none pointer-events-none"
               />
@@ -615,7 +618,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
           </div>
         </div>
 
-        {/* Dynamic Artisan Cards Container: Swipeable Carousel on Mobile, Grid on Desktop */}
+        {/* Dynamic Artisan Cards Container: Vertical Stack on Mobile, Grid on Desktop */}
         {filteredArtisans.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-stone-200 p-8 max-w-lg mx-auto">
             <p className="text-base font-semibold text-neutral-700">{t("no_artisans_found")}</p>
@@ -631,86 +634,125 @@ export default function ShopDirectoryClient({ artisans }: Props) {
             </button>
           </div>
         ) : (
-          <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide space-x-4 pb-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 md:gap-8 md:space-x-0">
+          <div className="flex flex-col space-y-3 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 md:gap-8 md:space-y-0">
             {filteredArtisans.map((artisan) => {
               const crafts = ["Jamdani", "Taant", "Silk", "Khadi", "Baluchari"];
               const craftTag = crafts[artisan.id.charCodeAt(0) % crafts.length];
               const productCount = artisan.products ? artisan.products.length : 0;
               const latestProduct = artisan.products?.find((p) => Boolean((p.images && p.images.length > 0) || p.image_url));
-              const coverImage = artisan.banner_url || latestProduct?.images?.[0] || latestProduct?.image_url;
+              const coverImage = artisan.banner_url || (latestProduct ? getProductImage(latestProduct) : null);
 
               return (
                 <Link
                   key={artisan.id}
                   href={`/shop/${artisan.id}`}
-                  className="group min-w-[84%] sm:min-w-[46%] md:min-w-0 snap-center block bg-white rounded-3xl overflow-hidden border border-stone-200/90 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative flex flex-col justify-between shrink-0 md:shrink"
+                  className="group block w-full bg-white rounded-2xl md:rounded-3xl overflow-hidden border border-stone-200/90 shadow-2xs hover:shadow-xl hover:-translate-y-0.5 md:hover:-translate-y-1 transition-all duration-300 relative"
                 >
-                  <div>
-                    {/* Top Half: Cover Banner with Next/Image optimization */}
-                    <div className="h-44 w-full relative overflow-hidden bg-stone-100">
-                      {coverImage ? (
-                        <Image
-                          src={coverImage}
-                          alt={artisan.full_name || "Master Weaver"}
-                          fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                          unoptimized={Boolean(coverImage.startsWith("http"))}
-                          className="object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                  {/* MOBILE COMPACT ROW (block md:hidden): Sleek, short height, p-2.5/p-3, w-12 h-12 avatar, text-sm */}
+                  <div className="flex md:hidden items-center justify-between p-2.5 sm:p-3 gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border border-stone-200/80 shadow-xs flex items-center justify-center bg-stone-100">
+                        <UniversalAvatar
+                          user={artisan}
+                          size="sm"
+                          className="w-12 h-12 border-0 shadow-none ring-0"
                         />
-                      ) : (
-                        <>
-                          <div className="absolute inset-0 bg-gradient-to-br from-stone-200 to-stone-300 opacity-60 group-hover:scale-105 transition-transform duration-700"></div>
-                          <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/woven-light.png')]"></div>
-                        </>
-                      )}
-                      
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10"></div>
-
-                      {/* Creation Count Badge */}
-                      <div className="absolute top-3 right-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm text-neutral-800 text-[11px] font-bold rounded-full shadow-sm border border-stone-200/60 flex items-center gap-1.5">
-                        {productCount > 0 ? (
-                          <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            <span>{productCount} {productCount === 1 ? t("creation", "Creation") : t("creations_count")}</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                            <span>{t("new_weaver")}</span>
-                          </>
-                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className={`text-sm font-bold text-neutral-900 truncate ${playfair.className}`}>
+                            {artisan.full_name || "Artisan"}
+                          </h3>
+                          <span className="px-2 py-0.5 bg-[#FAF8F5] border border-stone-200 text-stone-700 text-[10px] font-bold uppercase rounded-full shrink-0">
+                            {t(`filter_${craftTag.toLowerCase()}`, craftTag)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-neutral-500 text-xs mt-0.5">
+                          <MapPin size={11} className="opacity-70 text-[#C85A32] shrink-0" />
+                          <span className="truncate">{artisan.district || "West Bengal, India"}</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Bottom Details */}
-                    <div className="relative px-6 pb-6 pt-12 text-center">
-                      <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-10">
-                        <UniversalAvatar
-                          user={artisan}
-                          size="xl"
-                          className="border-4 border-white shadow-md ring-0"
-                        />
-                      </div>
-
-                      <h3 className={`text-xl font-bold text-neutral-900 mb-1 ${playfair.className}`}>
-                        {artisan.full_name || "Artisan"}
-                      </h3>
-
-                      <div className="flex items-center justify-center gap-1.5 text-neutral-500 text-xs mb-3">
-                        <MapPin size={13} className="opacity-70 text-[#C85A32]" />
-                        <span>{artisan.district || "West Bengal, India"}</span>
-                      </div>
-
-                      <div className="inline-block px-3 py-0.5 bg-[#FAF8F5] border border-stone-200 text-stone-700 text-[11px] font-bold tracking-wider uppercase rounded-full">
-                        {t(`filter_${craftTag.toLowerCase()}`, craftTag)}
-                      </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[11px] font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        {productCount > 0
+                          ? `${productCount} ${productCount === 1 ? t("creation", "Creation") : t("creations_count")}`
+                          : t("new_weaver")}
+                      </span>
+                      <ArrowRight size={14} className="text-[#C85A32] group-hover:translate-x-0.5 transition-transform" />
                     </div>
                   </div>
 
-                  {/* Card Footer action bar */}
-                  <div className="px-6 py-3.5 bg-stone-50 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-[#C85A32]">
-                    <span>{t("explore_weaver_storefront", "Explore Weaver Storefront")}</span>
-                    <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                  {/* DESKTOP FULL CARD (hidden md:flex md:flex-col): 100% Preserved Experience */}
+                  <div className="hidden md:flex md:flex-col justify-between h-full">
+                    <div>
+                      {/* Top Half: Cover Banner with Next/Image optimization */}
+                      <div className="h-44 w-full relative overflow-hidden bg-stone-100">
+                        {coverImage ? (
+                          <Image
+                            src={coverImage}
+                            alt={artisan.full_name || "Master Weaver"}
+                            fill
+                            sizes="(max-width: 1024px) 50vw, 25vw"
+                            unoptimized={Boolean(coverImage.startsWith("http"))}
+                            className="object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                          />
+                        ) : (
+                          <>
+                            <div className="absolute inset-0 bg-gradient-to-br from-stone-200 to-stone-300 opacity-60 group-hover:scale-105 transition-transform duration-700"></div>
+                            <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/woven-light.png')]"></div>
+                          </>
+                        )}
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10"></div>
+
+                        {/* Creation Count Badge */}
+                        <div className="absolute top-3 right-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm text-neutral-800 text-[11px] font-bold rounded-full shadow-sm border border-stone-200/60 flex items-center gap-1.5">
+                          {productCount > 0 ? (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span>{productCount} {productCount === 1 ? t("creation", "Creation") : t("creations_count")}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                              <span>{t("new_weaver")}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Bottom Details */}
+                      <div className="relative px-6 pb-6 pt-12 text-center">
+                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-10">
+                          <UniversalAvatar
+                            user={artisan}
+                            size="xl"
+                            className="border-4 border-white shadow-md ring-0"
+                          />
+                        </div>
+
+                        <h3 className={`text-xl font-bold text-neutral-900 mb-1 ${playfair.className}`}>
+                          {artisan.full_name || "Artisan"}
+                        </h3>
+
+                        <div className="flex items-center justify-center gap-1.5 text-neutral-500 text-xs mb-3">
+                          <MapPin size={13} className="opacity-70 text-[#C85A32]" />
+                          <span>{artisan.district || "West Bengal, India"}</span>
+                        </div>
+
+                        <div className="inline-block px-3 py-0.5 bg-[#FAF8F5] border border-stone-200 text-stone-700 text-[11px] font-bold tracking-wider uppercase rounded-full">
+                          {t(`filter_${craftTag.toLowerCase()}`, craftTag)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Footer action bar */}
+                    <div className="px-6 py-3.5 bg-stone-50 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-[#C85A32]">
+                      <span>{t("explore_weaver_storefront", "Explore Weaver Storefront")}</span>
+                      <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    </div>
                   </div>
                 </Link>
               );

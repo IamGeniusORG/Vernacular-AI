@@ -237,6 +237,7 @@ export default function BuyerProfilePage() {
                 height={84}
                 quality={100}
                 priority={true}
+                unoptimized={true}
                 sizes="(max-width: 640px) 96px, 144px"
                 className="h-full w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
               />

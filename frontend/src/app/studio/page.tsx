@@ -24,6 +24,7 @@ import { uploadArtisanAsset } from "@/lib/uploadAsset";
 import { revalidateArtisanProfile } from "@/app/actions/revalidate";
 import { useOfflineSync, enqueueListing, enqueueOfflineAction, fileToBase64, QueuedListing } from "@/lib/offlineQueue";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { getProductFallbackImage } from "@/lib/placeholders";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -1146,6 +1147,7 @@ export default function Home() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isStartingRecordingRef = useRef<boolean>(false);
 
   // Generation
   const [isLoading, setIsLoading] = useState(false);
@@ -1154,7 +1156,22 @@ export default function Home() {
   const [results, setResults] = useState<GeneratedProduct[] | null>(null);
   const [sharingId, setSharingId] = useState<string | null>(null);
 
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+  // Helper to cleanly clear recording interval without memory leaks
+  const clearRecordingTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearRecordingTimer();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
 
   // ── Image Handlers ─────────────────────────────────────────────────────────
 
@@ -1178,33 +1195,63 @@ export default function Home() {
   // ── Audio Handlers ─────────────────────────────────────────────────────────
 
   const startRecording = async () => {
+    if (isRecording || isStartingRecordingRef.current) return;
+    isStartingRecordingRef.current = true;
+
+    // Explicitly clear any existing timer before starting
+    clearRecordingTimer();
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // If user released before microphone was granted
+      if (!isStartingRecordingRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
       recorder.onstop = () => {
         setAudioBlob(new Blob(audioChunksRef.current, { type: "audio/webm" }));
         stream.getTracks().forEach((t) => t.stop());
-        if (timerRef.current) clearInterval(timerRef.current);
+        clearRecordingTimer();
       };
+
       recorder.start();
       setIsRecording(true);
       setAudioBlob(null);
       setRecordingTime(0);
       setErrorMsg(null);
-      timerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
+
+      // Explicitly clear before creating single active interval
+      clearRecordingTimer();
+      timerRef.current = setInterval(() => {
+        setRecordingTime((t) => t + 1);
+      }, 1000);
     } catch {
+      clearRecordingTimer();
       alert("Microphone access denied. Please allow microphone permissions in your browser.");
+    } finally {
+      isStartingRecordingRef.current = false;
     }
   };
 
   const stopRecording = () => {
+    isStartingRecordingRef.current = false;
+    // Explicitly clear timer immediately upon stop action
+    clearRecordingTimer();
+
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
     }
+    setIsRecording(false);
   };
 
   const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1723,7 +1770,7 @@ export default function Home() {
                       <div className="flex gap-3 items-start">
                         <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-slate-100 bg-slate-100">
                           <img
-                            src={item.image_url}
+                            src={item.image_url || getProductFallbackImage(item.ai_title_en || item.ai_title_local)}
                             alt={item.ai_title_en}
                             className="w-full h-full object-cover object-top"
                           />
@@ -2472,8 +2519,18 @@ export default function Home() {
                         onMouseDown={startRecording}
                         onMouseUp={stopRecording}
                         onMouseLeave={stopRecording}
-                        onTouchStart={startRecording}
-                        onTouchEnd={stopRecording}
+                        onTouchStart={(e) => {
+                          e.preventDefault();
+                          startRecording();
+                        }}
+                        onTouchEnd={(e) => {
+                          e.preventDefault();
+                          stopRecording();
+                        }}
+                        onTouchCancel={(e) => {
+                          e.preventDefault();
+                          stopRecording();
+                        }}
                         onKeyDown={(e) => {
                           if ((e.key === " " || e.key === "Enter") && !isRecording) {
                             e.preventDefault();
@@ -2609,7 +2666,7 @@ export default function Home() {
                   {/* Product image */}
                   <div className="relative aspect-video bg-slate-100">
                     <img
-                      src={product.image_url || imagePreviews[i]}
+                      src={product.image_url || imagePreviews[i] || getProductFallbackImage(product.ai_title_en || product.ai_title_local)}
                       alt={product.ai_title_en}
                       className="w-full h-full object-cover"
                     />

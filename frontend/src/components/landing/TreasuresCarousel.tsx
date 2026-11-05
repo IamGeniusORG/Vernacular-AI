@@ -120,7 +120,7 @@ export default function TreasuresCarousel() {
           </div>
 
           {/* Controls */}
-          <div className="hidden md:flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => handleScroll("left")}
@@ -140,10 +140,10 @@ export default function TreasuresCarousel() {
           </div>
         </div>
 
-        {/* Carousel Scroll Track (Mobile: Vertical Stack, Desktop: Horizontal Scroll Track) */}
+        {/* Carousel Scroll Track (Mobile: Horizontal Swipe, Desktop: Horizontal Carousel) */}
         <div
           ref={scrollRef}
-          className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:gap-6 md:overflow-x-auto md:pb-4 md:pt-1 md:snap-x md:scrollbar-hide select-none"
+          className="flex overflow-x-auto snap-x space-x-4 pb-4 pt-1 scrollbar-hide md:space-x-0 md:gap-6 select-none"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {HANDPICKED_TREASURES.map((item) => {
@@ -153,7 +153,7 @@ export default function TreasuresCarousel() {
             return (
               <div
                 key={item.id}
-                className="w-full md:w-[320px] md:shrink-0 md:snap-start group bg-white rounded-2xl overflow-hidden border border-stone-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col"
+                className="w-[280px] sm:w-[320px] shrink-0 snap-start group bg-white rounded-2xl overflow-hidden border border-stone-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col"
               >
                 {/* Image Box */}
                 <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-stone-100">
@@ -161,7 +161,7 @@ export default function TreasuresCarousel() {
                     src={displaySrc}
                     alt={item.title}
                     fill
-                    sizes="(max-width: 768px) 100vw, 320px"
+                    sizes="(max-width: 768px) 280px, 320px"
                     unoptimized={isRemote}
                     onError={() => setFailedImages((prev) => ({ ...prev, [item.id]: true }))}
                     className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"

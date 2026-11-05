@@ -16,6 +16,8 @@ export interface Product {
   suggested_price_range?: string | null;
   suggested_usd_price?: number | null;
   export_description?: string | null;
+  craft?: string | null;
+  category?: string | null;
   tags: string[];
   in_stock?: boolean | null;
   stock_quantity?: number | null;

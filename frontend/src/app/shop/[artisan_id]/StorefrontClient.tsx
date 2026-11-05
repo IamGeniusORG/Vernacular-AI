@@ -17,6 +17,7 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 import { usePreferences } from "@/context/PreferencesContext";
 import { enqueueOfflineAction } from "@/lib/offlineQueue";
+import { getProductImage, getProductFallbackImage } from "@/lib/placeholders";
 
 interface Props {
   products: Product[];
@@ -25,6 +26,7 @@ interface Props {
 
 export default function StorefrontClient({ products, artisan }: Props) {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [productFailedImages, setProductFailedImages] = useState<Record<string, boolean>>({});
   const [activeUpiProduct, setActiveUpiProduct] = useState<Product | null>(null);
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [shuffledProducts, setShuffledProducts] = useState<Product[]>(products);
@@ -669,7 +671,9 @@ export default function StorefrontClient({ products, artisan }: Props) {
                       {/* Left Side: Locked Aspect Ratio Image with Next/Image optimization */}
                       <div className="relative w-full aspect-[4/5] md:aspect-[3/4] rounded-2xl overflow-hidden bg-stone-100 shadow-md">
                         {(() => {
-                          const showcaseImage = (product.images && product.images.length > 0) ? product.images[0] : (product.image_url || '/placeholder.jpg');
+                          const showcaseImage = productFailedImages[product.id]
+                            ? getProductFallbackImage(product.ai_title_en || product.ai_title_local)
+                            : getProductImage(product);
                           return (
                             <Image 
                               src={showcaseImage} 
@@ -678,6 +682,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                               priority
                               sizes="(max-width: 768px) 100vw, 50vw"
                               unoptimized={Boolean(showcaseImage.startsWith("http"))}
+                              onError={() => setProductFailedImages((prev) => ({ ...prev, [product.id]: true }))}
                               className="object-cover"
                             />
                           );
@@ -787,7 +792,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
           <div className="flex-1 h-px bg-stone-300"></div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 md:gap-x-6 md:gap-y-12">
+        <div className="flex overflow-x-auto snap-x space-x-4 pb-4 scrollbar-hide md:grid md:grid-cols-3 lg:grid-cols-4 md:gap-x-6 md:gap-y-12 md:space-x-0">
           {gridProducts.map((product) => {
             const displayPrice = product.price || product.price_inr;
             const usdPrice = getProductUsdPrice(product);
@@ -802,12 +807,14 @@ export default function StorefrontClient({ products, artisan }: Props) {
               <div
                 key={product.id}
                 id={`product-${product.id}`}
-                className="group flex flex-col bg-transparent relative"
+                className="group flex flex-col bg-transparent relative shrink-0 w-[240px] sm:w-[260px] md:w-auto md:shrink snap-start"
               >
                 {/* Image Container with Next.js Image Optimization */}
                 <div className="relative w-full aspect-[3/4] h-40 sm:h-52 md:h-64 rounded-xl overflow-hidden bg-white border border-stone-200 mb-2 sm:mb-4">
                   {(() => {
-                    const heroImage = (product.images && product.images.length > 0) ? product.images[0] : (product.image_url || '/placeholder.jpg');
+                    const heroImage = productFailedImages[product.id]
+                      ? getProductFallbackImage(product.ai_title_en || product.ai_title_local)
+                      : getProductImage(product);
                     return (
                       <Link href={`/shop/${artisan.id}/${product.id}`} className="block relative w-full h-full">
                         <Image
@@ -816,6 +823,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                           fill
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           unoptimized={Boolean(heroImage.startsWith("http"))}
+                          onError={() => setProductFailedImages((prev) => ({ ...prev, [product.id]: true }))}
                           className="object-cover object-top transition-transform duration-500 ease-in-out group-hover:scale-105"
                         />
                       </Link>

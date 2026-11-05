@@ -100,6 +100,20 @@ def save_product(
 
     export_desc = ai_data.get("export_description", "") or ai_data.get("ai_desc_en", "")
 
+    # Realistic category placeholder fallback if image is missing, logo, or placeholder
+    if not image_url or "logo" in image_url.lower() or "placeholder" in image_url.lower():
+        title_lower = f"{ai_data.get('ai_title_en', '')} {ai_data.get('ai_title_local', '')}".lower()
+        if "taant" in title_lower or "tant" in title_lower or "phulia" in title_lower:
+            image_url = "/placeholders/taant.jpg"
+        elif "jamdani" in title_lower or "dhakai" in title_lower:
+            image_url = "/placeholders/jamdani.jpg"
+        elif "baluchari" in title_lower or "murshidabad" in title_lower:
+            image_url = "/placeholders/baluchari.jpg"
+        elif "kantha" in title_lower:
+            image_url = "/placeholders/kantha.jpg"
+        else:
+            image_url = "/placeholders/default-handloom.jpg"
+
     qty = max(0, stock_quantity)
     image_list = images if (images and len(images) > 0) else ([image_url] if image_url else [])
     row = {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getArtisan, getProduct, type Product, type Artisan } from "@/lib/api";
+import { getProductImage } from "@/lib/placeholders";
 import ProductDetailClient from "./ProductDetailClient";
 
 export const revalidate = 60;
@@ -32,7 +33,7 @@ export async function generateMetadata({
     product.ai_desc_en ||
     product.export_description ||
     "Check out this authentic handloom creation directly from the weaver on Vernacular AI.";
-  const ogImage = (product.images && product.images.length > 0) ? product.images[0] : product.image_url;
+  const ogImage = getProductImage(product);
 
   return {
     title,

@@ -28,6 +28,7 @@ import { usePreferences } from "@/context/PreferencesContext";
 import { playfair } from "@/lib/fonts";
 import UniversalAvatar from "@/components/UniversalAvatar";
 import { enqueueOfflineAction, isOffline } from "@/lib/offlineQueue";
+import { getProductFallbackImage, getProductImage } from "@/lib/placeholders";
 
 interface Props {
   artisan: Artisan;
@@ -51,12 +52,19 @@ export default function ProductDetailClient({ artisan, product }: Props) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
 
+  // Dynamic Category Fallback Image
+  const fallbackCategoryImg = getProductFallbackImage(
+    product.ai_title_en || product.ai_title_local,
+    product.craft || product.category || (product.tags ? product.tags.join(" ") : null)
+  );
+
   // Gallery State Management (defaults to active image index 0)
-  const galleryImages: string[] = (product.images && product.images.length > 0)
+  const rawGallery: string[] = (product.images && product.images.length > 0)
     ? product.images
     : (product.image_url ? [product.image_url] : []);
+  const galleryImages: string[] = rawGallery.length > 0 ? rawGallery : [fallbackCategoryImg];
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const currentHeroImage = galleryImages[activeImageIndex] || product.image_url || "/placeholder.jpg";
+  const currentHeroImage = galleryImages[activeImageIndex] || fallbackCategoryImg;
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
