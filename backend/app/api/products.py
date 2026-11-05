@@ -537,14 +537,16 @@ async def backfill_translations(
     for prod in products:
         p_id = prod["id"]
         translations = prod.get("translations")
+        t_title = translations.get("title", {}) if isinstance(translations, dict) and isinstance(translations.get("title"), dict) else {}
+        t_desc = translations.get("description", {}) if isinstance(translations, dict) and isinstance(translations.get("description"), dict) else {}
         has_full_translations = (
             isinstance(translations, dict)
-            and translations.get("title", {}).get("en")
-            and translations.get("title", {}).get("bn")
-            and translations.get("title", {}).get("hi")
-            and translations.get("description", {}).get("en")
-            and translations.get("description", {}).get("bn")
-            and translations.get("description", {}).get("hi")
+            and bool(t_title.get("en"))
+            and bool(t_title.get("bn"))
+            and bool(t_title.get("hi") or t_title.get("hindi") or t_title.get("hin"))
+            and bool(t_desc.get("en"))
+            and bool(t_desc.get("bn"))
+            and bool(t_desc.get("hi") or t_desc.get("hindi") or t_desc.get("hin"))
         )
         if has_full_translations:
             continue
@@ -569,3 +571,69 @@ async def backfill_translations(
             print(f"Error backfilling product {p_id}: {err}")
 
     return {"status": "success", "updated_count": updated_count, "total_scanned": len(products)}
+
+
+@router.post("/{product_id}/translate")
+async def translate_single_product(
+    product_id: str,
+    authorization: Optional[str] = Header(None),
+):
+    """
+    Translates a single product into EN, BN, and HI using Gemini 2.5 Flash,
+    and updates the database record with normalized ISO keys.
+    """
+    from app.services.ai_service import translate_existing_product_text
+
+    caller_id = await get_current_user_id(authorization)
+
+    # 1. Fetch product
+    try:
+        res = supabase.table("products").select("*").eq("id", product_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database query error: {str(e)}")
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    prod = res.data[0]
+    prod_owner = str(prod.get("artisan_id", ""))
+    if caller_id != "service-role-admin" and caller_id and prod_owner.lower() != caller_id.lower():
+        raise HTTPException(status_code=403, detail="Forbidden: You can only translate your own products.")
+
+    title = prod.get("ai_title_local") or prod.get("ai_title_en") or "Handloom Creation"
+    desc = prod.get("ai_desc_local") or prod.get("ai_desc_en") or prod.get("export_description") or ""
+
+    # 2. Call Gemini translation
+    try:
+        multilingual = await translate_existing_product_text(title, desc)
+    except Exception as ai_err:
+        raise HTTPException(status_code=502, detail=f"AI translation failed: {str(ai_err)}")
+
+    titles = multilingual.get("title", {})
+    descs = multilingual.get("description", {})
+
+    update_payload = {
+        "translations": multilingual,
+        "ai_title_en": titles.get("en") or prod.get("ai_title_en"),
+        "ai_title_local": titles.get("bn") or prod.get("ai_title_local"),
+        "ai_desc_en": descs.get("en") or prod.get("ai_desc_en"),
+        "ai_desc_local": descs.get("bn") or prod.get("ai_desc_local"),
+    }
+
+    # 3. Update Supabase with defensive fallback for pending migrations
+    try:
+        supabase.table("products").update(update_payload).eq("id", product_id).execute()
+    except Exception as db_err:
+        err_str = str(db_err)
+        if "translations" in err_str or "PGRST204" in err_str:
+            fallback_payload = update_payload.copy()
+            fallback_payload.pop("translations", None)
+            supabase.table("products").update(fallback_payload).eq("id", product_id).execute()
+        else:
+            raise HTTPException(status_code=500, detail=f"Database update failed: {err_str}")
+
+    return {
+        "status": "success",
+        "product_id": product_id,
+        "translations": multilingual,
+    }

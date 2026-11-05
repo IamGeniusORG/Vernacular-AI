@@ -17,6 +17,23 @@ body {
   background-color: #f9f8f6;
   color: #0f172a;
   font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* Native App Feel: Prevent accidental text selection during gestures & swiping */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Explicitly preserve text selection for inputs, textareas, and readable article text */
+input,
+textarea,
+[contenteditable="true"],
+.selectable-text,
+[data-selectable] {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
 }
 
 @keyframes marquee {
@@ -32,36 +49,34 @@ body {
   animation: marquee 25s linear infinite;
 }
 
-/* ── Global Language Switch Crossfade Effect ── */
-body.lang-transitioning main,
+/* ── Global Fast Language Switch Transition (Buttery Smooth, Never Flashes Blank) ── */
 body.lang-transitioning [data-lang-content],
-.lang-transitioning main,
 .lang-transitioning [data-lang-content] {
-  opacity: 0;
-  filter: blur(4px);
-  pointer-events: none;
-  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1), filter 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.85;
+  transition: opacity 60ms ease-out;
 }
 
-body.lang-idle main,
 body.lang-idle [data-lang-content],
-.lang-idle main,
 .lang-idle [data-lang-content] {
   opacity: 1;
-  filter: blur(0px);
-  pointer-events: auto;
-  transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1), filter 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 150ms ease-in;
 }
 
 /* Ensure sticky navigation headers, marquis, and language toggle controls never flicker */
 header,
 nav,
 [data-no-lang-transition] {
-  opacity: 1;
-  filter: none;
+  opacity: 1 !important;
+  filter: none !important;
 }
 
-/* ── Global Mobile Touch & Instant Tap Optimization ── */
+/* ── Global Mobile Touch & Instant Tap Optimization (Zero Tap Highlight Flash) ── */
+*,
+*::before,
+*::after {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
 button,
 a,
 input,
@@ -70,15 +85,38 @@ textarea,
 [role="button"],
 .cursor-pointer {
   touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: transparent !important;
 }
 
-/* Instant visual tactile response on tap/click */
+/* Prevent iOS image/link callout sheet during long presses */
+img,
+a {
+  -webkit-touch-callout: none;
+}
+
+/* Instant visual tactile response on tap/click (Native App Spring) */
 button:active:not(:disabled),
 [role="button"]:active:not(:disabled),
 a:active {
-  transform: scale(0.98);
-  transition: transform 60ms ease-out;
+  transform: scale(0.975);
+  transition: transform 60ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ── Safe Area Inset Support (Notches, Home Bars, Dynamic Island) ── */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-pt-header {
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+}
+
+.safe-pb-nav {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Ensure interactive elements never suffer from stuck pointer-events */
@@ -88,4 +126,3 @@ body:not(.lang-transitioning) button,
 body:not(.lang-transitioning) a {
   pointer-events: auto;
 }
-

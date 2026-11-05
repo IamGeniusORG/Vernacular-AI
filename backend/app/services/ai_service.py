@@ -116,13 +116,13 @@ async def generate_product_listing(
         title_dict = translations.get("title") if isinstance(translations.get("title"), dict) else {}
         desc_dict = translations.get("description") if isinstance(translations.get("description"), dict) else {}
 
-        en_title = title_dict.get("en") or parsed.get("ai_title_en") or "Handcrafted Indian Handloom Creation"
-        bn_title = title_dict.get("bn") or parsed.get("ai_title_local") or "হস্তনির্মিত ভারতীয় তাঁত সৃষ্টি"
-        hi_title = title_dict.get("hi") or "हस्तनिर्मित भारतीय हथकरघा वस्त्र"
+        en_title = title_dict.get("en") or title_dict.get("english") or parsed.get("ai_title_en") or "Handcrafted Indian Handloom Creation"
+        bn_title = title_dict.get("bn") or title_dict.get("bengali") or parsed.get("ai_title_local") or "হস্তনির্মিত ভারতীয় তাঁত সৃষ্টি"
+        hi_title = title_dict.get("hi") or title_dict.get("hindi") or title_dict.get("hin") or "हस्तनिर्मित भारतीय हथकरघा वस्त्र"
 
-        en_desc = desc_dict.get("en") or parsed.get("ai_desc_en") or "Authentic master weave handloom piece created with traditional artisanal technique."
-        bn_desc = desc_dict.get("bn") or parsed.get("ai_desc_local") or "ঐতিহ্যবাহী তাঁত শিল্পীদের দ্বারা নির্মিত হস্তনির্মিত খাঁটি সৃষ্টি।"
-        hi_desc = desc_dict.get("hi") or "पारंपरिक कारीगरों द्वारा निर्मित प्रामाणिक हथकरघा उत्कृष्ट कृति।"
+        en_desc = desc_dict.get("en") or desc_dict.get("english") or parsed.get("ai_desc_en") or "Authentic master weave handloom piece created with traditional artisanal technique."
+        bn_desc = desc_dict.get("bn") or desc_dict.get("bengali") or parsed.get("ai_desc_local") or "ঐতিহ্যবাহী তাঁত শিল্পীদের দ্বারা নির্মিত হস্তনির্মিত খাঁটি সৃষ্টি।"
+        hi_desc = desc_dict.get("hi") or desc_dict.get("hindi") or desc_dict.get("hin") or "पारंपरिक कारीगरों द्वारा निर्मित प्रामाणिक हथकरघा उत्कृष्ट कृति।"
 
         parsed["translations"] = {
             "title": {"en": en_title, "bn": bn_title, "hi": hi_title},
@@ -138,10 +138,9 @@ async def generate_product_listing(
 
 TRANSLATE_SYSTEM_PROMPT = (
     "You are a professional multilingual cataloger for Indian handlooms. "
-    "Translate and enrich the given product title and description simultaneously into: "
-    "1. English ('en') "
-    "2. Bengali ('bn') "
-    "3. Hindi ('hi') "
+    "Translate and enrich the given product title and description simultaneously into three languages. "
+    "Use standard two-letter ISO 639-1 language codes strictly: 'en' for English, 'bn' for Bengali, and 'hi' for Hindi. "
+    "DO NOT use full words like 'hindi', 'bengali', or 'english' as keys. "
     "Output ONLY a strict JSON object with this exact structure: "
     "{\n"
     '  "title": { "en": "...", "bn": "...", "hi": "..." },\n'
@@ -185,7 +184,20 @@ async def translate_existing_product_text(title: str, description: str) -> dict:
                     content = content[:-3]
                 parsed = json.loads(content.strip())
                 if isinstance(parsed, dict) and "title" in parsed and "description" in parsed:
-                    return parsed
+                    t_in = parsed.get("title", {}) if isinstance(parsed.get("title"), dict) else {}
+                    d_in = parsed.get("description", {}) if isinstance(parsed.get("description"), dict) else {}
+                    return {
+                        "title": {
+                            "en": t_in.get("en") or t_in.get("english") or title or "Handcrafted Indian Handloom Creation",
+                            "bn": t_in.get("bn") or t_in.get("bengali") or title or "হস্তনির্মিত ভারতীয় তাঁত সৃষ্টি",
+                            "hi": t_in.get("hi") or t_in.get("hindi") or t_in.get("hin") or "हस्तनिर्मित भारतीय हथकरघा वस्त्र",
+                        },
+                        "description": {
+                            "en": d_in.get("en") or d_in.get("english") or description or "Authentic master weave handloom piece created with traditional artisanal technique.",
+                            "bn": d_in.get("bn") or d_in.get("bengali") or description or "ঐতিহ্যবাহী তাঁত শিল্পীদের দ্বারা নির্মিত হস্তনির্মিত খাঁটি সৃষ্টি।",
+                            "hi": d_in.get("hi") or d_in.get("hindi") or d_in.get("hin") or "पारंपरिक कारीगरों द्वारा निर्मित प्रामाणिक हथकरघा उत्कृष्ट कृति।",
+                        },
+                    }
         except Exception as e:
             print(f"Notice: Multilingual translation API call fallback: {e}")
 

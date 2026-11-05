@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import SlideOverPage from "@/components/PageTransition";
 import {
   ArrowLeft,
   Share2,
@@ -36,11 +38,20 @@ interface Props {
 }
 
 export default function ProductDetailClient({ artisan, product }: Props) {
+  const router = useRouter();
   const { t, activeLanguage } = useLanguage();
   const { currency, setCurrency } = usePreferences();
   const destination: "domestic" | "international" = currency === "USD" ? "international" : "domestic";
   const setDestination = (dest: "domestic" | "international") => {
     setCurrency(dest === "international" ? "USD" : "INR");
+  };
+
+  const handleNavigateBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(`/shop/${artisan.id}`);
+    }
   };
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -225,17 +236,19 @@ export default function ProductDetailClient({ artisan, product }: Props) {
     : "";
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-neutral-900 pb-20">
-      {/* ── Top Header Navigation ── */}
-      <header className="sticky top-0 z-40 bg-[#FDFBF7]/90 backdrop-blur-md border-b border-stone-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          <Link
-            href={`/shop/${artisan.id}`}
-            className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-neutral-700 hover:text-neutral-950 transition active:scale-95 group"
-          >
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            <span>{t("back_to_catalog", "Back to Catalog")}</span>
-          </Link>
+    <SlideOverPage fallbackBackUrl={`/shop/${artisan.id}`} onBack={handleNavigateBack}>
+      <div className="min-h-screen bg-[#FDFBF7] text-neutral-900 pb-20 select-none">
+        {/* ── Top Header Navigation ── */}
+        <header className="sticky top-0 z-40 bg-[#FDFBF7]/90 backdrop-blur-md border-b border-stone-200/80 safe-pt-header">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={handleNavigateBack}
+              className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-neutral-700 hover:text-neutral-950 transition active:scale-95 group cursor-pointer"
+            >
+              <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+              <span>{t("back_to_catalog", "Back to Catalog")}</span>
+            </button>
 
           <div className="flex items-center gap-2.5">
             {/* Destination Toggle */}
@@ -746,6 +759,7 @@ export default function ProductDetailClient({ artisan, product }: Props) {
           <span>{toastMsg}</span>
         </div>
       )}
-    </div>
+      </div>
+    </SlideOverPage>
   );
 }

@@ -182,19 +182,28 @@ export async function deleteArtisanAccount(artisanId: string, token: string): Pr
 }
 
 /**
- * Resolves localized product title based on active language (en, bn, hi) with safe fallbacks.
+ * Resolves localized product title based on active language (en, bn, hi) with safe fallbacks and alias normalization.
  */
 export function getLocalizedProductTitle(
   product?: Product | null,
   lang: string = "en"
 ): string {
   if (!product) return "Handloom Creation";
-  const translations = product.translations?.title;
-  if (translations) {
-    const text = translations[lang as "en" | "bn" | "hi"];
+  const titles = product.translations?.title as Record<string, string | undefined> | undefined;
+  if (titles) {
+    let text: string | undefined = undefined;
+    if (lang === "hi" || lang === "hin" || lang === "hindi") {
+      text = titles.hi || titles.hindi || titles.hin;
+    } else if (lang === "bn" || lang === "ben" || lang === "bengali") {
+      text = titles.bn || titles.bengali || titles.ben;
+    } else {
+      text = titles.en || titles.english || titles.eng;
+    }
+
     if (text && text.trim()) return text;
-    if (translations.en && translations.en.trim()) return translations.en;
+    if (titles.en && titles.en.trim()) return titles.en;
   }
+
   if (lang === "en") return product.ai_title_en || product.ai_title_local || "Handloom Creation";
   if (lang === "bn") return product.ai_title_local || product.ai_title_en || "হস্তনির্মিত তাঁত সৃষ্টি";
   if (lang === "hi") return product.ai_title_local || product.ai_title_en || "हस्तनिर्मित हथकरघा वस्त्र";
@@ -202,19 +211,28 @@ export function getLocalizedProductTitle(
 }
 
 /**
- * Resolves localized product description based on active language (en, bn, hi) with safe fallbacks.
+ * Resolves localized product description based on active language (en, bn, hi) with safe fallbacks and alias normalization.
  */
 export function getLocalizedProductDesc(
   product?: Product | null,
   lang: string = "en"
 ): string {
   if (!product) return "";
-  const translations = product.translations?.description;
-  if (translations) {
-    const text = translations[lang as "en" | "bn" | "hi"];
+  const descs = product.translations?.description as Record<string, string | undefined> | undefined;
+  if (descs) {
+    let text: string | undefined = undefined;
+    if (lang === "hi" || lang === "hin" || lang === "hindi") {
+      text = descs.hi || descs.hindi || descs.hin;
+    } else if (lang === "bn" || lang === "ben" || lang === "bengali") {
+      text = descs.bn || descs.bengali || descs.ben;
+    } else {
+      text = descs.en || descs.english || descs.eng;
+    }
+
     if (text && text.trim()) return text;
-    if (translations.en && translations.en.trim()) return translations.en;
+    if (descs.en && descs.en.trim()) return descs.en;
   }
+
   if (lang === "en") return product.ai_desc_en || product.export_description || product.ai_desc_local || "";
   if (lang === "bn") return product.ai_desc_local || product.ai_desc_en || "";
   if (lang === "hi") return product.ai_desc_local || product.ai_desc_en || "";

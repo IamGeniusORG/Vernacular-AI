@@ -28,3 +28,21 @@ SET translations = jsonb_build_object(
     )
 )
 WHERE translations IS NULL OR translations = '{}'::jsonb;
+
+-- 3. Normalize any mismatched keys (e.g., 'hindi' or 'hin' -> 'hi')
+UPDATE public.products
+SET translations = jsonb_set(
+    jsonb_set(
+        translations,
+        '{title,hi}',
+        COALESCE(NULLIF(translations->'title'->>'hi', ''), NULLIF(translations->'title'->>'hindi', ''), NULLIF(translations->'title'->>'hin', ''), 'हस्तनिर्मित हथकरघा वस्त्र')::jsonb
+    ),
+    '{description,hi}',
+    COALESCE(NULLIF(translations->'description'->>'hi', ''), NULLIF(translations->'description'->>'hindi', ''), NULLIF(translations->'description'->>'hin', ''), '')::jsonb
+)
+WHERE translations IS NOT NULL AND (
+    translations->'title' ? 'hindi' OR 
+    translations->'title' ? 'hin' OR 
+    translations->'description' ? 'hindi' OR 
+    translations->'description' ? 'hin'
+);

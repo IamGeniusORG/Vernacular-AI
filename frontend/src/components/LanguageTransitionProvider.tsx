@@ -19,7 +19,7 @@ interface LanguageTransitionContextType {
 
 const LanguageTransitionContext = createContext<LanguageTransitionContextType>({
   isTransitioning: false,
-  transitionClass: "opacity-100 blur-none transition-all duration-300 ease-in-out",
+  transitionClass: "opacity-100 transition-opacity duration-150 ease-in",
 });
 
 export function LanguageTransitionProvider({ children }: { children: ReactNode }) {
@@ -42,7 +42,7 @@ export function LanguageTransitionProvider({ children }: { children: ReactNode }
 
       const timer = window.setTimeout(() => {
         setIsTransitioning(false);
-      }, 150);
+      }, 60);
 
       return () => {
         window.clearTimeout(timer);
@@ -71,8 +71,8 @@ export function LanguageTransitionProvider({ children }: { children: ReactNode }
   }, [isTransitioning]);
 
   const transitionClass = isTransitioning
-    ? "opacity-0 blur-sm pointer-events-none transition-all duration-150 ease-out"
-    : "opacity-100 blur-none transition-all duration-300 ease-in-out";
+    ? "opacity-90 transition-opacity duration-75 ease-out"
+    : "opacity-100 transition-opacity duration-150 ease-in";
 
   return (
     <LanguageTransitionContext.Provider value={{ isTransitioning, transitionClass }}>

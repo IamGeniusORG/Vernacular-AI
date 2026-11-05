@@ -15,6 +15,7 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 import { createClient } from "@/utils/supabase/client";
 import { getProductImage } from "@/lib/placeholders";
+import { useScrollRestoration, saveScrollPosition } from "@/hooks/useScrollRestoration";
 
 // Modular Landing Page Components
 import DynamicWeaveCanvas from "@/components/DynamicWeaveCanvas";
@@ -71,6 +72,9 @@ interface VoiceSearchIntent {
 }
 
 export default function ShopDirectoryClient({ artisans }: Props) {
+  // Preserve & restore exact scroll position in directory
+  useScrollRestoration(Boolean(artisans && artisans.length > 0));
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCraft, setSelectedCraft] = useState("All");
   const [isListening, setIsListening] = useState(false);
@@ -343,7 +347,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
       <Marquee />
 
       {/* ── Global Sticky Navigation Header ── */}
-      <header className="w-full sticky top-0 z-40 bg-[#F9F8F6]/90 backdrop-blur-md border-b border-stone-200/90 shadow-2xs">
+      <header className="w-full sticky top-0 z-40 bg-[#F9F8F6]/90 backdrop-blur-md border-b border-stone-200/90 shadow-2xs select-none pt-[env(safe-area-inset-top,0px)]">
         <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 md:px-12 2xl:px-20 py-3.5 md:py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-6 min-w-0">
             <Link
@@ -646,6 +650,7 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                 <Link
                   key={artisan.id}
                   href={`/shop/${artisan.id}`}
+                  onClick={() => saveScrollPosition()}
                   className="group block w-full bg-white rounded-2xl md:rounded-3xl overflow-hidden border border-stone-200/90 shadow-2xs hover:shadow-xl hover:-translate-y-0.5 md:hover:-translate-y-1 transition-all duration-300 relative"
                 >
                   {/* MOBILE COMPACT ROW (block md:hidden): Sleek, short height, p-2.5/p-3, w-12 h-12 avatar, text-sm */}

@@ -174,33 +174,75 @@ export default function Home() {
   };
 
   const [isBackfilling, setIsBackfilling] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState<{ current: number; total: number } | null>(null);
+
   const handleBackfillTranslations = async () => {
+    const needsTranslation = (p: Product) => {
+      const t = p.translations;
+      if (!t || !t.title || !t.description) return true;
+      const hasEn = Boolean(t.title.en && t.description.en);
+      const hasBn = Boolean(t.title.bn && t.description.bn);
+      const hasHi = Boolean(
+        (t.title.hi || (t.title as any).hindi || (t.title as any).hin) &&
+        (t.description.hi || (t.description as any).hindi || (t.description as any).hin)
+      );
+      return !(hasEn && hasBn && hasHi);
+    };
+
+    const targets = inventory.filter(needsTranslation);
+    if (targets.length === 0) {
+      showToast("All creations in your catalog already have full EN, বাংলা & हिन्दी translations!");
+      return;
+    }
+
     setIsBackfilling(true);
+    setBackfillProgress({ current: 0, total: targets.length });
+
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       const token = session?.access_token || "";
 
-      const res = await fetch(`${API_BASE}/api/v1/products/backfill-translations${artisanId ? `?artisan_id=${artisanId}` : ""}`, {
-        method: "POST",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+      let successCount = 0;
+      let currentIndex = 0;
 
-      if (res.ok) {
-        const data = await res.json();
-        showToast(`Multilingual sync complete! Backfilled ${data.updated_count ?? 0} item(s).`);
-        await fetchInventory();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(err.detail || "Translation backfill error.");
+      for (const prod of targets) {
+        currentIndex++;
+        setBackfillProgress({ current: currentIndex, total: targets.length });
+
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/products/${prod.id}/translate`, {
+            method: "POST",
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            successCount++;
+            // Immediately update the product in local inventory
+            setInventory((prev) =>
+              prev.map((item) =>
+                item.id === prod.id ? { ...item, translations: data.translations } : item
+              )
+            );
+          } else {
+            console.warn(`Translation skipped for product ${prod.id} (${res.status})`);
+          }
+        } catch (itemErr) {
+          console.warn(`Translation network exception for product ${prod.id}:`, itemErr);
+        }
       }
+
+      showToast(`Multilingual sync complete! Successfully translated ${successCount} of ${targets.length} item(s).`);
+      await fetchInventory();
     } catch {
-      showToast("Network error during translation backfill.");
+      showToast("Translation sync encountered an error. Please try again.");
     } finally {
       setIsBackfilling(false);
+      setBackfillProgress(null);
     }
   };
 
@@ -572,6 +614,10 @@ export default function Home() {
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
+    // Optimistically close modal and show immediate toast
+    setIsProfileOpen(false);
+    showToast("Profile updated");
+
     try {
       const targetId = user?.id || artisanId;
       const cleanDigits = modalLocalPhone.replace(/\D/g, "");
@@ -621,15 +667,17 @@ export default function Home() {
         } else {
           await revalidateArtisanProfile(targetId);
           router.refresh();
-          showToast("Profile updated");
         }
-        setIsProfileOpen(false);
+      } else {
+        setIsProfileOpen(true);
+        showToast("Failed to save profile. Reverted.");
       }
     } catch (err) {
       console.error("Error saving profile:", err);
+      setIsProfileOpen(true);
       showToast(!isOnline ? "Saved offline. Will sync when internet returns." : "Failed to save profile");
     } finally {
-      setIsSavingProfile(false); // CRITICAL FIX
+      setIsSavingProfile(false);
     }
   };
 
@@ -988,21 +1036,48 @@ export default function Home() {
   const handleUpdatePrice = async (productId: string) => {
     const val = parseInt(priceDrafts[productId] || "0", 10);
     if (isNaN(val) || val <= 0) return;
+
+    // Snapshot previous state for rollback on network failure
+    const prevInventoryProduct = inventory.find((p) => p.id === productId);
+    const prevCatalogProduct = products.find((p) => p.id === productId);
+
+    // 0. OPTIMISTIC UI: Immediately update local state & clear draft (Zero-latency feel)
+    setInventory((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, price: val, price_inr: val } : p))
+    );
+    setProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, price: val, price_inr: val } : p))
+    );
+    setPriceDrafts((prev) => {
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
+    showToast(t("price_updated", "Price updated"));
+
     setIsUpdatingPrice((prev) => ({ ...prev, [productId]: true }));
     try {
       const { error } = await supabase
         .from("products")
         .update({ price: val, price_inr: val })
         .eq("id", productId);
-      if (!error) {
-        setInventory((prev) =>
-          prev.map((p) => (p.id === productId ? { ...p, price: val, price_inr: val } : p))
-        );
-        router.refresh();
-        showToast(t("price_updated"));
-      }
+
+      if (error) throw error;
+      router.refresh();
     } catch (err) {
       console.error("Failed to update price:", err);
+      // Rollback on network failure
+      if (prevInventoryProduct) {
+        setInventory((prev) =>
+          prev.map((p) => (p.id === productId ? prevInventoryProduct : p))
+        );
+      }
+      if (prevCatalogProduct) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === productId ? prevCatalogProduct : p))
+        );
+      }
+      showToast("Network error. Price reverted.");
     } finally {
       setIsUpdatingPrice((prev) => ({ ...prev, [productId]: false }));
     }
@@ -1011,9 +1086,14 @@ export default function Home() {
   const handleAdjustStock = async (productId: string, newStock: number) => {
     const safeStock = Math.max(0, newStock);
     const isInStock = safeStock > 0;
+
+    // Snapshot previous state for rollback
+    const prevCatalogProduct = products.find((p) => p.id === productId);
+    const prevInventoryProduct = inventory.find((p) => p.id === productId);
+
     setIsUpdatingStock((prev) => ({ ...prev, [productId]: true }));
 
-    // Optimistic local state update
+    // 0. OPTIMISTIC UI: Immediately update both products and inventory state
     setProducts((prev) =>
       prev.map((p) =>
         p.id === productId
@@ -1021,6 +1101,14 @@ export default function Home() {
           : p
       )
     );
+    setInventory((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? { ...p, stock_quantity: safeStock, in_stock: isInStock }
+          : p
+      )
+    );
+    showToast(`Stock updated: ${safeStock} available`);
 
     // If offline, queue action into IndexedDB without making network requests
     if (!isOnline) {
@@ -1065,10 +1153,16 @@ export default function Home() {
       });
 
       router.refresh();
-      showToast(`Stock updated: ${safeStock} available`);
     } catch (err) {
       console.error("Failed to adjust stock:", err);
-      showToast("Updated stock locally");
+      // Rollback on network failure
+      if (prevCatalogProduct) {
+        setProducts((prev) => prev.map((p) => (p.id === productId ? prevCatalogProduct : p)));
+      }
+      if (prevInventoryProduct) {
+        setInventory((prev) => prev.map((p) => (p.id === productId ? prevInventoryProduct : p)));
+      }
+      showToast("Network error. Stock reverted.");
     } finally {
       setIsUpdatingStock((prev) => ({ ...prev, [productId]: false }));
     }
@@ -1117,27 +1211,35 @@ export default function Home() {
   // Triggered when clicking "Delete" inside the custom modal
   const confirmDelete = async () => {
     if (!productToDelete) return;
+    const targetId = productToDelete;
     setIsDeleting(true);
 
-    // If offline, optimistically remove from UI and queue action into IndexedDB
+    // Snapshot deleted product for graceful rollback on network failure
+    const deletedProduct = products.find((p) => p.id === targetId) || inventory.find((p) => p.id === targetId);
+
+    // 0. OPTIMISTIC UI: Immediately remove from UI and close modal (Zero-latency feel)
+    setProducts((prev) => prev.filter((p) => p.id !== targetId));
+    setInventory((prev) => prev.filter((p) => p.id !== targetId));
+    setPriceDrafts((prev) => {
+      const next = { ...prev };
+      delete next[targetId];
+      return next;
+    });
+    setProductToDelete(null); // Instantly close the modal
+    showToast(t("product_deleted", "Product deleted"));
+
+    // If offline, queue action into IndexedDB
     if (!isOnline) {
-      setProducts((prev) => prev.filter((p) => p.id !== productToDelete));
-      setPriceDrafts((prev) => {
-        const next = { ...prev };
-        delete next[productToDelete];
-        return next;
-      });
       await enqueueOfflineAction({
         type: "DELETE_PRODUCT",
-        endpoint: `${API_BASE}/api/v1/products/${productToDelete}`,
+        endpoint: `${API_BASE}/api/v1/products/${targetId}`,
         method: "DELETE",
-        payload: { id: productToDelete },
+        payload: { id: targetId },
         artisanId: artisanId || undefined,
-        description: `Delete Product ${productToDelete}`,
+        description: `Delete Product ${targetId}`,
       });
       showToast("Saved offline. Will sync when internet returns.");
       setIsDeleting(false);
-      setProductToDelete(null);
       return;
     }
 
@@ -1145,25 +1247,20 @@ export default function Home() {
       const { error } = await supabase
         .from("products")
         .delete()
-        .eq("id", productToDelete);
+        .eq("id", targetId);
 
       if (error) throw error;
-
-      // Remove from UI state
-      setProducts((prev) => prev.filter((p) => p.id !== productToDelete));
-      setPriceDrafts((prev) => {
-        const next = { ...prev };
-        delete next[productToDelete];
-        return next;
-      });
-      router.refresh(); // Forces Next.js to fetch fresh data for all routes in the background
-      showToast("Product deleted successfully");
+      router.refresh();
     } catch (error) {
       console.error("Error deleting product:", error);
-      showToast("Failed to delete product");
+      // Graceful rollback to restore item in UI
+      if (deletedProduct) {
+        setProducts((prev) => [deletedProduct, ...prev]);
+        setInventory((prev) => [deletedProduct, ...prev]);
+      }
+      showToast("Failed to delete product. Restored.");
     } finally {
       setIsDeleting(false);
-      setProductToDelete(null); // Close the modal
     }
   };
   // Images — multiple
@@ -1585,7 +1682,7 @@ export default function Home() {
       <main className="w-full min-h-screen md:min-h-0 md:h-[880px] md:max-w-[410px] bg-white md:rounded-[2.5rem] md:shadow-2xl flex flex-col relative overflow-hidden border-0 md:border-[8px] md:border-slate-800">
 
         {/* ── Mobile-Optimized Artisan Header ── */}
-        <header className="px-3.5 sm:px-5 pt-3.5 sm:pt-6 pb-2.5 flex items-center justify-between border-b border-slate-100 bg-white/95 backdrop-blur-md sticky top-0 z-20 gap-2">
+        <header className="px-3.5 sm:px-5 pt-[calc(0.875rem+env(safe-area-inset-top,0px))] sm:pt-6 pb-2.5 flex items-center justify-between border-b border-slate-100 bg-white/95 backdrop-blur-md sticky top-0 z-20 gap-2 select-none">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? "bg-emerald-500" : "bg-amber-500 animate-pulse"}`}
@@ -1765,11 +1862,15 @@ export default function Home() {
                   <button
                     onClick={handleBackfillTranslations}
                     disabled={isBackfilling}
-                    className="text-xs text-amber-800 hover:text-amber-900 font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 transition active:scale-95 disabled:opacity-50"
-                    title="Generate missing English, Bengali, and Hindi descriptions via Gemini 2.5 Flash"
+                    className="text-xs text-amber-800 hover:text-amber-900 font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 transition active:scale-95 disabled:opacity-60"
+                    title="Generate missing English, Bengali, and Hindi descriptions sequentially via Gemini 2.5 Flash"
                   >
-                    <Globe2 size={12} className={isBackfilling ? "animate-spin" : ""} />
-                    {isBackfilling ? "Translating..." : "Backfill Translations"}
+                    <Globe2 size={12} className={isBackfilling ? "animate-spin text-amber-600" : ""} />
+                    {backfillProgress
+                      ? `Translating ${backfillProgress.current} of ${backfillProgress.total}...`
+                      : isBackfilling
+                      ? "Translating..."
+                      : "Backfill Translations"}
                   </button>
                   <button
                     onClick={fetchInventory}

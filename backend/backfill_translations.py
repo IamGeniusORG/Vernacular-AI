@@ -48,14 +48,17 @@ async def main():
     to_backfill = []
     for p in products:
         translations = p.get("translations")
+        t_title = translations.get("title", {}) if isinstance(translations, dict) and isinstance(translations.get("title"), dict) else {}
+        t_desc = translations.get("description", {}) if isinstance(translations, dict) and isinstance(translations.get("description"), dict) else {}
+
         has_full_translations = (
             isinstance(translations, dict)
-            and translations.get("title", {}).get("en")
-            and translations.get("title", {}).get("bn")
-            and translations.get("title", {}).get("hi")
-            and translations.get("description", {}).get("en")
-            and translations.get("description", {}).get("bn")
-            and translations.get("description", {}).get("hi")
+            and bool(t_title.get("en"))
+            and bool(t_title.get("bn"))
+            and bool(t_title.get("hi") or t_title.get("hindi") or t_title.get("hin"))
+            and bool(t_desc.get("en"))
+            and bool(t_desc.get("bn"))
+            and bool(t_desc.get("hi") or t_desc.get("hindi") or t_desc.get("hin"))
         )
         if not has_full_translations:
             to_backfill.append(p)

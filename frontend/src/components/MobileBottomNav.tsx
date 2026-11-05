@@ -87,7 +87,7 @@ export default function MobileBottomNav() {
   return (
     <nav
       aria-label="Mobile Navigation"
-      className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200/90 shadow-lg px-2 py-1.5 block md:hidden pb-[calc(0.375rem+env(safe-area-inset-bottom,0px))] transition-transform duration-300 ease-in-out ${
+      className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200/90 shadow-lg px-2 py-1.5 block md:hidden select-none pb-[calc(0.375rem+env(safe-area-inset-bottom,0px))] transition-transform duration-300 ease-in-out ${
         isVisible ? "translate-y-0" : "translate-y-full pointer-events-none"
       }`}
     >

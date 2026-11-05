@@ -18,6 +18,7 @@ import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvid
 import { usePreferences } from "@/context/PreferencesContext";
 import { enqueueOfflineAction } from "@/lib/offlineQueue";
 import { getProductImage, getProductFallbackImage } from "@/lib/placeholders";
+import { useScrollRestoration, saveScrollPosition } from "@/hooks/useScrollRestoration";
 
 interface Props {
   products: Product[];
@@ -25,6 +26,9 @@ interface Props {
 }
 
 export default function StorefrontClient({ products, artisan }: Props) {
+  // Preserve & restore exact scroll position when returning from product deep-links
+  useScrollRestoration(Boolean(products && products.length > 0));
+
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [productFailedImages, setProductFailedImages] = useState<Record<string, boolean>>({});
   const [activeUpiProduct, setActiveUpiProduct] = useState<Product | null>(null);
@@ -463,7 +467,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
         <Marquee />
 
         {/* ── Sticky Header ── */}
-        <header className="sticky top-0 z-50 bg-[#F9F8F6]/90 backdrop-blur-md border-b border-stone-200 px-4 md:px-8 py-3.5 flex items-center justify-between">
+        <header className="sticky top-0 z-50 bg-[#F9F8F6]/90 backdrop-blur-md border-b border-stone-200 px-4 md:px-8 py-3.5 pt-[calc(0.875rem+env(safe-area-inset-top,0px))] flex items-center justify-between select-none">
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <Link 
               href="/shop" 
@@ -794,7 +798,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
           <div className="flex-1 h-px bg-stone-300"></div>
         </div>
 
-        <div className="flex overflow-x-auto snap-x space-x-4 pb-4 scrollbar-hide md:grid md:grid-cols-3 lg:grid-cols-4 md:gap-x-6 md:gap-y-12 md:space-x-0">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 md:gap-x-6 md:gap-y-12">
           {gridProducts.map((product) => {
             const displayPrice = product.price || product.price_inr;
             const usdPrice = getProductUsdPrice(product);
@@ -809,16 +813,20 @@ export default function StorefrontClient({ products, artisan }: Props) {
               <div
                 key={product.id}
                 id={`product-${product.id}`}
-                className="group flex flex-col bg-transparent relative shrink-0 w-[240px] sm:w-[260px] md:w-auto md:shrink snap-start"
+                className="group flex flex-col justify-between bg-white/70 backdrop-blur-xs rounded-2xl p-2 sm:p-3 border border-stone-200/80 shadow-2xs hover:shadow-lg transition-all duration-300 w-full h-full relative"
               >
-                {/* Image Container with Next.js Image Optimization */}
-                <div className="relative w-full aspect-[3/4] h-40 sm:h-52 md:h-64 rounded-xl overflow-hidden bg-white border border-stone-200 mb-2 sm:mb-4">
+                {/* Image Container with strict 4/5 aspect ratio */}
+                <div className="relative w-full aspect-[4/5] rounded-xl overflow-hidden bg-stone-100 border border-stone-200/80 mb-2 sm:mb-3">
                   {(() => {
                     const heroImage = productFailedImages[product.id]
                       ? getProductFallbackImage(product.ai_title_en || product.ai_title_local)
                       : getProductImage(product);
                     return (
-                      <Link href={`/shop/${artisan.id}/${product.id}`} className="block relative w-full h-full">
+                      <Link
+                        href={`/shop/${artisan.id}/${product.id}`}
+                        onClick={() => saveScrollPosition()}
+                        className="block relative w-full h-full"
+                      >
                         <Image
                           src={heroImage}
                           alt={product.ai_title_en || product.ai_title_local || "Handloom Creation"}
@@ -863,8 +871,12 @@ export default function StorefrontClient({ products, artisan }: Props) {
                 {/* Details */}
                 <div className="flex flex-col flex-grow space-y-1.5 sm:space-y-3 px-0.5 sm:px-1">
                   <div className="flex-grow">
-                    <Link href={`/shop/${artisan.id}/${product.id}`} className="hover:underline">
-                      <h4 className={`text-neutral-900 text-xs sm:text-base md:text-lg mb-0.5 sm:mb-1 leading-snug sm:leading-relaxed line-clamp-2 ${playfair.className}`}>
+                    <Link
+                      href={`/shop/${artisan.id}/${product.id}`}
+                      onClick={() => saveScrollPosition()}
+                      className="hover:underline"
+                    >
+                      <h4 className={`text-neutral-900 text-xs sm:text-sm md:text-base font-bold mb-0.5 sm:mb-1 leading-snug line-clamp-2 ${playfair.className}`}>
                         {getLocalizedProductTitle(product, activeLanguage)}
                       </h4>
                     </Link>
@@ -1039,7 +1051,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
                       )}
                     </div>
                   ) : (
-                    <div className="flex flex-col sm:flex-row md:flex-col gap-1.5 sm:gap-2 mt-1 sm:mt-2">
+                    <div className="flex flex-col gap-1.5 sm:gap-2 mt-1 sm:mt-2 w-full">
                       {/* WhatsApp Checkout (or Custom Order if Sold Out) */}
                       <button
                         onClick={() => {
@@ -1049,14 +1061,14 @@ export default function StorefrontClient({ products, artisan }: Props) {
                           }
                           handleBuy(product);
                         }}
-                        className={`w-full py-1.5 sm:py-2.5 px-2 rounded-lg text-xs sm:text-sm font-medium tracking-wide flex items-center justify-center gap-1.5 sm:gap-2 transition-colors shadow-2xs active:scale-[0.99] ${
+                        className={`w-full py-1.5 sm:py-2 px-2 rounded-lg text-[11px] sm:text-xs md:text-sm font-medium tracking-wide flex items-center justify-center gap-1.5 transition-colors shadow-2xs active:scale-[0.99] ${
                           hasWhatsApp
                             ? "bg-neutral-900 text-white hover:bg-neutral-800"
                             : "bg-stone-200 text-stone-500 hover:bg-stone-300"
                         }`}
                         title={isSoldOut ? "Order on WhatsApp" : "Buy on WhatsApp"}
                       >
-                        <MessageCircle size={14} className="opacity-90 shrink-0" />
+                        <MessageCircle size={13} className="opacity-90 shrink-0" />
                         <span className="truncate">{isSoldOut ? "Order on WhatsApp" : t("buy_on_whatsapp")}</span>
                       </button>
 
@@ -1071,14 +1083,14 @@ export default function StorefrontClient({ products, artisan }: Props) {
                           }
                           setActiveUpiProduct(product);
                         }}
-                        className={`w-full py-1.5 sm:py-2.5 px-2 rounded-lg text-[11px] sm:text-xs font-bold tracking-wide flex items-center justify-center gap-1 sm:gap-1.5 transition-colors shadow-2xs active:scale-[0.99] border ${
+                        className={`w-full py-1.5 sm:py-2 px-2 rounded-lg text-[10px] sm:text-xs font-bold tracking-wide flex items-center justify-center gap-1 sm:gap-1.5 transition-colors shadow-2xs active:scale-[0.99] border ${
                           isSoldOut
                             ? "opacity-50 cursor-not-allowed pointer-events-none text-gray-500 bg-gray-200 border-gray-300"
                             : "bg-amber-50 text-amber-950 border-amber-300/80 hover:bg-amber-100/90"
                         }`}
                         title={isSoldOut ? "Sold Out" : t('instant_upi_pay')}
                       >
-                        <Zap size={13} className={`shrink-0 ${isSoldOut ? "text-gray-400" : "text-amber-600 fill-amber-500"}`} />
+                        <Zap size={12} className={`shrink-0 ${isSoldOut ? "text-gray-400" : "text-amber-600 fill-amber-500"}`} />
                         <span className="truncate">{isSoldOut ? t('sold_out', 'Sold Out') : t('instant_upi_pay')}</span>
                       </button>
                     </div>

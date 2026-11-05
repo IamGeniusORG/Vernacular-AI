@@ -295,6 +295,17 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
   ) => {
     if (!artisanId) return false;
 
+    // Snapshot previous state for graceful rollback on failure
+    const prevSnapshot = {
+      profileName,
+      whatsappNumber,
+      upiId,
+      paypalEmail,
+      avatarUrl,
+      bannerUrl,
+      qrCodeUrl,
+    };
+
     const payload: {
       full_name: string;
       whatsapp_number?: string;
@@ -313,24 +324,25 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
     if (newBannerUrl !== undefined) payload.banner_url = newBannerUrl.trim();
     if (newQrCodeUrl !== undefined) payload.qr_code_url = newQrCodeUrl.trim();
 
-    // Offline Interception: If offline, save locally & queue action in IndexedDB
+    // 0. OPTIMISTIC UI: Immediately update React state & local storage (Zero-latency feel)
+    setProfileName(newName.trim());
+    if (newWhatsapp !== undefined) setWhatsappNumber(cleanPhone(newWhatsapp));
+    if (newUpi !== undefined) setUpiId(newUpi.trim());
+    if (newPaypalEmail !== undefined) setPaypalEmail(newPaypalEmail.trim());
+    if (newAvatarUrl !== undefined) setAvatarUrl(newAvatarUrl.trim());
+    if (newBannerUrl !== undefined) setBannerUrl(newBannerUrl.trim());
+    if (newQrCodeUrl !== undefined) setQrCodeUrl(newQrCodeUrl.trim());
+
+    try {
+      const cached = getInitialCachedProfile() || {};
+      localStorage.setItem(
+        "vernacular_cached_artisan",
+        JSON.stringify({ ...cached, ...payload })
+      );
+    } catch {}
+
+    // Offline Interception: If offline, queue action into IndexedDB
     if (isOffline()) {
-      setProfileName(newName.trim());
-      if (newWhatsapp !== undefined) setWhatsappNumber(cleanPhone(newWhatsapp));
-      if (newUpi !== undefined) setUpiId(newUpi.trim());
-      if (newPaypalEmail !== undefined) setPaypalEmail(newPaypalEmail.trim());
-      if (newAvatarUrl !== undefined) setAvatarUrl(newAvatarUrl.trim());
-      if (newBannerUrl !== undefined) setBannerUrl(newBannerUrl.trim());
-      if (newQrCodeUrl !== undefined) setQrCodeUrl(newQrCodeUrl.trim());
-
-      try {
-        const cached = getInitialCachedProfile() || {};
-        localStorage.setItem(
-          "vernacular_cached_artisan",
-          JSON.stringify({ ...cached, ...payload })
-        );
-      } catch {}
-
       await enqueueOfflineAction({
         type: "UPDATE_PROFILE",
         endpoint: `${API_BASE}/api/v1/artisans/${artisanId}`,
@@ -343,70 +355,76 @@ export function ArtisanProvider({ children }: { children: React.ReactNode }) {
       return true;
     }
 
-    // 1. Update Supabase Auth user_metadata directly from client (immediate auth persistence)
     try {
-      await supabase.auth.updateUser({
-        data: {
-          full_name: payload.full_name,
-          ...(payload.whatsapp_number !== undefined && { whatsapp_number: payload.whatsapp_number }),
-          ...(payload.upi_id !== undefined && { upi_id: payload.upi_id }),
-          ...(payload.paypal_email !== undefined && { paypal_email: payload.paypal_email }),
-          ...(payload.avatar_url !== undefined && { avatar_url: payload.avatar_url }),
-          ...(payload.banner_url !== undefined && { banner_url: payload.banner_url }),
-          ...(payload.qr_code_url !== undefined && { qr_code_url: payload.qr_code_url }),
-        },
-      });
-    } catch (metaErr) {
-      console.warn("Client auth metadata update error:", metaErr);
-    }
-
-    // 2. Update via Backend API with Supabase session auth token
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
+      // 1. Update Supabase Auth user_metadata directly from client (immediate auth persistence)
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: payload.full_name,
+            ...(payload.whatsapp_number !== undefined && { whatsapp_number: payload.whatsapp_number }),
+            ...(payload.upi_id !== undefined && { upi_id: payload.upi_id }),
+            ...(payload.paypal_email !== undefined && { paypal_email: payload.paypal_email }),
+            ...(payload.avatar_url !== undefined && { avatar_url: payload.avatar_url }),
+            ...(payload.banner_url !== undefined && { banner_url: payload.banner_url }),
+            ...(payload.qr_code_url !== undefined && { qr_code_url: payload.qr_code_url }),
+          },
+        });
+      } catch (metaErr) {
+        console.warn("Client auth metadata update error:", metaErr);
       }
-      await fetch(`${API_BASE}/api/v1/artisans/${artisanId}`, {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify(payload),
-      });
-    } catch (err) {
-      console.warn("Backend saveProfile error:", err);
-    }
 
-    // 3. Update via Supabase client (with defensive fallback if columns not yet migrated)
-    try {
-      const { error: dbErr } = await supabase
-        .from("artisans")
-        .update(payload)
-        .eq("id", artisanId);
-
-      if (dbErr) {
-        const fallbackPayload: {
-          full_name?: string;
-          whatsapp_number?: string;
-          upi_id?: string;
-        } = {
-          full_name: payload.full_name,
-        };
-        if (payload.whatsapp_number !== undefined) fallbackPayload.whatsapp_number = payload.whatsapp_number;
-        if (payload.upi_id !== undefined) fallbackPayload.upi_id = payload.upi_id;
-        await supabase.from("artisans").update(fallbackPayload).eq("id", artisanId);
+      // 2. Update via Backend API with Supabase session auth token
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
+        await fetch(`${API_BASE}/api/v1/artisans/${artisanId}`, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        console.warn("Backend saveProfile error:", err);
       }
-    } catch (err) {
-      console.warn("Supabase saveProfile error:", err);
-    }
 
-    setProfileName(newName.trim());
-    if (newWhatsapp !== undefined) setWhatsappNumber(cleanPhone(newWhatsapp));
-    if (newUpi !== undefined) setUpiId(newUpi.trim());
-    if (newPaypalEmail !== undefined) setPaypalEmail(newPaypalEmail.trim());
-    if (newAvatarUrl !== undefined) setAvatarUrl(newAvatarUrl.trim());
-    if (newBannerUrl !== undefined) setBannerUrl(newBannerUrl.trim());
-    if (newQrCodeUrl !== undefined) setQrCodeUrl(newQrCodeUrl.trim());
-    return true;
+      // 3. Update via Supabase client (with defensive fallback if columns not yet migrated)
+      try {
+        const { error: dbErr } = await supabase
+          .from("artisans")
+          .update(payload)
+          .eq("id", artisanId);
+
+        if (dbErr) {
+          const fallbackPayload: {
+            full_name?: string;
+            whatsapp_number?: string;
+            upi_id?: string;
+          } = {
+            full_name: payload.full_name,
+          };
+          if (payload.whatsapp_number !== undefined) fallbackPayload.whatsapp_number = payload.whatsapp_number;
+          if (payload.upi_id !== undefined) fallbackPayload.upi_id = payload.upi_id;
+          await supabase.from("artisans").update(fallbackPayload).eq("id", artisanId);
+        }
+      } catch (err) {
+        console.warn("Supabase saveProfile error:", err);
+      }
+
+      return true;
+    } catch (err) {
+      console.error("saveProfile network failure:", err);
+      // Graceful rollback to previous state
+      setProfileName(prevSnapshot.profileName);
+      setWhatsappNumber(prevSnapshot.whatsappNumber);
+      setUpiId(prevSnapshot.upiId);
+      setPaypalEmail(prevSnapshot.paypalEmail);
+      setAvatarUrl(prevSnapshot.avatarUrl);
+      setBannerUrl(prevSnapshot.bannerUrl);
+      setQrCodeUrl(prevSnapshot.qrCodeUrl);
+      return false;
+    }
   };
 
   const logout = async () => {
