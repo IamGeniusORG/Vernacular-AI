@@ -2393,6 +2393,11 @@ export default function Home() {
                     {imagePreviews.map((src, i) => (
                       <div key={i} className="relative shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
                         <img src={src} alt={`img-${i}`} className="w-full h-full object-cover" />
+                        {i === 0 && (
+                          <span className="absolute bottom-1 left-1 bg-amber-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                            Cover
+                          </span>
+                        )}
                         <button
                           onClick={() => removeImage(i)}
                           className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition"
@@ -2424,6 +2429,9 @@ export default function Home() {
                     </div>
                   </label>
                 )}
+                <p className="text-slate-500 text-xs sm:text-sm text-center mt-2.5 leading-relaxed">
+                  The first picture will be your main catalog cover. Add up to 7 additional angles for the buyer to see.
+                </p>
                 <input
                   id="camera-input"
                   type="file"

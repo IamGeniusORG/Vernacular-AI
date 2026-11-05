@@ -412,13 +412,13 @@ export default function ShopDirectoryClient({ artisans }: Props) {
             </div>
 
             {/* Headline */}
-            <h1 className={`text-4xl sm:text-5xl md:text-6xl xl:text-7xl font-extrabold text-neutral-900 mb-6 leading-[1.12] tracking-tight ${playfair.className}`}>
+            <h1 className={`text-3xl sm:text-5xl md:text-6xl xl:text-7xl font-extrabold text-neutral-900 mb-6 leading-[1.12] tracking-tight ${playfair.className}`}>
               {t("hero_headline_1")} <br />
               <span className="text-[#C85A32] italic font-serif">{t("hero_headline_2")}</span>
             </h1>
 
             {/* Subheadline */}
-            <p className="text-base sm:text-lg md:text-xl text-neutral-600 font-light mb-8 max-w-2xl leading-relaxed">
+            <p className="text-sm sm:text-base md:text-xl text-neutral-600 font-light mb-8 max-w-2xl leading-relaxed">
               {t("hero_subheadline")}
             </p>
 
@@ -636,8 +636,8 @@ export default function ShopDirectoryClient({ artisans }: Props) {
               const crafts = ["Jamdani", "Taant", "Silk", "Khadi", "Baluchari"];
               const craftTag = crafts[artisan.id.charCodeAt(0) % crafts.length];
               const productCount = artisan.products ? artisan.products.length : 0;
-              const latestProduct = artisan.products?.find((p) => Boolean(p.image_url));
-              const coverImage = artisan.banner_url || latestProduct?.image_url;
+              const latestProduct = artisan.products?.find((p) => Boolean((p.images && p.images.length > 0) || p.image_url));
+              const coverImage = artisan.banner_url || latestProduct?.images?.[0] || latestProduct?.image_url;
 
               return (
                 <Link

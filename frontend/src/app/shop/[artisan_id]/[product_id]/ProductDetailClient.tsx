@@ -51,6 +51,13 @@ export default function ProductDetailClient({ artisan, product }: Props) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
 
+  // Gallery State Management (defaults to active image index 0)
+  const galleryImages: string[] = (product.images && product.images.length > 0)
+    ? product.images
+    : (product.image_url ? [product.image_url] : []);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const currentHeroImage = galleryImages[activeImageIndex] || product.image_url || "/placeholder.jpg";
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const showToast = (msg: string) => {
@@ -267,15 +274,17 @@ export default function ProductDetailClient({ artisan, product }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           {/* Left Column: Large Product Imagery & Audio (5-6 Cols) */}
           <div className="lg:col-span-6 flex flex-col gap-4">
+            {/* Main Hero Image Container */}
             <div className="relative w-full aspect-[4/5] sm:aspect-square md:aspect-[4/5] rounded-3xl overflow-hidden bg-white border border-stone-200 shadow-md">
               <Image
-                src={product.image_url}
+                key={currentHeroImage}
+                src={currentHeroImage}
                 alt={product.ai_title_en || product.ai_title_local || "Handloom Creation"}
                 fill
                 priority
                 sizes="(max-width: 1024px) 100vw, 50vw"
-                unoptimized={Boolean(product.image_url?.startsWith("http"))}
-                className="object-cover object-top"
+                unoptimized={Boolean(currentHeroImage?.startsWith("http"))}
+                className="object-cover object-top transition-opacity duration-300 animate-in fade-in"
               />
 
               {/* Price Pill */}
@@ -296,6 +305,37 @@ export default function ProductDetailClient({ artisan, product }: Props) {
                 </div>
               ) : null}
             </div>
+
+            {/* Interactive Thumbnail Strip */}
+            {galleryImages.length > 1 && (
+              <div className="flex overflow-x-auto space-x-3 py-2 scrollbar-hide select-none">
+                {galleryImages.map((imgSrc, idx) => {
+                  const isActive = idx === activeImageIndex;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActiveImageIndex(idx)}
+                      className={`relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 ${
+                        isActive
+                          ? "border-2 border-amber-700 ring-2 ring-amber-500/30 opacity-100 scale-100 shadow-sm"
+                          : "border border-stone-200 opacity-60 hover:opacity-100 scale-95"
+                      }`}
+                      aria-label={`View photo angle ${idx + 1}`}
+                    >
+                      <Image
+                        src={imgSrc}
+                        alt={`${product.ai_title_en || 'Product'} angle ${idx + 1}`}
+                        fill
+                        sizes="80px"
+                        unoptimized={imgSrc.startsWith("http")}
+                        className="object-cover"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Audio Story Section */}
             {product.audio_url && (

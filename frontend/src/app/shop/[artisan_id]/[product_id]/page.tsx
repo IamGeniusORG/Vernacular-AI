@@ -32,7 +32,7 @@ export async function generateMetadata({
     product.ai_desc_en ||
     product.export_description ||
     "Check out this authentic handloom creation directly from the weaver on Vernacular AI.";
-  const ogImage = product.image_url;
+  const ogImage = (product.images && product.images.length > 0) ? product.images[0] : product.image_url;
 
   return {
     title,

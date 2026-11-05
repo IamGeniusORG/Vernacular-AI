@@ -59,77 +59,20 @@ def _build_whatsapp_link(product: dict, product_id: str) -> str:
     return f"https://wa.me/?text={urllib.parse.quote(text)}"
 
 
-async def _process_single_image(
-    image_file: UploadFile,
-    audio_bytes: bytes,
-    audio_mime: str,
-    artisan_id: str,
-    audio_url: str,
-    manual_price: Optional[int] = None,
-    stock_quantity: int = 1,
-    estimated_weaving_days: Optional[int] = None,
-) -> GeneratedProduct:
-    """Upload image to Supabase, call AI, save to DB, return product."""
-    image_bytes = await image_file.read()
-    image_mime = image_file.content_type or "image/jpeg"
-
+async def _process_and_upload_image(img_file: UploadFile, remove_bg: bool = False) -> str:
+    """Read image bytes, conditionally remove background, and upload to Supabase Storage."""
+    image_bytes = await img_file.read()
     if len(image_bytes) < 100:
         raise HTTPException(
             status_code=422,
-            detail=f"Uploaded photo '{image_file.filename}' is corrupted or empty. Please upload a clear photo.",
+            detail=f"Uploaded photo '{img_file.filename}' is corrupted or empty. Please upload a clear photo.",
         )
+    if remove_bg:
+        processed_bytes = await remove_background_with_fallback(image_bytes, timeout_seconds=8.0)
+    else:
+        processed_bytes = image_bytes
 
-    # Smart background removal with lightweight u2netp (640px) and 8.0s timeout circuit breaker
-    processed_bytes = await remove_background_with_fallback(image_bytes, timeout_seconds=8.0)
-
-    # 1. Upload processed studio image to Supabase Storage CDN asynchronously
-    image_url = await asyncio.to_thread(upload_image, processed_bytes, "image/jpeg")
-
-    # 2. Call Gemini AI with the studio image + shared audio
-    ai_data = await generate_product_listing(
-        image_bytes=processed_bytes,
-        image_mime="image/jpeg",
-        audio_bytes=audio_bytes,
-        audio_mime=audio_mime,
-    )
-
-    # 3. Persist to Supabase DB (products table) asynchronously
-    saved = await asyncio.to_thread(
-        save_product,
-        artisan_id,
-        image_url,
-        audio_url,
-        ai_data,
-        manual_price,
-        stock_quantity,
-        estimated_weaving_days,
-    )
-    product_id = str(saved.get("id", ""))
-    effective_price = saved.get("price") or saved.get("price_inr") or manual_price or ai_data.get("price_inr")
-    effective_usd = saved.get("price_usd") or ai_data.get("suggested_usd_price")
-    export_desc = saved.get("export_description") or ai_data.get("export_description", "")
-    qty = saved.get("stock_quantity", stock_quantity)
-    weaving_days = saved.get("estimated_weaving_days", estimated_weaving_days)
-
-    return GeneratedProduct(
-        product_id=product_id,
-        image_url=image_url,
-        audio_url=audio_url,
-        suggested_price_range=ai_data.get("suggested_price_range", ""),
-        suggested_usd_price=effective_usd,
-        price_usd=effective_usd,
-        export_description=export_desc,
-        ai_title_en=ai_data.get("ai_title_en", ""),
-        ai_title_local=ai_data.get("ai_title_local", ""),
-        ai_desc_en=ai_data.get("ai_desc_en", ""),
-        ai_desc_local=ai_data.get("ai_desc_local", ""),
-        price_inr=effective_price,
-        tags=ai_data.get("tags", []),
-        whatsapp_link=_build_whatsapp_link(ai_data, product_id),
-        stock_quantity=qty,
-        in_stock=qty > 0,
-        estimated_weaving_days=weaving_days,
-    )
+    return await asyncio.to_thread(upload_image, processed_bytes, "image/jpeg")
 
 
 @router.post("/generate", response_model=BatchProductResponse)
@@ -175,48 +118,102 @@ async def generate_listing(
     audio_mime = audio.content_type or "audio/webm"
 
     try:
-        # Upload audio to product-audio bucket asynchronously
+        # 1. Upload audio to product-audio bucket asynchronously
         audio_url = await asyncio.to_thread(upload_audio, audio_bytes, audio_mime)
-
-        # Process all images concurrently without blocking the event loop
         effective_qty = stock_quantity if (stock_quantity is not None and stock_quantity >= 0) else 1
-        tasks = [
-            _process_single_image(
-                img,
-                audio_bytes,
-                audio_mime,
-                str(artisan_id),
-                audio_url,
-                manual_price,
-                effective_qty,
-                estimated_weaving_days,
+
+        # 2. Process primary image (images[0]) with background removal for cover photo
+        primary_file = images[0]
+        primary_bytes = await primary_file.read()
+        if len(primary_bytes) < 100:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Uploaded photo '{primary_file.filename}' is corrupted or empty.",
             )
-            for img in images
-        ]
-        products = await asyncio.gather(*tasks)
+        processed_primary_bytes = await remove_background_with_fallback(primary_bytes, timeout_seconds=8.0)
+        primary_image_url = await asyncio.to_thread(upload_image, processed_primary_bytes, "image/jpeg")
+
+        # 3. Process remaining images concurrently without duplicate background removal
+        async def _upload_secondary(img_file: UploadFile) -> str:
+            raw_bytes = await img_file.read()
+            if len(raw_bytes) >= 100:
+                return await asyncio.to_thread(upload_image, raw_bytes, "image/jpeg")
+            return ""
+
+        secondary_tasks = [_upload_secondary(img) for img in images[1:]]
+        secondary_urls = await asyncio.gather(*secondary_tasks) if secondary_tasks else []
+        all_image_urls = [primary_image_url] + [u for u in secondary_urls if u]
+
+        # 4. Call Gemini AI with primary studio image + shared audio note
+        ai_data = await generate_product_listing(
+            image_bytes=processed_primary_bytes,
+            image_mime="image/jpeg",
+            audio_bytes=audio_bytes,
+            audio_mime=audio_mime,
+        )
+
+        # 5. Persist EXACTLY ONE product record to Supabase DB with ordered images array
+        saved = await asyncio.to_thread(
+            save_product,
+            str(artisan_id),
+            primary_image_url,
+            audio_url,
+            ai_data,
+            manual_price,
+            effective_qty,
+            estimated_weaving_days,
+            images=all_image_urls,
+        )
+
+        product_id = str(saved.get("id", ""))
+        effective_price = saved.get("price") or saved.get("price_inr") or manual_price or ai_data.get("price_inr")
+        effective_usd = saved.get("price_usd") or ai_data.get("suggested_usd_price")
+        export_desc = saved.get("export_description") or ai_data.get("export_description", "")
+        qty = saved.get("stock_quantity", effective_qty)
+        weaving_days = saved.get("estimated_weaving_days", estimated_weaving_days)
+        product_images = saved.get("images") or all_image_urls
+
+        single_product = GeneratedProduct(
+            product_id=product_id,
+            image_url=primary_image_url,
+            images=product_images,
+            audio_url=audio_url,
+            suggested_price_range=ai_data.get("suggested_price_range", ""),
+            suggested_usd_price=effective_usd,
+            price_usd=effective_usd,
+            export_description=export_desc,
+            ai_title_en=ai_data.get("ai_title_en", ""),
+            ai_title_local=ai_data.get("ai_title_local", ""),
+            ai_desc_en=ai_data.get("ai_desc_en", ""),
+            ai_desc_local=ai_data.get("ai_desc_local", ""),
+            price_inr=effective_price,
+            tags=ai_data.get("tags", []),
+            whatsapp_link=_build_whatsapp_link(ai_data, product_id),
+            stock_quantity=qty,
+            in_stock=qty > 0,
+            estimated_weaving_days=weaving_days,
+        )
 
         # Background Task: Alert subscriber community of new handcrafted masterpiece
-        if products and len(products) > 0:
-            try:
-                artisan_res = supabase.table("artisans").select("full_name").eq("id", str(artisan_id)).execute()
-                artisan_name = artisan_res.data[0]["full_name"] if (artisan_res.data and len(artisan_res.data) > 0) else "Artisan"
-                first_prod = products[0]
-                background_tasks.add_task(
-                    send_new_product_notification,
-                    artisan_name=artisan_name,
-                    product_title=first_prod.ai_title_en or "Heritage Handloom Creation",
-                    image_url=first_prod.image_url,
-                    product_id=first_prod.product_id,
-                    price_inr=first_prod.price_inr,
-                    artisan_id=str(artisan_id),
-                )
-            except Exception as bg_err:
-                print(f"Notice: Background email scheduling deferred: {bg_err}")
+        try:
+            artisan_res = supabase.table("artisans").select("full_name").eq("id", str(artisan_id)).execute()
+            artisan_name = artisan_res.data[0]["full_name"] if (artisan_res.data and len(artisan_res.data) > 0) else "Artisan"
+            background_tasks.add_task(
+                send_new_product_notification,
+                artisan_name=artisan_name,
+                product_title=single_product.ai_title_en or "Heritage Handloom Creation",
+                image_url=primary_image_url,
+                product_id=product_id,
+                price_inr=single_product.price_inr,
+                artisan_id=str(artisan_id),
+            )
+        except Exception as bg_err:
+            print(f"Notice: Background email scheduling deferred: {bg_err}")
 
         return BatchProductResponse(
             status="success",
-            products=list(products),
-            count=len(products),
+            products=[single_product],
+            count=1,
         )
     except HTTPException:
         raise

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS products (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     artisan_id      UUID NOT NULL REFERENCES artisans(id) ON DELETE CASCADE,
     image_url       TEXT NOT NULL,
+    images          TEXT[] DEFAULT '{}',
     audio_url       TEXT,
     ai_title_en     TEXT,
     ai_title_local  TEXT,
@@ -62,6 +63,7 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price INTEGER;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS audio_url TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS in_stock BOOLEAN DEFAULT TRUE;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS estimated_weaving_days INTEGER;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}';
 
 -- Ensure ON DELETE CASCADE constraints for clean account deletion
 ALTER TABLE IF EXISTS public.products

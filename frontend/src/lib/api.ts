@@ -4,6 +4,7 @@ export interface Product {
   id: string;
   artisan_id: string;
   image_url: string;
+  images?: string[] | null;
   audio_url: string | null;
   ai_title_en: string;
   ai_title_local: string;

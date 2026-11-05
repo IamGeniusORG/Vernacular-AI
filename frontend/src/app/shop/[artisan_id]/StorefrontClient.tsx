@@ -668,15 +668,20 @@ export default function StorefrontClient({ products, artisan }: Props) {
                       
                       {/* Left Side: Locked Aspect Ratio Image with Next/Image optimization */}
                       <div className="relative w-full aspect-[4/5] md:aspect-[3/4] rounded-2xl overflow-hidden bg-stone-100 shadow-md">
-                        <Image 
-                          src={product.image_url || '/placeholder.jpg'} 
-                          alt={productTitle}
-                          fill
-                          priority
-                          sizes="(max-width: 768px) 100vw, 50vw"
-                          unoptimized={Boolean(product.image_url?.startsWith("http"))}
-                          className="object-cover"
-                        />
+                        {(() => {
+                          const showcaseImage = (product.images && product.images.length > 0) ? product.images[0] : (product.image_url || '/placeholder.jpg');
+                          return (
+                            <Image 
+                              src={showcaseImage} 
+                              alt={productTitle}
+                              fill
+                              priority
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                              unoptimized={Boolean(showcaseImage.startsWith("http"))}
+                              className="object-cover"
+                            />
+                          );
+                        })()}
                         {product.in_stock === false && (
                           <div className="absolute top-4 right-4 bg-neutral-900/85 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow z-10">
                             {t('sold_out')}
@@ -801,16 +806,21 @@ export default function StorefrontClient({ products, artisan }: Props) {
               >
                 {/* Image Container with Next.js Image Optimization */}
                 <div className="relative w-full aspect-[3/4] h-40 sm:h-52 md:h-64 rounded-xl overflow-hidden bg-white border border-stone-200 mb-2 sm:mb-4">
-                  <Link href={`/shop/${artisan.id}/${product.id}`} className="block relative w-full h-full">
-                    <Image
-                      src={product.image_url}
-                      alt={product.ai_title_en || product.ai_title_local || "Handloom Creation"}
-                      fill
-                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                      unoptimized={Boolean(product.image_url?.startsWith("http"))}
-                      className="object-cover object-top transition-transform duration-500 ease-in-out group-hover:scale-105"
-                    />
-                  </Link>
+                  {(() => {
+                    const heroImage = (product.images && product.images.length > 0) ? product.images[0] : (product.image_url || '/placeholder.jpg');
+                    return (
+                      <Link href={`/shop/${artisan.id}/${product.id}`} className="block relative w-full h-full">
+                        <Image
+                          src={heroImage}
+                          alt={product.ai_title_en || product.ai_title_local || "Handloom Creation"}
+                          fill
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                          unoptimized={Boolean(heroImage.startsWith("http"))}
+                          className="object-cover object-top transition-transform duration-500 ease-in-out group-hover:scale-105"
+                        />
+                      </Link>
+                    );
+                  })()}
 
                   <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-white/95 backdrop-blur-sm text-neutral-900 text-xs sm:text-sm font-semibold px-2 py-0.5 sm:px-3 sm:py-1 rounded-full shadow-sm z-10 border border-stone-200/60">
                     {destination === "international" ? `$${usdPrice.toFixed(2)} USD` : `₹${displayPrice || 1500}`}
