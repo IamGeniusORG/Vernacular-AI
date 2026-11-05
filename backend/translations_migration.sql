@@ -1,12 +1,19 @@
 -- ==============================================================================
--- Migration: Multilingual Translations Architecture (Bengali, English, Hindi)
--- Description: Adds JSONB translations column and backfills initial values.
+-- Migration: Complete Columns & Multilingual Translations Architecture
+-- Description: Adds all modern product columns and safely backfills translations.
 -- ==============================================================================
 
-ALTER TABLE public.products 
-ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
+-- 1. Ensure all modern columns exist on products table first
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS export_description TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}';
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price_usd NUMERIC;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS suggested_usd_price NUMERIC;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS stock_quantity INTEGER DEFAULT 1;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS in_stock BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS estimated_weaving_days INTEGER;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
 
--- Populate existing titles and descriptions into structured translations JSONB
+-- 2. Populate structured translations JSONB safely from existing data
 UPDATE public.products
 SET translations = jsonb_build_object(
     'title', jsonb_build_object(

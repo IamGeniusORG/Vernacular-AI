@@ -22,7 +22,7 @@ async def main():
     print("VERNACULAR AI: Multilingual Catalog Backfill Migration (EN / BN / HI)")
     print("=" * 70)
 
-    # 1. Fetch all products from Supabase
+    # 1. Fetch all products from Supabase (with fallback if new columns not yet migrated)
     try:
         res = (
             supabase.table("products")
@@ -30,9 +30,17 @@ async def main():
             .execute()
         )
         products = res.data or []
-    except Exception as e:
-        print(f"[ERROR] Failed to query products from Supabase: {e}")
-        return
+    except Exception:
+        try:
+            res = (
+                supabase.table("products")
+                .select("id, artisan_id, ai_title_en, ai_title_local, ai_desc_en, ai_desc_local")
+                .execute()
+            )
+            products = res.data or []
+        except Exception as e2:
+            print(f"[ERROR] Failed to query products from Supabase: {e2}")
+            return
 
     print(f"[*] Found {len(products)} total product(s) in catalog.")
 

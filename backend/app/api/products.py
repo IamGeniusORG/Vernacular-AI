@@ -521,8 +521,17 @@ async def backfill_translations(
         # By default, artisan backfills their own products unless admin
         query = query.eq("artisan_id", caller_id)
 
-    res = query.execute()
-    products = res.data or []
+    try:
+        res = query.execute()
+        products = res.data or []
+    except Exception:
+        fallback_query = supabase.table("products").select("id, artisan_id, ai_title_en, ai_title_local, ai_desc_en, ai_desc_local")
+        if artisan_id:
+            fallback_query = fallback_query.eq("artisan_id", artisan_id)
+        elif caller_id != "service-role-admin" and caller_id:
+            fallback_query = fallback_query.eq("artisan_id", caller_id)
+        res = fallback_query.execute()
+        products = res.data or []
 
     updated_count = 0
     for prod in products:
