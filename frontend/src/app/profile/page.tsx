@@ -233,10 +233,12 @@ export default function BuyerProfilePage() {
               <Image
                 src="/brand-hero.png"
                 alt="Vernacular AI Logo"
-                width={48}
-                height={28}
+                width={144}
+                height={84}
+                quality={100}
+                priority={true}
+                sizes="(max-width: 640px) 96px, 144px"
                 className="h-full w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
-                priority
               />
             </div>
             <span className={`text-xl font-bold text-neutral-900 ${playfair.className}`}>

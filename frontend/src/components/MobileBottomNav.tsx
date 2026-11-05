@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Store, Sparkles, User, Home, Globe } from "lucide-react";
+import { Store, Sparkles, User, Globe } from "lucide-react";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -11,6 +11,66 @@ export default function MobileBottomNav() {
   const pathname = usePathname();
   const { artisanId, userRole } = useArtisan();
   const { activeLanguage, setLanguage, t } = useLanguage();
+
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let lastScrollY = window.scrollY;
+    let idleTimer: NodeJS.Timeout | null = null;
+    let ticking = false;
+
+    const handleScroll = () => {
+      // Ignore if screen is desktop width (md breakpoint = 768px)
+      if (window.innerWidth >= 768) {
+        setIsVisible(true);
+        return;
+      }
+
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+          const diff = currentScrollY - lastScrollY;
+
+          // Clear previous idle timer on any scroll movement
+          if (idleTimer) {
+            clearTimeout(idleTimer);
+          }
+
+          // When near the top of the page, always keep the nav visible
+          if (currentScrollY <= 40) {
+            setIsVisible(true);
+          } else if (diff > 8) {
+            // User is actively scrolling down: slide down & hide
+            setIsVisible(false);
+          } else if (diff < -8) {
+            // User scrolls up slightly: slide up & appear
+            setIsVisible(true);
+          }
+
+          lastScrollY = currentScrollY > 0 ? currentScrollY : 0;
+          ticking = false;
+
+          // Auto-show navigation bar after 5 seconds of idle (no scrolling)
+          idleTimer = setTimeout(() => {
+            setIsVisible(true);
+          }, 5000);
+        });
+
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+    };
+  }, []);
 
   const isShopActive = pathname === "/shop" || pathname === "/" || pathname.startsWith("/shop/");
   const isStudioActive = pathname.startsWith("/studio");
@@ -27,7 +87,9 @@ export default function MobileBottomNav() {
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200/90 shadow-lg px-2 py-1.5 block md:hidden pb-[calc(0.375rem+env(safe-area-inset-bottom,0px))]"
+      className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200/90 shadow-lg px-2 py-1.5 block md:hidden pb-[calc(0.375rem+env(safe-area-inset-bottom,0px))] transition-transform duration-300 ease-in-out ${
+        isVisible ? "translate-y-0" : "translate-y-full pointer-events-none"
+      }`}
     >
       <div className="max-w-md mx-auto flex items-center justify-around">
         {/* Marketplace / Explore */}
@@ -72,7 +134,7 @@ export default function MobileBottomNav() {
         <button
           type="button"
           onClick={toggleNextLanguage}
-          className="flex flex-col items-center justify-center py-1 px-3 rounded-xl text-stone-500 hover:text-stone-900 transition-all active:scale-90"
+          className="flex flex-col items-center justify-center py-1 px-3 rounded-xl text-stone-500 hover:text-stone-900 transition-all active:scale-90 cursor-pointer"
         >
           <Globe size={19} className="stroke-[1.8] text-neutral-600" />
           <span className="text-[10px] mt-0.5 font-bold tracking-tight text-neutral-700 uppercase">{langLabel}</span>

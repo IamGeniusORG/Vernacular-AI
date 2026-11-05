@@ -355,10 +355,12 @@ export default function ShopDirectoryClient({ artisans }: Props) {
                 <Image
                   src="/brand-hero.png"
                   alt="Vernacular AI Logo"
-                  width={58}
-                  height={36}
+                  width={174}
+                  height={108}
+                  quality={100}
+                  priority={true}
+                  sizes="(max-width: 640px) 116px, 174px"
                   className="h-full w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
-                  priority
                 />
               </div>
               <span
@@ -479,10 +481,12 @@ export default function ShopDirectoryClient({ artisans }: Props) {
               <Image
                 src="/brand-hero.png"
                 alt="Vernacular AI - Empowering Rural Weavers"
-                width={850}
-                height={522}
+                width={1423}
+                height={874}
+                quality={100}
+                priority={true}
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 720px"
                 className="w-full h-auto object-contain mix-blend-multiply select-none pointer-events-none"
-                priority
               />
             </div>
           </div>
