@@ -1,7 +1,9 @@
 # Vernacular AI — Global Artisan Storefront
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-vernacular--storefront.onrender.com-0070ba?style=for-the-badge)](https://vernacular-storefront.onrender.com)
-[![Next.js](https://img.shields.io/badge/Next.js-16.3.8-black?style=flat&logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.4+-black?style=flat&logo=next.js)](https://nextjs.org/)
+[![React 19](https://img.shields.io/badge/React-19.2+-61DAFB?style=flat&logo=react)](https://react.dev/)
+[![Framer Motion](https://img.shields.io/badge/Framer_Motion-Gestures_%7C_Transitions-black?style=flat&logo=framer)](https://www.framer.com/motion/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![PayPal](https://img.shields.io/badge/PayPal-Developer%20Platform%20SDK-00457C?style=flat&logo=paypal)](https://developer.paypal.com/)
 [![Gemini AI](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-4285F4?style=flat&logo=google)](https://deepmind.google/technologies/gemini/)
@@ -13,7 +15,7 @@
 [![Seva First Innovation Challenge](https://img.shields.io/badge/Hackathon-Seva%20First%20Innovation%20Challenge-orange)](#)
 [![PayPal AI Hackathon](https://img.shields.io/badge/Hackathon-PayPal%20AI%20Hackathon-003087)](#)
 
-> **Empowering rural Indian weavers with voice-first multimodal AI, localized digital boutiques, 100% zero-commission domestic commerce, and global cross-border export powered by PayPal.**
+> **Empowering rural Indian weavers with voice-first multimodal AI, localized digital boutiques, native-grade mobile app UX, 100% zero-commission domestic commerce, and global cross-border export powered by PayPal.**
 
 ---
 
@@ -28,7 +30,7 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
 
 | Track | Hackathon Focus | How Our Solution Delivers |
 |---|---|---|
-| 🇮🇳 **Seva First Innovation Challenge** | Rural Empowerment & Digital Inclusion | **Zero-Typing Studio:** Artisans snap a photo and record a voice description in their native language (Bengali/Hindi). **0% Platform Cut:** 100% direct-to-weaver UPI QR payments and WhatsApp commerce ensure every single rupee goes directly to the weaver. |
+| 🇮🇳 **Seva First Innovation Challenge** | Rural Empowerment & Digital Inclusion | **Zero-Typing Studio:** Artisans snap a photo and record a voice description in their native language (Bengali/Hindi). **0% Platform Cut:** 100% direct-to-weaver UPI QR payments and WhatsApp commerce ensure every single rupee goes directly to the weaver. **Native-Grade PWA:** Zero mobile lag, optimistic UI updates, and offline resilience for low-bandwidth village conditions. |
 | 🌍 **PayPal AI Hackathon** | Next-Gen AI & Global Cross-Border Commerce | **AI Global Pricing Engine:** Gemini 2.5 Flash analyzes weave complexity to generate fair domestic INR prices, premium USD export pricing (`price_usd`), and heritage storytelling (`export_description`). **PayPal React SDK:** International buyers checkout seamlessly with PayPal while artisans receive global funds straight to their linked PayPal account. |
 
 ---
@@ -38,7 +40,7 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
 ### 1. Multimodal Voice & Vision AI Cataloging (`/studio`)
 * **Zero-Typing Camera Studio:** Artisans snap a photo of their handloom textile and speak naturally in their native dialect (Bengali, Hindi, or English).
 * **Google Gemini 2.5 Flash Multimodal Engine:** Simultaneously inspects the garment photograph and spoken audio waveform to synthesize:
-  * Bilingual titles and descriptions (English + native Bengali/Hindi script).
+  * Multilingual titles and descriptions (English, Bengali, and Hindi).
   * Automated craft classification (weave technique, fabric, regional motif).
   * Fair domestic market valuation range in INR (`suggested_price_range`).
   * International boutique USD valuation (`suggested_usd_price`) and heritage narrative (`export_description`).
@@ -88,51 +90,72 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
 * **Gemini 2.5 Flash Intent Extraction:** Backed by `POST /api/v1/products/search-intent`, which prompts Gemini to return strict JSON search parameters (`color`, `material`, `region`, `max_price`).
 * **Reactive Directory Filtering:** Instant client-side filtering across the artisan catalog without full page refreshes.
 
-### 7. PWA Offline Studio & Global Interception Protocol (`/studio`)
-* **Immediate Client Claiming & Emergency Cache Purging:** Service worker (`public/sw.js`, `vernacular-v6-emergency-fix`) calls `self.skipWaiting()` during installation and `self.clients.claim()` upon activation. The `activate` event aggressively purges all previous cache generations via `caches.delete()`, resolving corrupted worker states on mobile devices.
-* **Fail-Safe Try/Catch Wrapper & Safe Timeout Resolution:** All `fetch` events are guarded with top-level try/catch blocks that automatically fall back to standard `fetch(event.request)` if any internal error occurs. Timeout handling uses a non-rejecting resolution pattern (`safeFetchWithTimeout`) that gracefully serves cached shells, `/offline`, or a styled 503 auto-reloading document without ever throwing `Response.error()` or causing browser `ERR_FAILED` crashes.
-* **Server-Side Root Redirect:** Configured an edge-level permanent HTTP redirect (`next.config.mjs`) routing `/` to `/shop`, eliminating client-side render exceptions while providing a valid, static React fallback page for search engines.
-* **Cold-Start Waking Up UI State (`/offline`):** Dynamically detects when the device is online but cloud instances are spinning up from standby. Displays a friendly *"Waking up the artisan servers..."* UI while silently pinging `/api/health` every 5 seconds, auto-reloading the page the moment `200 OK` is returned.
-* **"Update Available" Notification Toast (`<PwaUpdater />`):** Global client component listening to Service Worker registration states. When a new release is waiting, displays a bottom toast (*"New update available. Tap to refresh."*) that posts `{ type: 'SKIP_WAITING' }` and reloads seamlessly.
-* **Strict PWA Viewport Scaling:** Enforces Next.js viewport rules (`width: 'device-width', initialScale: 1, maximumScale: 1, userScalable: false, viewportFit: 'cover'`) ensuring standalone PWA containers strictly honor mobile breakpoints.
-* **Resilient App Shell Pre-Caching:** Core layout routes (`/`, `/shop`, `/studio`, `/profile`, `/login`, `/offline`), offline shells, and critical icons are aggressively cached on install with individual non-blocking fetch handlers.
-* **Dynamic Stale-While-Revalidate:** All navigation requests (`mode: 'navigate'`) and Next.js static chunks serve cached versions instantly, with background network synchronization to prevent timeout delays.
-* **Global Offline Action Queue (`idb-keyval`):** Interactive actions beyond catalog uploads (e.g. updating profile details, saving storefront banners, adjusting product stock levels, recording tips) are intercepted when offline. They are safely committed to local state and queued into IndexedDB with user confirmation (*"Saved offline. Will sync when internet returns."*).
-* **Automated Background Sync:** Automatically triggers upon `online` network reconnection, seamlessly synchronizing both offline catalog drafts and queued administrative actions with the FastAPI backend.
-* **Zero Mobile Tap Delay:** Enforces global `touch-action: manipulation;` and tactile depression states (`active:scale-95`) across all interactive elements, eliminating the default 300ms mobile touch delay.
+### 7. Native-Grade PWA UX & Motion Engine (`framer-motion`)
+* **Optimistic UI Engine (Zero-Latency Interactions):**
+  * When an artisan updates prices, adjusts stock, saves branding, or deletes an item in `/studio`, local React state and `localStorage` update **instantly** before awaiting Supabase/FastAPI server round-trips.
+  * If the network encounters an error, the system performs a graceful rollback snapshot restore and alerts the user with an actionable error toast.
+  * Language toggling swaps text dynamically with zero screen blanking or layout jarring.
+* **Fluid Gestures & Route Transitions (`SlideOverPage`):**
+  * Deep-linked product pages (`/shop/[artisan_id]/[product_id]`) slide in smoothly from the right using a calibrated `framer-motion` spring animation (`stiffness: 320, damping: 30`).
+  * **Native Swipe-to-Back Gesture:** Users can swipe right from the left screen edge on mobile to dismiss the product view and glide back into the collection, mimicking native iOS/WhatsApp gestures.
+* **Intelligent Scroll Restoration (`useScrollRestoration`):**
+  * Automatically records exact `window.scrollY` coordinates before navigating into product deep-links.
+  * Tapping "Back to Catalog" calls `router.back()` with `sessionStorage` coordinate validation, guaranteeing that the user lands **exactly where they left off** in the collection grid rather than at the top of the page.
+* **Native Web Polish:**
+  * Globally stripped `-webkit-tap-highlight-color: transparent` across all mobile buttons, links, and cards.
+  * Enforces `user-select: none;` across cards, headers, and navigation bars to prevent accidental text highlighting while swiping, while preserving selection on text inputs and textareas.
+  * Disabled iOS image/link callouts via `-webkit-touch-callout: none;`.
+  * Dynamic Safe Area Insets (`env(safe-area-inset-top)` and `env(safe-area-inset-bottom)`) prevent clipping behind iPhone Dynamic Islands, device notches, and home indicator bars.
 
-### 8. Visitor Telemetry & Analytics
+### 8. Zero-Layout-Shift Skeleton Loaders (No More Spinners)
+* **Tailwind `animate-pulse` Layout Skeletons:** Replaced generic circular loading spinners with pixel-accurate skeleton placeholders:
+  * `<ProductCardSkeleton />`: Matches the 2-column mobile / 3-4 column desktop grid with locked `aspect-[4/5]` image geometry, badge shimmers, price bars, and button blocks.
+  * `<ArtisanProfileSkeleton />`: Matches compact mobile rows (`w-12 h-12` avatar, metadata, craft pill) and full desktop cards.
+  * `<ProductDetailSkeleton />`: Full-screen skeleton matching the gallery, thumbnails, audio pill, and checkout actions.
+* **Instant Next.js Loading Route Boundaries:** Built native `loading.tsx` routes for `/shop`, `/shop/[artisan_id]`, and `/shop/[artisan_id]/[product_id]`, delivering instant visual structure before SSR data streams in.
+
+### 9. Multilingual Localization & Sequential AI Backfill Pipeline
+* **Trilingual Database Schema:** JSONB `translations` column storing ISO 639-1 localized variants (`{ "title": { "en", "bn", "hi" }, "description": { "en", "bn", "hi" } }`).
+* **Gemini 2.5 Flash ISO Normalization:** System prompts enforce strict `"en"`, `"bn"`, and `"hi"` output keys, with backend and frontend alias resolution guarding against variations (`hindi`, `hin`, `bengali`, `ben`).
+* **Sequential Backfill Architecture (`POST /api/v1/products/{id}/translate`):**
+  * Solved Render/browser gateway timeouts by replacing single bulk backfills with a sequential client loop that translates products one-by-one.
+  * Real-time progress indicators (*"Translating 1 of 4..."*) update local inventory state dynamically after each item completes.
+  * PostgreSQL defensive migration ensures all prospective columns (`export_description`, `images`, `translations`) exist with `IF NOT EXISTS` guards prior to updating.
+
+### 10. PWA Offline Studio & Global Interception Protocol (`/studio`)
+* **Immediate Client Claiming & Emergency Cache Purging:** Service worker (`public/sw.js`) calls `self.skipWaiting()` during installation and `self.clients.claim()` upon activation. The `activate` event purges previous cache generations via `caches.delete()`.
+* **Fail-Safe Try/Catch Wrapper & Safe Timeout Resolution:** All `fetch` events are guarded with top-level try/catch blocks falling back to standard `fetch(event.request)` if any internal error occurs. Timeout handling uses `safeFetchWithTimeout` that serves cached shells, `/offline`, or a styled 503 document without crashing.
+* **Server-Side Root Redirect:** Edge-level permanent HTTP redirect (`next.config.mjs`) routing `/` to `/shop`, eliminating client-side render exceptions.
+* **Cold-Start Waking Up UI State (`/offline`):** Dynamically detects when the device is online but cloud instances are spinning up from standby. Displays a friendly *"Waking up the artisan servers..."* UI while silently pinging `/api/health` every 5 seconds, auto-reloading upon `200 OK`.
+* **"Update Available" Notification Toast (`<PwaUpdater />`):** Global client component listening to Service Worker registration states. When a new release is waiting, displays a bottom toast (*"New update available. Tap to refresh."*) that posts `{ type: 'SKIP_WAITING' }` and reloads seamlessly.
+* **Strict PWA Viewport Scaling:** Enforces Next.js viewport rules (`width: 'device-width', initialScale: 1, maximumScale: 1, userScalable: false, viewportFit: 'cover'`).
+* **Global Offline Action Queue (`idb-keyval`):** Interactive actions beyond catalog uploads (e.g., updating profile details, saving storefront banners, adjusting product stock levels, recording tips) are intercepted when offline and safely queued into IndexedDB with user confirmation.
+* **Automated Background Sync:** Automatically triggers upon `online` network reconnection, seamlessly synchronizing both offline catalog drafts and queued administrative actions with the FastAPI backend.
+
+### 11. Visitor Telemetry & Analytics
 * **Non-Blocking Telemetry:** Light-weight asynchronous view logging (`POST /api/v1/analytics/view`) recording traffic origin (Domestic vs. International).
 * **Supabase Telemetry Ledger:** Stores aggregated visitor sessions in the `product_views` table for artisan performance insights.
 
-### 9. Privacy, Compliance & Account Lifecycle
+### 12. Privacy, Compliance & Account Lifecycle
 * **Complete Account & Data Deletion:** Permanent account erasure flow in `/studio` with confirmation modal and backend `DELETE /api/v1/artisans/{artisan_id}`. Automatically purges all garment photos (`product-images`), voice recordings (`product-audio`), and branding assets (`artisan-assets`) from Supabase Storage before cascading database record deletions and purging the Supabase Auth user.
-* **Strict JWT Bearer Authentication:** Enforces authenticated session token verification across sensitive backend mutations (`PATCH /artisans/{id}`, `DELETE /artisans/{id}`, `POST /products/generate`), preventing unauthorized requests or impersonation.
+* **Strict JWT Bearer Authentication:** Enforces authenticated session token verification across sensitive backend mutations (`PATCH /artisans/{id}`, `DELETE /artisans/{id}`, `POST /products/generate`, `POST /products/{id}/translate`).
 * **Persistent Multi-Lingual Cookie Consent:** Privacy-compliant cookie banner (`CookieConsent.tsx`) supporting English, Hindi, and Bengali, permanently persisting user consent to `localStorage`.
 * **PKCE OAuth Code Exchange:** Route Handler (`src/app/auth/callback/route.ts`) explicitly binds session cookies to outgoing `NextResponse.redirect` headers with reverse-proxy host resolution on Render.
 
-### 10. Zero-Leak DevSecOps & Enterprise Security Architecture
+### 13. Zero-Leak DevSecOps & Enterprise Security Architecture
 * **Automated Pre-Commit Secret Scanning:** Pre-commit hooks (`husky` + `lint-staged`) run an automated regex scanner (`scripts/scan_secrets.py`) targeting Supabase keys (`sb_secret_`, `sb_publishable_`), Resend keys (`re_`), Stripe/service credentials (`sk_test_`, `sk_live_`, `sk-`), JWT signatures (`eyJ...`), Google keys (`AIza...`), and private key blocks before any commit is accepted.
 * **Hardened Multi-Tier GitIgnore:** Root, frontend, and backend `.gitignore` rules strictly isolate all `.env` variants, Python caches (`.pytest_cache`, `__pycache__`), SQLite dumps, and files matching `*.pem`, `*.key`, or `*secret*`.
 * **Fail-Fast Environment Validation:**
-  * **FastAPI Backend:** Enforces strict `pydantic-settings` validation on startup, halting the server if `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, or `OPENROUTER_API_KEY` are unconfigured.
+  * **FastAPI Backend:** Enforces strict `pydantic-settings` validation on startup, halting the server if required keys are unconfigured.
   * **Next.js Frontend:** Validates `process.env` against a strict `zod` schema during `npm run build` and `npm run dev`, halting the build with terminal diagnostics if client credentials are missing.
 * **Transactional Email Engine (Resend):** Integrated transactional notifications (`resend>=2.6.0`) with HTML templates for order confirmations and artisan onboarding alerts.
 
-### 11. Product Deep Linking & Rich OpenGraph Previews (`/shop/[artisan_id]/[product_id]`)
-* **Dynamic Next.js Product Route:** Dedicated server-rendered deep link route for individual artisanal creations (`/shop/[artisan_id]/[product_id]`).
-* **Rich Social Previews via `generateMetadata`:** Dynamic OpenGraph (`og:title`, `og:description`, `og:image`) and Twitter Card tags dynamically generated on the server so WhatsApp, Facebook, and Twitter render rich media preview cards when links are shared.
-* **Deep Link Native Share:** The native share button on product cards explicitly generates and shares canonical deep links (`${origin}/shop/${artisan_id}/${product_id}`).
-* **Branded PWA Offline Fallback Shell (`/offline`):** When navigating to deep links or catalog pages while offline, the Service Worker delivers an immediate branded offline fallback UI instead of a default browser network dinosaur error.
-
-### 12. Mobile-First Responsive UX, Dynamic Pre-Orders & Weaving Estimation
-* **2-Column Mobile Catalog Grid:** Upgraded mobile storefront grid from single-column vertical stacking to an optimized 2-column layout (`grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3`) with compact product cards (`h-40 md:h-64`) and two-line clamped titles.
+### 14. Responsive 2-Column Mobile Grid & Deep Linking (`/shop/[artisan_id]/[product_id]`)
+* **2-Column Mobile Catalog Grid:** Upgraded mobile storefront grid to a clean 2-column layout (`grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6`) with locked `aspect-[4/5]` product cards and two-line clamped titles.
 * **Compact Audio Toggle:** Keeps full `<audio controls>` player on desktop while rendering a space-efficient `▶ Listen` / `⏸ Pause` toggle button on mobile without breaking 2-column card heights.
 * **Sold Out UX & Custom Pre-Order Flow:** When `stock_quantity <= 0`, instant payment buttons (UPI, PayPal) are cleanly locked and disabled. The primary WhatsApp action dynamically switches to "Order on WhatsApp" with pre-filled pre-order intent text: *"Namaste, I see this product is currently out of stock. I would like to place a custom order for it: [Product URL]"*.
 * **Estimated Weaving Time Feature:** Artisans can specify crafting duration in days (`estimated_weaving_days`) in the Studio and offline queue. When an item is sold out, storefront cards display a badge (`⏱️ Takes ~[X] days to weave`) informing buyers of custom delivery timelines.
-* **Horizontal Swipe Carousels & Sticky Navigation:** Converted the artisan directory and landing page feature cards into smooth horizontal swipe carousels on mobile (`flex overflow-x-auto snap-x snap-mandatory`), paired with sticky search and craft filter pills (`sticky top-16 z-30`).
-* **Auto-Hiding Mobile Bottom Navigation:** Added a fixed mobile navigation bar (`MobileBottomNav.tsx`) with scroll detection that smoothly slides down and hides (`translate-y-full`) during active downward scrolling, slides up (`translate-y-0`) on scroll-up or top-of-page, and auto-restores after 5 seconds of idle inactivity via Tailwind transitions (`transition-transform duration-300 ease-in-out`). Strictly scoped to mobile (`block md:hidden`).
-* **High-Resolution Retina Logo Optimization:** Configured `next/image` with 3x display sizing (`width={174}`, `height={108}`), `quality={100}`, `priority={true}`, and responsive `sizes` across the marketplace header, hero banner, and profile drawer to ensure crisp, pixel-perfect rendering on high-density Retina displays.
+* **Rich Social Previews via `generateMetadata`:** Dynamic OpenGraph (`og:title`, `og:description`, `og:image`) and Twitter Card tags dynamically generated on the server so WhatsApp, Facebook, and Twitter render rich media preview cards when links are shared.
 
 ---
 
@@ -147,12 +170,18 @@ flowchart TD
         V2["Pydantic BaseSettings Validator (Backend)"] --> FB["FastAPI Startup Lifespan"]
     end
 
-    subgraph Client ["Client Layer (Next.js 16 App Router & PWA)"]
+    subgraph Client ["Client Layer (Next.js 16.4 App Router, React 19 & Framer Motion PWA)"]
         A["Shopper / Global Collector / Rural Artisan"] --> B["Responsive Web UI (Tailwind CSS 4)"]
         B --> C["/shop (Discovery Marketplace & Gemini Voice Search)"]
-        B --> D["/shop/:artisan_id (Storefront, Real UPI QR, PayPal & Tips)"]
+        B --> D["/shop/:artisan_id (2-Column Grid, Real UPI QR, PayPal & Tips)"]
+        B --> DL["/shop/:artisan_id/:product_id (SlideOverPage & Swipe Gesture)"]
         B --> E["/studio (Multimodal AI Studio, Catalog & Branding)"]
         B --> F["/login & /auth/sync (Google OAuth & Session Sync)"]
+        
+        B --> UI_OPT["Optimistic UI Engine (Instant State & Rollback Snapshots)"]
+        B --> SCROLL["useScrollRestoration Engine (Exact Grid Coordinate Memory)"]
+        B --> SKEL["Zero-Layout-Shift Skeletons (Product, Profile, Detail)"]
+        
         E -. Offline Mode .-> SW["Service Worker & IndexedDB Queue (idb-keyval)"]
         SW -. Auto-Sync on Reconnect .-> G
     end
@@ -166,6 +195,7 @@ flowchart TD
     subgraph Backend ["Backend API Layer (FastAPI)"]
         G["FastAPI Server (Uvicorn)"]
         G --> H["/api/v1/products/generate (Multimodal Gemini AI)"]
+        G --> H2["/api/v1/products/:id/translate (Sequential Translation)"]
         G --> I["/api/v1/products/search-intent (Voice Query to JSON Filters)"]
         G --> J["/api/v1/artisans (Directory & Profile Sync)"]
         G --> K["/api/v1/artisans/:id/upload-asset (Avatar, Banner & QR Code)"]
@@ -178,13 +208,13 @@ flowchart TD
         O["Supabase Auth (Google OAuth 2.0 with SSR Cookies)"]
         P["Supabase PostgreSQL (artisans, products, tips, product_views)"]
         Q["Supabase Storage CDN (product-images, product-audio, artisan-assets)"]
-        R["Google Gemini 2.5 Flash (via OpenRouter API)"]
+        R["Google Gemini 2.5 Flash (Multilingual Trilingual Generation)"]
         S["PayPal Developer Platform (Sandbox APIs)"]
         T["Resend API (Transactional Email Gateway)"]
     end
 
-    C & D & E & F <--> G
-    C & D & E & F <--> O
+    C & D & DL & E & F <--> G
+    C & D & DL & E & F <--> O
     P2 & P3 <--> S
     G <--> P
     G <--> Q
@@ -208,7 +238,7 @@ flowchart TD
 │   │   │   ├── analytics.py         # Visitor telemetry & view analytics endpoint
 │   │   │   ├── artisans.py          # Artisan registration, profile sync, QR uploads & tip logging
 │   │   │   ├── orders.py            # Order management & newsletter subscription
-│   │   │   └── products.py          # Multimodal Gemini cataloging, voice search intent & pricing
+│   │   │   └── products.py          # Gemini AI generation, sequential translation & search intent
 │   │   ├── core/
 │   │   │   ├── config.py            # Pydantic BaseSettings strict environment loader & validator
 │   │   │   ├── limiter.py           # SlowAPI rate limiting configuration
@@ -216,11 +246,12 @@ flowchart TD
 │   │   ├── schemas/
 │   │   │   └── product.py           # Pydantic models with USD price & export description
 │   │   └── services/
-│   │       ├── ai_service.py        # Gemini 2.5 Flash prompt for dual-pricing & export narrative
+│   │       ├── ai_service.py        # Gemini 2.5 Flash trilingual prompt & ISO key normalization
 │   │       ├── email_service.py     # Resend email notifications for orders and registrations
 │   │       └── storage_service.py   # Supabase Storage asset uploader & DB persister
 │   ├── main.py                      # FastAPI entrypoint with lifespan validation & keep-alive
 │   ├── schema.sql                   # Database schema (artisans, products, tips, product_views)
+│   ├── translations_migration.sql   # PostgreSQL migration adding JSONB translations & modern columns
 │   ├── auth_trigger.sql             # PostgreSQL trigger syncing auth.users to public.artisans
 │   ├── delete_demo_artisan.sql      # Presentation cleanup script (purges demo artisan)
 │   ├── requirements.txt             # Pinned backend dependencies
@@ -239,34 +270,46 @@ flowchart TD
 │   │   │   │   └── sync/page.tsx    # Resilient OAuth session syncer & role router
 │   │   │   ├── login/page.tsx       # Dynamic redirectTo Google 1-Tap sign-in interface
 │   │   │   ├── shop/
-│   │   │   │   ├── page.tsx         # Discovery Marketplace (force-dynamic, revalidate=0)
-│   │   │   │   └── [artisan_id]/    # Storefront (Hero Banner, Real QR, PayPal & Tip modal)
-│   │   │   ├── studio/page.tsx      # Multimodal AI studio, Offline Queue & Branding Studio
+│   │   │   │   ├── page.tsx         # Discovery Marketplace (ISR cache revalidate=60)
+│   │   │   │   ├── loading.tsx      # Artisan directory skeleton loading boundary
+│   │   │   │   └── [artisan_id]/    # 2-Column Storefront (Real QR, PayPal & Tip modal)
+│   │   │   │       ├── loading.tsx  # Storefront 2-column collection skeleton boundary
+│   │   │   │       └── [product_id]/# Deep-linked product route with SlideOverPage transition
+│   │   │   │           └── loading.tsx # Product detail gallery skeleton boundary
+│   │   │   ├── studio/page.tsx      # Multimodal AI studio, Sequential Translation & Branding
 │   │   │   ├── ShopDirectoryClient  # Voice-first search bar with Gemini intent extraction
 │   │   │   ├── layout.tsx           # Root layout with fonts, PWA meta & context providers
 │   │   │   └── page.tsx             # Root route (redirects to /shop)
 │   │   ├── components/
+│   │   │   ├── PageTransition.tsx   # Framer Motion SlideOverPage & native swipe-to-back gesture
+│   │   │   ├── skeletons/           # Zero-layout-shift Tailwind animate-pulse skeletons
+│   │   │   │   ├── ProductCardSkeleton.tsx
+│   │   │   │   ├── ArtisanProfileSkeleton.tsx
+│   │   │   │   └── ProductDetailSkeleton.tsx
 │   │   │   ├── ArtisanAvatar.tsx    # Deterministic hashed gradient avatar component
 │   │   │   ├── CookieConsent.tsx    # Trilingual GDPR/ePrivacy compliant cookie notice
 │   │   │   ├── Marquee.tsx          # Animated direct-to-weaver announcement ticker
+│   │   │   ├── MobileBottomNav.tsx  # Auto-hiding fixed bottom nav with safe-area insets
 │   │   │   ├── PwaRegister.tsx      # Immediate Service Worker registration component
 │   │   │   ├── ProfileDrawer.tsx    # Slide-out drawer for branding, UPI, PayPal & QR
 │   │   │   └── LanguageToggle.tsx   # Floating multi-lingual switcher (EN/HI/BN)
 │   │   ├── context/
-│   │   │   ├── ArtisanContext.tsx   # Global session, role, avatar, banner & QR state
+│   │   │   ├── ArtisanContext.tsx   # Global session, optimistic profile updates & rollback
 │   │   │   ├── LanguageContext.tsx  # Multi-language dictionary provider
 │   │   │   └── PreferencesContext.tsx# Domestic / International preference manager
+│   │   ├── hooks/
+│   │   │   └── useScrollRestoration.ts # Exact scroll position preservation and restoration
 │   │   ├── i18n/
 │   │   │   └── dictionaries.ts      # English, Hindi, and Bengali localization strings
 │   │   ├── lib/
-│   │   │   ├── api.ts               # Strongly-typed TypeScript interfaces
+│   │   │   ├── api.ts               # Strongly-typed TypeScript interfaces & translation helpers
 │   │   │   ├── env.ts               # Zod runtime & build-time environment validator
 │   │   │   ├── offlineQueue.ts      # IndexedDB draft catalog & offline action sync manager
 │   │   │   └── uploadAsset.ts       # Canvas client compression & asset upload pipeline
 │   │   └── utils/
 │   │       └── supabase/            # Client, Server, and Middleware Supabase SSR SDKs
 │   ├── next.config.mjs              # Next.js config with Zod validation & image domains
-│   ├── package.json                 # Dependencies (Next 16, @paypal/react-paypal-js, Tailwind 4, idb-keyval, zod)
+│   ├── package.json                 # Dependencies (Next 16, React 19, Framer Motion, PayPal, Tailwind 4)
 │   ├── .env.example                 # Environment template for frontend
 │   └── .gitignore                   # Frontend-specific ignore rules
 │
@@ -307,16 +350,17 @@ npm run scan:secrets
    ```sql
    -- Provisions tables & columns:
    -- public.artisans (upi_id, qr_code_url, whatsapp_number, paypal_email, avatar_url, banner_url)
-   -- public.products (price, price_usd, suggested_usd_price, export_description, tags)
+   -- public.products (price, price_usd, suggested_usd_price, export_description, tags, translations)
    -- public.tips (artisan_id, amount, currency, payment_method, patron_name, order_id)
    -- public.product_views (artisan_id, country, viewed_at)
    ```
-2. Execute [`backend/auth_trigger.sql`](file:///C:/Users/IamTeddy/OneDrive/Desktop/IamGenius/Seva%20Innovation%20Challenge%20Project/Vernacular%20AI%20E-Commerce%20Enabler/backend/auth_trigger.sql) to auto-provision profile rows on sign-up with Google avatar sync.
-3. In **Storage**, ensure the following public buckets are created with public read access enabled:
+2. Execute [`backend/translations_migration.sql`](file:///C:/Users/IamTeddy/OneDrive/Desktop/IamGenius/Seva%20Innovation%20Challenge%20Project/Vernacular%20AI%20E-Commerce%20Enabler/backend/translations_migration.sql) to add the `translations` JSONB column and populate multilingual variants across existing catalog items.
+3. Execute [`backend/auth_trigger.sql`](file:///C:/Users/IamTeddy/OneDrive/Desktop/IamGenius/Seva%20Innovation%20Challenge%20Project/Vernacular%20AI%20E-Commerce%20Enabler/backend/auth_trigger.sql) to auto-provision profile rows on sign-up with Google avatar sync.
+4. In **Storage**, ensure the following public buckets are created with public read access enabled:
    * `product-images` (garment photographs)
    * `product-audio` (spoken voice notes)
    * `artisan-assets` (custom profile avatars, cover banners, and merchant payment QR codes)
-4. In **Authentication > Providers > Google**, enable Google OAuth and configure redirect URLs:
+5. In **Authentication > Providers > Google**, enable Google OAuth and configure redirect URLs:
    * `http://localhost:3000/auth/callback` (Local development)
    * `https://vernacular-storefront.onrender.com/auth/callback` (Production)
 
@@ -357,11 +401,9 @@ uvicorn main:app --reload --port 8000
 * Interactive API Documentation: `http://127.0.0.1:8000/docs`
 * Health Check: `http://127.0.0.1:8000/api/v1/health`
 
-> **Note:** Backend lifespan strictly verifies that all required secrets are loaded from the environment on startup. If keys are missing, the server will abort with a clear DevSecOps diagnostic error.
-
 ---
 
-### 4. Frontend Setup (Next.js 16)
+### 4. Frontend Setup (Next.js 16.4 + React 19)
 
 ```bash
 cd frontend
@@ -384,8 +426,6 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-> **Note:** Next.js uses Zod schema validation in `next.config.mjs` and `src/lib/env.ts` to fail fast if required environment variables are not present.
-
 ---
 
 ### 5. Production Build & Lint Verification
@@ -401,11 +441,11 @@ Expected output:
 ```
 ✓ Compiled successfully in ~1.8s
   Running TypeScript ...
-  Finished TypeScript in ~2.2s
-✓ Generating static pages using 15 workers (12/12)
+  Finished TypeScript in ~5.0s
+✓ Generating static pages using 15 workers (13/13)
 Finalizing page optimization ...
 
-Route (app)
+Route (app)                          Revalidate  Expire
 ┌ ○ /
 ├ ○ /_not-found
 ├ ƒ /api/health
@@ -416,9 +456,11 @@ Route (app)
 ├ ƒ /health
 ├ ○ /icon.png
 ├ ○ /login
+├ ○ /offline
 ├ ○ /profile
-├ ○ /shop
+├ ○ /shop                                    1m      1y
 ├ ƒ /shop/[artisan_id]
+├ ƒ /shop/[artisan_id]/[product_id]
 └ ○ /studio
 ```
 
@@ -431,7 +473,7 @@ Both frontend and backend are live on [Render](https://render.com/):
 | Service | Type | Live URL / Endpoint |
 |---|---|---|
 | **Public Storefront** | Next.js 16 (Node.js Web Service) | **`https://vernacular-storefront.onrender.com`** |
-| **AI Catalog Engine** | FastAPI / Python (Web Service) | **`https://vernacular-storefront.onrender.com/api`** (or backend URL) |
+| **AI Catalog Engine** | FastAPI / Python (Web Service) | **`https://vernacular-storefront.onrender.com/api`** |
 
 ### Environment Variables Matrix
 
@@ -464,6 +506,9 @@ Both frontend and backend are live on [Render](https://render.com/):
 |---|---|---|
 | **Artisan Onboarding** | Days (tax IDs, English portals, SKU forms) | **< 60 seconds** (voice note + camera snap) |
 | **Cataloging & Pricing** | Manual copywriting & currency conversion | **Automated Dual-Pricing** by Gemini 2.5 Flash (INR + USD) |
+| **Multilingual Localization** | English only, manual text entry | **Automated Trilingual AI** (English, Hindi, Bengali) with sequential progress backfill |
+| **App Feel & Motion UX** | Web page stutter, blank spinners, blue tap flash | **Native App Polish** (Optimistic UI, Framer Motion slide gestures, swipe-to-back, zero-layout-shift skeletons) |
+| **Scroll Position Memory** | Reset to top on navigation back | **Intelligent Scroll Restoration** (`useScrollRestoration` exact coordinate return) |
 | **Profile & Store Branding** | Complex web builders & manual image tools | **In-App Drag-and-Drop Studio** with live card preview & real QR upload |
 | **Platform Commission** | 20% to 45% (middlemen, fees, listing costs) | **0% Platform Fee** (100% direct to artisan) |
 | **Direct Patronage / Tips** | None or high platform cut | **100% Zero-Cut Tipping** (UPI QR / PayPal `NO_SHIPPING`, min ₹10) |
