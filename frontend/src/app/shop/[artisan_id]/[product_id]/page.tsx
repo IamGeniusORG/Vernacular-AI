@@ -27,9 +27,10 @@ export async function generateMetadata({
   if (!product) return {};
 
   const artisanName = artisan?.full_name || "Master Weaver";
-  const productTitle = product.ai_title_en || product.ai_title_local || "Handcrafted Heritage Textile";
+  const productTitle = product.translations?.title?.en || product.ai_title_en || product.ai_title_local || "Handcrafted Heritage Textile";
   const title = `${productTitle} by ${artisanName} | Vernacular AI`;
   const description =
+    product.translations?.description?.en ||
     product.ai_desc_en ||
     product.export_description ||
     "Check out this authentic handloom creation directly from the weaver on Vernacular AI.";

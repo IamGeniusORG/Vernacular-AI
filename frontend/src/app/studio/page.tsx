@@ -173,6 +173,37 @@ export default function Home() {
     }
   };
 
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const handleBackfillTranslations = async () => {
+    setIsBackfilling(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token || "";
+
+      const res = await fetch(`${API_BASE}/api/v1/products/backfill-translations${artisanId ? `?artisan_id=${artisanId}` : ""}`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        showToast(`Multilingual sync complete! Backfilled ${data.updated_count ?? 0} item(s).`);
+        await fetchInventory();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.detail || "Translation backfill error.");
+      }
+    } catch {
+      showToast("Network error during translation backfill.");
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
+
   const handleActivateArtisanRole = async () => {
     if (!artisanId) return;
     setIsActivatingArtisan(true);
@@ -1730,14 +1761,25 @@ export default function Home() {
                     {inventory.length} {inventory.length === 1 ? "Creation" : t('creations_count')} listed
                   </p>
                 </div>
-                <button
-                  onClick={fetchInventory}
-                  disabled={isLoadingInventory}
-                  className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100 transition active:scale-95"
-                >
-                  <RefreshCw size={12} className={isLoadingInventory ? "animate-spin" : ""} />
-                  Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleBackfillTranslations}
+                    disabled={isBackfilling}
+                    className="text-xs text-amber-800 hover:text-amber-900 font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 transition active:scale-95 disabled:opacity-50"
+                    title="Generate missing English, Bengali, and Hindi descriptions via Gemini 2.5 Flash"
+                  >
+                    <Globe2 size={12} className={isBackfilling ? "animate-spin" : ""} />
+                    {isBackfilling ? "Translating..." : "Backfill Translations"}
+                  </button>
+                  <button
+                    onClick={fetchInventory}
+                    disabled={isLoadingInventory}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100 transition active:scale-95"
+                  >
+                    <RefreshCw size={12} className={isLoadingInventory ? "animate-spin" : ""} />
+                    Refresh
+                  </button>
+                </div>
               </div>
 
               {isLoadingInventory && inventory.length === 0 ? (
@@ -1788,6 +1830,13 @@ export default function Home() {
                           <p className="text-xs text-slate-500 truncate mt-0.5">
                             {item.ai_title_en}
                           </p>
+                          {item.translations?.title && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">EN</span>
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">বাংলা</span>
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">हिन्दी</span>
+                            </div>
+                          )}
                           {item.suggested_price_range && (
                             <span className="inline-block mt-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded-md font-medium truncate max-w-full">
                               {item.suggested_price_range}

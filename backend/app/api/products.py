@@ -1,7 +1,7 @@
 import asyncio
 import urllib.parse
 import uuid
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Header, BackgroundTasks, status, Request
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Header, BackgroundTasks, status, Request, Depends
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
@@ -186,6 +186,7 @@ async def generate_listing(
             ai_title_local=ai_data.get("ai_title_local", ""),
             ai_desc_en=ai_data.get("ai_desc_en", ""),
             ai_desc_local=ai_data.get("ai_desc_local", ""),
+            translations=saved.get("translations") or ai_data.get("translations"),
             price_inr=effective_price,
             tags=ai_data.get("tags", []),
             whatsapp_link=_build_whatsapp_link(ai_data, product_id),
@@ -499,3 +500,63 @@ async def update_product_stock(
         return {"status": "success", "stock_quantity": new_stock, "in_stock": new_stock > 0}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/backfill-translations")
+async def backfill_translations(
+    artisan_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+):
+    """
+    Backfills missing multilingual translations (en, bn, hi) for existing products using Gemini 2.5 Flash.
+    """
+    from app.services.ai_service import translate_existing_product_text
+
+    caller_id = await get_current_user_id(authorization)
+
+    query = supabase.table("products").select("id, artisan_id, ai_title_en, ai_title_local, ai_desc_en, ai_desc_local, export_description, translations")
+    if artisan_id:
+        query = query.eq("artisan_id", artisan_id)
+    elif caller_id != "service-role-admin" and caller_id:
+        # By default, artisan backfills their own products unless admin
+        query = query.eq("artisan_id", caller_id)
+
+    res = query.execute()
+    products = res.data or []
+
+    updated_count = 0
+    for prod in products:
+        p_id = prod["id"]
+        translations = prod.get("translations")
+        has_full_translations = (
+            isinstance(translations, dict)
+            and translations.get("title", {}).get("en")
+            and translations.get("title", {}).get("bn")
+            and translations.get("title", {}).get("hi")
+            and translations.get("description", {}).get("en")
+            and translations.get("description", {}).get("bn")
+            and translations.get("description", {}).get("hi")
+        )
+        if has_full_translations:
+            continue
+
+        title = prod.get("ai_title_local") or prod.get("ai_title_en") or "Handloom Creation"
+        desc = prod.get("ai_desc_local") or prod.get("ai_desc_en") or prod.get("export_description") or ""
+
+        try:
+            new_translations = await translate_existing_product_text(title, desc)
+            titles = new_translations.get("title", {})
+            descriptions = new_translations.get("description", {})
+
+            supabase.table("products").update({
+                "translations": new_translations,
+                "ai_title_en": titles.get("en") or prod.get("ai_title_en"),
+                "ai_title_local": titles.get("bn") or prod.get("ai_title_local"),
+                "ai_desc_en": descriptions.get("en") or prod.get("ai_desc_en"),
+                "ai_desc_local": descriptions.get("bn") or prod.get("ai_desc_local"),
+            }).eq("id", p_id).execute()
+            updated_count += 1
+        except Exception as err:
+            print(f"Error backfilling product {p_id}: {err}")
+
+    return {"status": "success", "updated_count": updated_count, "total_scanned": len(products)}

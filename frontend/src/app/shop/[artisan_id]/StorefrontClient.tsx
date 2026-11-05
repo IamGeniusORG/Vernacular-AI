@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ShoppingBag, MessageCircle, BadgeCheck, Camera, Zap, X, Copy, Check, ArrowLeft, Volume2, Globe, Heart, AlertCircle, Share2, Loader2, Clock, Play, Pause } from "lucide-react";
-import { Product, Artisan } from "@/lib/api";
+import { Product, Artisan, getLocalizedProductTitle, getLocalizedProductDesc } from "@/lib/api";
 import { useArtisan } from "@/context/ArtisanContext";
 import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
@@ -83,7 +83,7 @@ export default function StorefrontClient({ products, artisan }: Props) {
   }, []);
 
   const { artisanId } = useArtisan();
-  const { t } = useLanguage();
+  const { t, activeLanguage } = useLanguage();
   const isOwner = artisanId === artisan.id;
 
   const getProductUsdPrice = (p: Product): number => {
@@ -656,8 +656,10 @@ export default function StorefrontClient({ products, artisan }: Props) {
             >
               {shuffledProducts.map((product) => {
                 const slideAudio = product.audio_url || products.find((p) => p.audio_url)?.audio_url;
-                const productTitle = product.ai_title_local || product.ai_title_en || "Handcrafted Heritage";
-                const productDesc = product.ai_desc_en || product.ai_desc_local || "";
+                const productTitle = getLocalizedProductTitle(product, activeLanguage);
+                const productDesc = (destination === "international" && activeLanguage === "en" && product.export_description)
+                  ? product.export_description
+                  : getLocalizedProductDesc(product, activeLanguage);
                 const usdPrice = getProductUsdPrice(product);
                 const inrPrice = product.price || product.price_inr || 1500;
 
@@ -863,13 +865,13 @@ export default function StorefrontClient({ products, artisan }: Props) {
                   <div className="flex-grow">
                     <Link href={`/shop/${artisan.id}/${product.id}`} className="hover:underline">
                       <h4 className={`text-neutral-900 text-xs sm:text-base md:text-lg mb-0.5 sm:mb-1 leading-snug sm:leading-relaxed line-clamp-2 ${playfair.className}`}>
-                        {product.ai_title_local}
+                        {getLocalizedProductTitle(product, activeLanguage)}
                       </h4>
                     </Link>
                     <p className="text-neutral-500 text-[11px] sm:text-sm font-light leading-snug line-clamp-1 sm:line-clamp-2 hidden sm:block">
-                      {destination === "international" && product.export_description
+                      {destination === "international" && activeLanguage === "en" && product.export_description
                         ? product.export_description
-                        : product.ai_title_en}
+                        : getLocalizedProductDesc(product, activeLanguage)}
                     </p>
                   </div>
 

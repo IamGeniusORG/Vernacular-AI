@@ -116,11 +116,25 @@ def save_product(
 
     qty = max(0, stock_quantity)
     image_list = images if (images and len(images) > 0) else ([image_url] if image_url else [])
+    translations = ai_data.get("translations") or {
+        "title": {
+            "en": ai_data.get("ai_title_en", ""),
+            "bn": ai_data.get("ai_title_local", ""),
+            "hi": ai_data.get("ai_title_local", "") or ai_data.get("ai_title_en", ""),
+        },
+        "description": {
+            "en": ai_data.get("ai_desc_en", ""),
+            "bn": ai_data.get("ai_desc_local", ""),
+            "hi": ai_data.get("ai_desc_local", "") or ai_data.get("ai_desc_en", ""),
+        },
+    }
+
     row = {
         "artisan_id": str(artisan_id),
         "image_url": image_url,
         "images": image_list,
         "audio_url": audio_url,
+        "translations": translations,
         "suggested_price_range": ai_data.get("suggested_price_range", "") or "₹1500 - ₹2500",
         "suggested_usd_price": final_usd,
         "ai_title_en":    ai_data.get("ai_title_en", ""),
@@ -141,13 +155,14 @@ def save_product(
         return response.data[0] if response.data else row
     except Exception as e:
         err_msg = str(e)
-        if "PGRST204" in err_msg or "images" in err_msg or "export_description" in err_msg or "stock_quantity" in err_msg or "estimated_weaving_days" in err_msg or "schema cache" in err_msg:
-            # Safe fallback if images / export_description / price_usd / stock_quantity / estimated_weaving_days column hasn't been added to remote DB yet
+        if "PGRST204" in err_msg or "translations" in err_msg or "images" in err_msg or "export_description" in err_msg or "stock_quantity" in err_msg or "estimated_weaving_days" in err_msg or "schema cache" in err_msg:
+            # Safe fallback if translations / images / export_description / price_usd / stock_quantity / estimated_weaving_days column hasn't been added to remote DB yet
             safe_row = row.copy()
-            for col in ["images", "export_description", "suggested_usd_price", "price_usd", "stock_quantity", "estimated_weaving_days"]:
+            for col in ["translations", "images", "export_description", "suggested_usd_price", "price_usd", "stock_quantity", "estimated_weaving_days"]:
                 safe_row.pop(col, None)
             response = supabase.table("products").insert(safe_row).execute()
             saved = response.data[0] if response.data else safe_row
+            saved["translations"] = translations
             saved["images"] = image_list
             saved["export_description"] = export_desc
             saved["suggested_usd_price"] = final_usd

@@ -16,7 +16,12 @@ SYSTEM_PROMPT = (
     "In addition to the local INR price, estimate a premium International USD Price (suggested_usd_price, e.g. 45.00) "
     "for this handloom item targeting US/EU boutique markets. "
     "Also generate a short export_description strictly in English emphasizing the heritage craft, artisanal authenticity, and weaving technique. "
+    "CRITICAL REQUIREMENT: Generate title and description simultaneously in English ('en'), Bengali ('bn'), and Hindi ('hi'). "
     "Output ONLY a strict JSON object with these keys: "
+    "'translations': { "
+    "  'title': { 'en': 'English title', 'bn': 'Bengali title', 'hi': 'Hindi title' }, "
+    "  'description': { 'en': 'English description', 'bn': 'Bengali description', 'hi': 'Hindi description' } "
+    "}, "
     "'ai_title_en' (English title), "
     "'ai_title_local' (Bengali title), "
     "'ai_desc_en' (English description), "
@@ -103,7 +108,100 @@ async def generate_product_listing(
                 "tags": ["Handloom", "Artisan", "Heritage"],
             }
 
+        # Ensure structured translations dictionary exists with all three languages (en, bn, hi)
+        translations = parsed.get("translations")
+        if not isinstance(translations, dict):
+            translations = {}
+
+        title_dict = translations.get("title") if isinstance(translations.get("title"), dict) else {}
+        desc_dict = translations.get("description") if isinstance(translations.get("description"), dict) else {}
+
+        en_title = title_dict.get("en") or parsed.get("ai_title_en") or "Handcrafted Indian Handloom Creation"
+        bn_title = title_dict.get("bn") or parsed.get("ai_title_local") or "হস্তনির্মিত ভারতীয় তাঁত সৃষ্টি"
+        hi_title = title_dict.get("hi") or "हस्तनिर्मित भारतीय हथकरघा वस्त्र"
+
+        en_desc = desc_dict.get("en") or parsed.get("ai_desc_en") or "Authentic master weave handloom piece created with traditional artisanal technique."
+        bn_desc = desc_dict.get("bn") or parsed.get("ai_desc_local") or "ঐতিহ্যবাহী তাঁত শিল্পীদের দ্বারা নির্মিত হস্তনির্মিত খাঁটি সৃষ্টি।"
+        hi_desc = desc_dict.get("hi") or "पारंपरिक कारीगरों द्वारा निर्मित प्रामाणिक हथकरघा उत्कृष्ट कृति।"
+
+        parsed["translations"] = {
+            "title": {"en": en_title, "bn": bn_title, "hi": hi_title},
+            "description": {"en": en_desc, "bn": bn_desc, "hi": hi_desc},
+        }
+        parsed["ai_title_en"] = en_title
+        parsed["ai_title_local"] = bn_title
+        parsed["ai_desc_en"] = en_desc
+        parsed["ai_desc_local"] = bn_desc
+
         return parsed
+
+
+TRANSLATE_SYSTEM_PROMPT = (
+    "You are a professional multilingual cataloger for Indian handlooms. "
+    "Translate and enrich the given product title and description simultaneously into: "
+    "1. English ('en') "
+    "2. Bengali ('bn') "
+    "3. Hindi ('hi') "
+    "Output ONLY a strict JSON object with this exact structure: "
+    "{\n"
+    '  "title": { "en": "...", "bn": "...", "hi": "..." },\n'
+    '  "description": { "en": "...", "bn": "...", "hi": "..." }\n'
+    "}\n"
+    "No markdown fences, no explanatory text."
+)
+
+
+async def translate_existing_product_text(title: str, description: str) -> dict:
+    """Generate multilingual translations (en, bn, hi) for existing catalog listings."""
+    headers = {
+        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+        "HTTP-Referer": "https://vernacular-storefront.onrender.com",
+        "X-Title": "Vernacular AI Backfill Translator",
+        "Content-Type": "application/json",
+    }
+
+    prompt = f"Product Title: {title or 'Handloom Creation'}\nProduct Description: {description or 'Handcrafted authentic handloom weave.'}"
+
+    payload = {
+        "model": MODEL,
+        "response_format": {"type": "json_object"},
+        "max_tokens": 600,
+        "messages": [
+            {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(OPENROUTER_URL, headers=headers, json=payload, timeout=30.0)
+            if response.status_code == 200:
+                data = response.json()
+                content = data["choices"][0]["message"]["content"].strip()
+                for fence in ("```json", "```"):
+                    if content.startswith(fence):
+                        content = content[len(fence):]
+                if content.endswith("```"):
+                    content = content[:-3]
+                parsed = json.loads(content.strip())
+                if isinstance(parsed, dict) and "title" in parsed and "description" in parsed:
+                    return parsed
+        except Exception as e:
+            print(f"Notice: Multilingual translation API call fallback: {e}")
+
+    # Safe fallback
+    return {
+        "title": {
+            "en": title or "Handcrafted Indian Handloom Creation",
+            "bn": title or "হস্তনির্মিত ভারতীয় তাঁত সৃষ্টি",
+            "hi": title or "हस्तनिर्मित भारतीय हथकरघा वस्त्र",
+        },
+        "description": {
+            "en": description or "Authentic master weave handloom piece created with traditional artisanal technique.",
+            "bn": description or "ঐতিহ্যবাহী তাঁত শিল্পীদের দ্বারা নির্মিত হস্তনির্মিত খাঁটি সৃষ্টি।",
+            "hi": description or "पारंपरिक कारीगरों द्वारा निर्मित प्रामाणिक हथकरघा उत्कृष्ट कृति।",
+        },
+    }
 
 
 SEARCH_SYSTEM_PROMPT = (

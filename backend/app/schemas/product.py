@@ -11,6 +11,7 @@ class GeneratedProduct(BaseModel):
     ai_title_local: str
     ai_desc_en: str
     ai_desc_local: str
+    translations: Optional[dict] = None
     price_inr: Optional[int] = None
     suggested_price_range: Optional[str] = None
     price_usd: Optional[float] = None
@@ -35,3 +36,4 @@ class ProductPatchUpdate(BaseModel):
     price_usd: Optional[float] = None
     stock_quantity: Optional[int] = None
     estimated_weaving_days: Optional[int] = None
+    translations: Optional[dict] = None

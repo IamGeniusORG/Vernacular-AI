@@ -1,5 +1,18 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+export interface ProductTranslations {
+  title?: {
+    en?: string;
+    bn?: string;
+    hi?: string;
+  };
+  description?: {
+    en?: string;
+    bn?: string;
+    hi?: string;
+  };
+}
+
 export interface Product {
   id: string;
   artisan_id: string;
@@ -10,6 +23,7 @@ export interface Product {
   ai_title_local: string;
   ai_desc_en: string;
   ai_desc_local: string;
+  translations?: ProductTranslations | null;
   price_inr?: number | null;
   price?: number | null;
   price_usd?: number | null;
@@ -165,4 +179,44 @@ export async function deleteArtisanAccount(artisanId: string, token: string): Pr
     const msg = e instanceof Error ? e.message : "Network error during account deletion";
     return { success: false, message: msg };
   }
+}
+
+/**
+ * Resolves localized product title based on active language (en, bn, hi) with safe fallbacks.
+ */
+export function getLocalizedProductTitle(
+  product?: Product | null,
+  lang: string = "en"
+): string {
+  if (!product) return "Handloom Creation";
+  const translations = product.translations?.title;
+  if (translations) {
+    const text = translations[lang as "en" | "bn" | "hi"];
+    if (text && text.trim()) return text;
+    if (translations.en && translations.en.trim()) return translations.en;
+  }
+  if (lang === "en") return product.ai_title_en || product.ai_title_local || "Handloom Creation";
+  if (lang === "bn") return product.ai_title_local || product.ai_title_en || "হস্তনির্মিত তাঁত সৃষ্টি";
+  if (lang === "hi") return product.ai_title_local || product.ai_title_en || "हस्तनिर्मित हथकरघा वस्त्र";
+  return product.ai_title_en || product.ai_title_local || "Handloom Creation";
+}
+
+/**
+ * Resolves localized product description based on active language (en, bn, hi) with safe fallbacks.
+ */
+export function getLocalizedProductDesc(
+  product?: Product | null,
+  lang: string = "en"
+): string {
+  if (!product) return "";
+  const translations = product.translations?.description;
+  if (translations) {
+    const text = translations[lang as "en" | "bn" | "hi"];
+    if (text && text.trim()) return text;
+    if (translations.en && translations.en.trim()) return translations.en;
+  }
+  if (lang === "en") return product.ai_desc_en || product.export_description || product.ai_desc_local || "";
+  if (lang === "bn") return product.ai_desc_local || product.ai_desc_en || "";
+  if (lang === "hi") return product.ai_desc_local || product.ai_desc_en || "";
+  return product.ai_desc_en || product.ai_desc_local || "";
 }

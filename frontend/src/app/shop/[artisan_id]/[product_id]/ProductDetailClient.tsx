@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { PayPalButtons } from "@paypal/react-paypal-js";
-import { type Artisan, type Product } from "@/lib/api";
+import { type Artisan, type Product, getLocalizedProductTitle, getLocalizedProductDesc } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
 import { usePreferences } from "@/context/PreferencesContext";
 import { playfair } from "@/lib/fonts";
@@ -36,7 +36,7 @@ interface Props {
 }
 
 export default function ProductDetailClient({ artisan, product }: Props) {
-  const { t } = useLanguage();
+  const { t, activeLanguage } = useLanguage();
   const { currency, setCurrency } = usePreferences();
   const destination: "domestic" | "international" = currency === "USD" ? "international" : "domestic";
   const setDestination = (dest: "domestic" | "international") => {
@@ -212,11 +212,11 @@ export default function ProductDetailClient({ artisan, product }: Props) {
     }
   };
 
-  const productTitle = product.ai_title_local || product.ai_title_en || "Handcrafted Heritage Creation";
+  const productTitle = getLocalizedProductTitle(product, activeLanguage);
   const displayDesc =
-    destination === "international" && product.export_description
+    destination === "international" && activeLanguage === "en" && product.export_description
       ? product.export_description
-      : product.ai_desc_en || product.ai_desc_local;
+      : getLocalizedProductDesc(product, activeLanguage);
 
   const upiDeepLink = artisan.upi_id
     ? `upi://pay?pa=${encodeURIComponent(artisan.upi_id)}&pn=${encodeURIComponent(

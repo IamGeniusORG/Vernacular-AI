@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS products (
     ai_title_local  TEXT,
     ai_desc_en      TEXT,
     ai_desc_local   TEXT,
+    translations    JSONB DEFAULT '{}'::jsonb,
     export_description TEXT,
     price_inr       INTEGER,
     price           INTEGER,
@@ -64,6 +65,7 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS audio_url TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS in_stock BOOLEAN DEFAULT TRUE;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS estimated_weaving_days INTEGER;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}';
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
 
 -- Ensure ON DELETE CASCADE constraints for clean account deletion
 ALTER TABLE IF EXISTS public.products
