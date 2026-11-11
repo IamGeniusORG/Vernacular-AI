@@ -56,7 +56,7 @@ const HANDPICKED_TREASURES: TreasureItem[] = [
     badge: "Breathable Summer Weave",
     priceInr: 2200,
     priceUsd: 32,
-    imageUrl: "/treasures/phulia-taant.jpg",
+    imageUrl: "/assets/products/phulia_taant.jpg",
   },
   {
     id: "tr-5",
@@ -147,7 +147,7 @@ export default function TreasuresCarousel() {
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {HANDPICKED_TREASURES.map((item) => {
-            const displaySrc = failedImages[item.id] ? "/treasures/phulia-taant.jpg" : item.imageUrl;
+            const displaySrc = failedImages[item.id] ? "/assets/products/phulia_taant.jpg" : item.imageUrl;
             const isRemote = displaySrc.startsWith("http");
 
             return (

@@ -15,7 +15,7 @@ export function getProductFallbackImage(
     combined.includes("phulia") ||
     combined.includes("shantipur")
   ) {
-    return "/placeholders/taant.jpg";
+    return "/assets/products/phulia_taant.jpg";
   }
 
   if (
@@ -49,7 +49,7 @@ export function getProductFallbackImage(
     combined.includes("silk") ||
     combined.includes("begumpuri")
   ) {
-    return "/placeholders/taant.jpg";
+    return "/assets/products/phulia_taant.jpg";
   }
 
   return "/placeholders/default-handloom.jpg";
