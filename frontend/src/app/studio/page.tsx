@@ -16,7 +16,8 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { LanguageTransitionWrapper } from "@/components/LanguageTransitionProvider";
 import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
-import { Product } from "@/lib/api";
+import { Product, ProductTranslations, getLocalizedProductTitle, getLocalizedProductDesc } from "@/lib/api";
+import StudioCatalog from "@/components/StudioCatalog";
 import { useArtisan } from "@/context/ArtisanContext";
 import UniversalAvatar from "@/components/UniversalAvatar";
 import UserDropdown from "@/components/UserDropdown";
@@ -53,6 +54,7 @@ interface GeneratedProduct {
   ai_title_local: string;
   ai_desc_en: string;
   ai_desc_local: string;
+  translations?: ProductTranslations | null;
   price_inr: number | null;
   price_usd?: number | null;
   suggested_price_range: string | null;
@@ -100,7 +102,7 @@ const parsePhoneNumber = (fullPhone?: string | null): { countryCode: string; loc
 
 export default function Home() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, activeLanguage } = useLanguage();
   const {
     artisanId,
     profileName,
@@ -1178,8 +1180,8 @@ export default function Home() {
   const handleShareCatalogProduct = async (product: Product) => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const productUrl = `${origin}/shop/${product.artisan_id || artisanId}?product=${product.id}`;
-    const shareTitle = product.ai_title_local || product.ai_title_en;
-    const shareText = `Check out this handcrafted masterpiece "${product.ai_title_en}" on Vernacular AI`;
+    const shareTitle = getLocalizedProductTitle(product, activeLanguage);
+    const shareText = `Check out this handcrafted masterpiece "${shareTitle}" on Vernacular AI`;
 
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
@@ -1582,8 +1584,9 @@ export default function Home() {
   const handleShare = async (product: GeneratedProduct, imageFile?: File) => {
     setSharingId(product.product_id);
     const storeUrl = `${window.location.origin}/shop/${artisanId}`;
+    const displayTitle = getLocalizedProductTitle(product as unknown as Product, activeLanguage);
     const text = [
-      `🛍️ *${product.ai_title_local}*`,
+      `🛍️ *${displayTitle}*`,
       `*Price:* ₹${product.price_inr ?? "N/A"}`,
       "",
       "View my full collection here:",
@@ -1594,7 +1597,7 @@ export default function Home() {
     if (navigator.canShare && imageFile) {
       try {
         if (navigator.canShare({ files: [imageFile], text })) {
-          await navigator.share({ files: [imageFile], text, title: product.ai_title_en });
+          await navigator.share({ files: [imageFile], text, title: displayTitle });
           setSharingId(null);
           showToast("Shared successfully!");
           return;
@@ -1921,144 +1924,20 @@ export default function Home() {
                   </button>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {inventory.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-sm hover:shadow-md transition flex flex-col gap-3"
-                    >
-                      {/* Top row: Image + Info + Delete */}
-                      <div className="flex gap-3 items-start">
-                        <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-slate-100 bg-slate-100">
-                          <img
-                            src={item.image_url || getProductFallbackImage(item.ai_title_en || item.ai_title_local)}
-                            alt={item.ai_title_en}
-                            className="w-full h-full object-cover object-top"
-                          />
-                          {(item.in_stock === false || (typeof item.stock_quantity === "number" && item.stock_quantity <= 0)) && (
-                            <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-wider">
-                              {t('sold_out')}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-slate-900 text-sm leading-snug truncate">
-                            {item.ai_title_local || item.ai_title_en}
-                          </h3>
-                          <p className="text-xs text-slate-500 truncate mt-0.5">
-                            {item.ai_title_en}
-                          </p>
-                          {item.translations?.title && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">EN</span>
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">বাংলা</span>
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">हिन्दी</span>
-                            </div>
-                          )}
-                          {item.suggested_price_range && (
-                            <span className="inline-block mt-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded-md font-medium truncate max-w-full">
-                              {item.suggested_price_range}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleShareCatalogProduct(item)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                            title="Share Creation"
-                          >
-                            <Share2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => initiateDelete(item.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                            title={t('delete_product')}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Bottom row: Inline Price Editor & Stock Management */}
-                      <div className="pt-2.5 border-t border-slate-100 flex flex-col gap-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-slate-500">₹</span>
-                            <input
-                              type="number"
-                              value={priceDrafts[item.id] ?? ""}
-                              onChange={(e) =>
-                                setPriceDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))
-                              }
-                              placeholder="Price"
-                              className="w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-400"
-                            />
-                            <button
-                              onClick={() => handleUpdatePrice(item.id)}
-                              disabled={isUpdatingPrice[item.id]}
-                              className="px-2.5 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition active:scale-95 disabled:opacity-60 cursor-pointer"
-                            >
-                              {isUpdatingPrice[item.id] ? (
-                                <Loader2 size={12} className="animate-spin" />
-                              ) : (
-                                "Save"
-                              )}
-                            </button>
-                          </div>
-
-                          <button
-                            onClick={() => handleToggleStock(item)}
-                            disabled={isUpdatingStock[item.id]}
-                            className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer ${
-                              item.in_stock === false || (typeof item.stock_quantity === "number" && item.stock_quantity <= 0)
-                                ? "bg-stone-100 text-stone-600 border border-stone-300 hover:bg-stone-200"
-                                : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                            }`}
-                          >
-                            {isUpdatingStock[item.id] ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : item.in_stock === false || (typeof item.stock_quantity === "number" && item.stock_quantity <= 0) ? (
-                              <>● {t('sold_out')}</>
-                            ) : (
-                              <>✓ {t('in_stock')}</>
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Interactive Inventory Stock Counter */}
-                        <div className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200/80">
-                          <span className="text-[11px] font-bold text-slate-600">Quantity Available:</span>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleAdjustStock(item.id, Math.max(0, (item.stock_quantity ?? (item.in_stock === false ? 0 : 1)) - 1))}
-                              disabled={isUpdatingStock[item.id]}
-                              className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold text-xs disabled:opacity-40 cursor-pointer"
-                              title="Decrease stock"
-                            >
-                              <Minus size={12} />
-                            </button>
-                            <span className="w-8 text-center text-xs font-black text-slate-900">
-                              {typeof item.stock_quantity === "number" ? item.stock_quantity : (item.in_stock === false ? 0 : 1)}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleAdjustStock(item.id, (item.stock_quantity ?? (item.in_stock === false ? 0 : 1)) + 1)}
-                              disabled={isUpdatingStock[item.id]}
-                              className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold text-xs disabled:opacity-40 cursor-pointer"
-                              title="Increase stock"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <StudioCatalog
+                  inventory={inventory}
+                  priceDrafts={priceDrafts}
+                  onPriceDraftChange={(productId, val) =>
+                    setPriceDrafts((prev) => ({ ...prev, [productId]: val }))
+                  }
+                  onUpdatePrice={handleUpdatePrice}
+                  isUpdatingPrice={isUpdatingPrice}
+                  onToggleStock={handleToggleStock}
+                  isUpdatingStock={isUpdatingStock}
+                  onAdjustStock={handleAdjustStock}
+                  onShare={handleShareCatalogProduct}
+                  onDelete={initiateDelete}
+                />
               )}
             </div>
           ) : activeTab === "branding" ? (
@@ -2832,40 +2711,45 @@ export default function Home() {
                 <button onClick={reset} className="text-xs text-slate-500 hover:text-red-500 font-semibold transition">{t('reset')}</button>
               </div>
 
-              {results.map((product, i) => (
-                <div key={product.product_id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                  {/* Product image */}
-                  <div className="relative aspect-video bg-slate-100">
-                    <img
-                      src={product.image_url || imagePreviews[i] || getProductFallbackImage(product.ai_title_en || product.ai_title_local)}
-                      alt={product.ai_title_en}
-                      className="w-full h-full object-cover"
-                    />
-                    {product.price_inr && (
-                      <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full font-bold text-sm">
-                        ₹{product.price_inr}
+              {results.map((product, i) => {
+                const resultTitle = getLocalizedProductTitle(product as unknown as Product, activeLanguage);
+                const resultDesc = getLocalizedProductDesc(product as unknown as Product, activeLanguage);
+                return (
+                  <div key={product.product_id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    {/* Product image */}
+                    <div className="relative aspect-video bg-slate-100">
+                      <img
+                        src={product.image_url || imagePreviews[i] || getProductFallbackImage(resultTitle)}
+                        alt={resultTitle}
+                        className="w-full h-full object-cover"
+                      />
+                      {product.price_inr && (
+                        <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full font-bold text-sm">
+                          ₹{product.price_inr}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Details */}
+                    <div className="p-4 space-y-3">
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-base leading-snug">{resultTitle}</h3>
+                        {product.ai_title_en && product.ai_title_en !== resultTitle && (
+                          <p className="text-xs text-slate-500 mt-0.5">{product.ai_title_en}</p>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Details */}
-                  <div className="p-4 space-y-3">
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-base leading-snug">{product.ai_title_local}</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">{product.ai_title_en}</p>
-                    </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {product.tags.map((tag, j) => (
+                          <span key={j} className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-md">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
 
-                    <div className="flex flex-wrap gap-1.5">
-                      {product.tags.map((tag, j) => (
-                        <span key={j} className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-md">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    <p className="text-slate-700 text-xs leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      {product.ai_desc_local}
-                    </p>
+                      <p className="text-slate-700 text-xs leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        {resultDesc || product.ai_desc_local || product.ai_desc_en}
+                      </p>
 
                     {product.suggested_price_range && (
                       <div className="bg-amber-50 border border-amber-100 text-amber-800 p-3 rounded-xl flex items-start gap-2 text-xs">
@@ -2939,7 +2823,8 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-              ))}
+              );
+            })}
 
               {/* Master Action Banner: Publish All to My Catalog */}
               <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row gap-3">

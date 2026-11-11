@@ -182,10 +182,10 @@ export async function deleteArtisanAccount(artisanId: string, token: string): Pr
 }
 
 /**
- * Resolves localized product title based on active language (en, bn, hi) with safe fallbacks and alias normalization.
+ * Resolves localized product title based on active language (en, bn, hi) with safe fallbacks, alias normalization, and title fallback.
  */
 export function getLocalizedProductTitle(
-  product?: Product | null,
+  product?: (Partial<Product> & { title?: string; [key: string]: any }) | null,
   lang: string = "en"
 ): string {
   if (!product) return "Handloom Creation";
@@ -204,17 +204,17 @@ export function getLocalizedProductTitle(
     if (titles.en && titles.en.trim()) return titles.en;
   }
 
-  if (lang === "en") return product.ai_title_en || product.ai_title_local || "Handloom Creation";
-  if (lang === "bn") return product.ai_title_local || product.ai_title_en || "হস্তনির্মিত তাঁত সৃষ্টি";
-  if (lang === "hi") return product.ai_title_en || "हस्तनिर्मित हथकरघा वस्त्र";
-  return product.ai_title_en || product.ai_title_local || "Handloom Creation";
+  if (lang === "en") return product.ai_title_en || product.ai_title_local || product.title || "Handloom Creation";
+  if (lang === "bn") return product.ai_title_local || product.ai_title_en || product.title || "হস্তনির্মিত তাঁত সৃষ্টি";
+  if (lang === "hi") return product.ai_title_en || product.title || "हस्तनिर्मित हथकरघा वस्त्र";
+  return product.ai_title_en || product.ai_title_local || product.title || "Handloom Creation";
 }
 
 /**
- * Resolves localized product description based on active language (en, bn, hi) with safe fallbacks and alias normalization.
+ * Resolves localized product description based on active language (en, bn, hi) with safe fallbacks, alias normalization, and description fallback.
  */
 export function getLocalizedProductDesc(
-  product?: Product | null,
+  product?: (Partial<Product> & { description?: string; [key: string]: any }) | null,
   lang: string = "en"
 ): string {
   if (!product) return "";
@@ -233,8 +233,8 @@ export function getLocalizedProductDesc(
     if (descs.en && descs.en.trim()) return descs.en;
   }
 
-  if (lang === "en") return product.ai_desc_en || product.export_description || product.ai_desc_local || "";
-  if (lang === "bn") return product.ai_desc_local || product.ai_desc_en || "";
-  if (lang === "hi") return product.ai_desc_en || product.export_description || product.ai_desc_local || "";
-  return product.ai_desc_en || product.ai_desc_local || "";
+  if (lang === "en") return product.ai_desc_en || product.export_description || product.ai_desc_local || product.description || "";
+  if (lang === "bn") return product.ai_desc_local || product.ai_desc_en || product.description || "";
+  if (lang === "hi") return product.ai_desc_en || product.export_description || product.ai_desc_local || product.description || "";
+  return product.ai_desc_en || product.ai_desc_local || product.description || "";
 }
