@@ -1,7 +1,7 @@
-// Vernacular AI Native Service Worker (v6-emergency-fix)
+// Vernacular AI Native Service Worker (v8-phulia-refresh)
 // Fail-Safe Architecture, Safe Timeout Resolution & Aggressive Cache Purging
 
-const CACHE_NAME = "vernacular-v6-emergency-fix";
+const CACHE_NAME = "vernacular-v8-phulia-refresh";
 const URLS_TO_PRECACHE = [
   "/",
   "/shop",
@@ -15,6 +15,8 @@ const URLS_TO_PRECACHE = [
   "/logo.png",
   "/apple-icon.png",
   "/B%20logo.png",
+  "/assets/products/phulia_taant.jpg",
+  "/placeholders/taant.jpg",
 ];
 
 // Message Listener: Support on-demand skipWaiting from PWA update prompts
@@ -158,7 +160,7 @@ self.addEventListener("fetch", (event) => {
 
     if (isMediaAsset) {
       event.respondWith(
-        caches.match(request, { ignoreSearch: true }).then((cached) => {
+        caches.match(request).then((cached) => {
           if (cached) return cached;
           return fetch(request)
             .then((networkResponse) => {

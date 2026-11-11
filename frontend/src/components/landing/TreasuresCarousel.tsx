@@ -56,7 +56,7 @@ const HANDPICKED_TREASURES: TreasureItem[] = [
     badge: "Breathable Summer Weave",
     priceInr: 2200,
     priceUsd: 32,
-    imageUrl: "/assets/products/phulia_taant.jpg",
+    imageUrl: "/assets/products/phulia_taant.jpg?v=20261111",
   },
   {
     id: "tr-5",
@@ -147,8 +147,7 @@ export default function TreasuresCarousel() {
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {HANDPICKED_TREASURES.map((item) => {
-            const displaySrc = failedImages[item.id] ? "/assets/products/phulia_taant.jpg" : item.imageUrl;
-            const isRemote = displaySrc.startsWith("http");
+            const displaySrc = failedImages[item.id] ? "/assets/products/phulia_taant.jpg?v=20261111" : item.imageUrl;
 
             return (
               <div
@@ -161,8 +160,9 @@ export default function TreasuresCarousel() {
                     src={displaySrc}
                     alt={item.title}
                     fill
+                    priority
+                    unoptimized={true}
                     sizes="(max-width: 768px) 280px, 320px"
-                    unoptimized={isRemote}
                     onError={() => setFailedImages((prev) => ({ ...prev, [item.id]: true }))}
                     className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                   />

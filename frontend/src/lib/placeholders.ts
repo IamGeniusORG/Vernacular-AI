@@ -15,7 +15,7 @@ export function getProductFallbackImage(
     combined.includes("phulia") ||
     combined.includes("shantipur")
   ) {
-    return "/assets/products/phulia_taant.jpg";
+    return "/assets/products/phulia_taant.jpg?v=20261111";
   }
 
   if (

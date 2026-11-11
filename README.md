@@ -157,6 +157,36 @@ India's traditional handloom sector sustains over **4.3 million weavers and arti
 * **Estimated Weaving Time Feature:** Artisans can specify crafting duration in days (`estimated_weaving_days`) in the Studio and offline queue. When an item is sold out, storefront cards display a badge (`⏱️ Takes ~[X] days to weave`) informing buyers of custom delivery timelines.
 * **Rich Social Previews via `generateMetadata`:** Dynamic OpenGraph (`og:title`, `og:description`, `og:image`) and Twitter Card tags dynamically generated on the server so WhatsApp, Facebook, and Twitter render rich media preview cards when links are shared.
 
+### 15. Bulletproof Route Error Boundaries (`error.tsx`)
+* **Zero Blank-Screen App Crashes:** Comprehensive route-level React error boundaries implemented across all primary customer and artisan journeys:
+  * `app/error.tsx`: Global fallback boundary safeguarding unexpected runtime exceptions.
+  * `app/shop/error.tsx`: Marketplace feed boundary preserving navigation if API connectivity lapses.
+  * `app/shop/[artisan_id]/error.tsx`: Artisan storefront boundary isolating individual store loading issues.
+  * `app/shop/[artisan_id]/[product_id]/error.tsx`: Deep-link product showcase boundary with 1-tap return to the artisan's storefront.
+  * `app/studio/error.tsx`: Studio session boundary protecting unsaved draft photos and recorded audio waveforms.
+* **Instant One-Tap Recovery:** Every error boundary features an active `reset()` retry button alongside clean navigation back to the marketplace or directory, ensuring the user is never stranded on a white crash screen.
+
+### 16. Dynamic Multilingual Studio Catalog & Trilingual Card Binding (`<StudioCatalog />`)
+* **Componentized Catalog Architecture:** Extracted `<StudioCatalog />` and `<StudioCatalogCard />` to isolate catalog rendering, reactive language binding, and optimistic price/stock management.
+* **Reactive Global Language State Subscription:** Every catalog card dynamically subscribes to `useLanguage()`, re-rendering titles, descriptions, and metadata instantly when switching between English (`en`), Bengali (`bn`), and Devanagari Hindi (`hi`).
+* **Multi-Tier Fallback Key Resolution:** Standardized translation resolution maps language state directly to the Supabase `translations` JSONB structure:
+  ```typescript
+  const displayTitle = item.translations?.title?.[langKey] || item.translations?.title?.['en'] || getLocalizedProductTitle(item, activeLanguage);
+  const displayDesc = item.translations?.description?.[langKey] || item.translations?.description?.['en'] || getLocalizedProductDesc(item, activeLanguage);
+  ```
+* **Translation Coverage Badges:** Cards display multilingual badges (`EN`, `বাংলা`, `हिन्दी`) with the currently active language dynamically illuminated with an active indigo pill.
+
+### 17. Universal Responsive Asset Delivery & Mobile Parity
+* **Authentic Phulia Taant Photography:** Replaced placeholder images with authentic, high-resolution heritage handloom photography (`/assets/products/phulia_taant.jpg?v=20261111`) captured in Shantipur/Phulia, Nadia district.
+* **Responsive Parity (Desktop & Mobile):** Configured `<Image unoptimized={true} priority={true} />` in the Handpicked Artisanal Treasures carousel and catalog fallbacks to eliminate Next.js responsive `srcset` width caching discrepancies on mobile viewports.
+* **Aggressive Service Worker Cache Eviction (v8):** Service Worker (`sw.js`) bumped to `vernacular-v8-phulia-refresh`, automatically purging legacy cache buckets upon activation and pre-caching new high-res handloom assets.
+
+### 18. Artisan Studio Safety & Mobile Ergonomics
+* **Non-Blocking Permission Toasts:** Replaced intrusive browser `alert()` dialogs with localized non-blocking toasts (`showToast(t("mic_permission_denied", ...))`).
+* **Upload Size Guard:** Enforces client-side 10MB limits on image selections with localized warning toasts (`t("image_too_large", ...)`).
+* **AI Generation Reassurance State:** If multimodal AI processing exceeds 5 seconds, the button dynamically updates to *"Crafting your catalog in multiple languages, please wait..."* and strictly disables duplicate clicks.
+* **Mobile Numeric Keyboards:** Injected `inputMode="numeric"` on all monetary, stock quantity, and weaving duration inputs for optimal mobile numeric keypad invocation.
+
 ---
 
 ## 🏗️ System Architecture
@@ -260,27 +290,36 @@ flowchart TD
 │
 ├── frontend/
 │   ├── public/
+│   │   ├── assets/products/         # High-resolution authentic handloom photography
 │   │   ├── icons/                   # Valid 192x192 & 512x512 PWA icons
 │   │   ├── manifest.json            # PWA manifest for mobile installability
-│   │   └── sw.js                    # Native Service Worker (v3) with immediate claiming & offline caching
+│   │   └── sw.js                    # Native Service Worker (v8) with immediate claiming & offline caching
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── auth/
 │   │   │   │   ├── callback/route.ts# SSR OAuth code exchange & Set-Cookie handler
 │   │   │   │   └── sync/page.tsx    # Resilient OAuth session syncer & role router
+│   │   │   ├── error.tsx            # Global application error boundary
 │   │   │   ├── login/page.tsx       # Dynamic redirectTo Google 1-Tap sign-in interface
 │   │   │   ├── shop/
 │   │   │   │   ├── page.tsx         # Discovery Marketplace (ISR cache revalidate=60)
+│   │   │   │   ├── error.tsx        # Marketplace feed error boundary
 │   │   │   │   ├── loading.tsx      # Artisan directory skeleton loading boundary
 │   │   │   │   └── [artisan_id]/    # 2-Column Storefront (Real QR, PayPal & Tip modal)
+│   │   │   │       ├── error.tsx    # Storefront collection error boundary
 │   │   │   │       ├── loading.tsx  # Storefront 2-column collection skeleton boundary
 │   │   │   │       └── [product_id]/# Deep-linked product route with SlideOverPage transition
+│   │   │   │           ├── error.tsx# Product detail showcase error boundary
 │   │   │   │           └── loading.tsx # Product detail gallery skeleton boundary
-│   │   │   ├── studio/page.tsx      # Multimodal AI studio, Sequential Translation & Branding
+│   │   │   ├── studio/
+│   │   │   │   ├── page.tsx         # Multimodal AI studio, Sequential Translation & Branding
+│   │   │   │   └── error.tsx        # Studio session error boundary (protects offline drafts)
 │   │   │   ├── ShopDirectoryClient  # Voice-first search bar with Gemini intent extraction
 │   │   │   ├── layout.tsx           # Root layout with fonts, PWA meta & context providers
 │   │   │   └── page.tsx             # Root route (redirects to /shop)
 │   │   ├── components/
+│   │   │   ├── StudioCatalog.tsx    # Studio catalog container component
+│   │   │   ├── StudioCatalogCard.tsx# Trilingual dynamic data-bound catalog card
 │   │   │   ├── PageTransition.tsx   # Framer Motion SlideOverPage & native swipe-to-back gesture
 │   │   │   ├── skeletons/           # Zero-layout-shift Tailwind animate-pulse skeletons
 │   │   │   │   ├── ProductCardSkeleton.tsx
