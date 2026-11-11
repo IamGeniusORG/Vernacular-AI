@@ -1306,7 +1306,16 @@ export default function Home() {
   const handleImagesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const selected = Array.from(e.target.files);
-    const newImages = [...images, ...selected].slice(0, 8); // max 8 images
+    const oversized = selected.filter((file) => file.size > 10 * 1024 * 1024);
+    if (oversized.length > 0) {
+      showToast(t("image_too_large", "One or more images exceed the 10MB limit. Please choose smaller files."));
+    }
+    const validFiles = selected.filter((file) => file.size <= 10 * 1024 * 1024);
+    if (validFiles.length === 0) {
+      e.target.value = "";
+      return;
+    }
+    const newImages = [...images, ...validFiles].slice(0, 8); // max 8 images
     setImages(newImages);
     setImagePreviews(newImages.map((f) => URL.createObjectURL(f)));
     setErrorMsg(null);
@@ -1365,7 +1374,7 @@ export default function Home() {
       }, 1000);
     } catch {
       clearRecordingTimer();
-      alert("Microphone access denied. Please allow microphone permissions in your browser.");
+      showToast(t("mic_permission_denied", "Microphone access denied. Please allow microphone permissions in your browser."));
     } finally {
       isStartingRecordingRef.current = false;
     }
@@ -1394,6 +1403,10 @@ export default function Home() {
     setErrorMsg(null);
     setLoadingMsg(`Uploading ${images.length} image${images.length > 1 ? "s" : ""} & running AI...`);
 
+    const reassuranceTimer = setTimeout(() => {
+      setLoadingMsg(t("ai_crafting_reassurance", "Crafting your catalog in multiple languages, please wait..."));
+    }, 5000);
+
     let currentArtisanId = artisanId;
     if (!currentArtisanId) {
       try {
@@ -1405,6 +1418,9 @@ export default function Home() {
     }
 
     if (!currentArtisanId) {
+      clearTimeout(reassuranceTimer);
+      setIsLoading(false);
+      setLoadingMsg("");
       router.push("/login");
       return;
     }
@@ -1456,6 +1472,7 @@ export default function Home() {
         console.error("Offline save error:", queueErr);
         setErrorMsg("Failed to save draft offline.");
       } finally {
+        clearTimeout(reassuranceTimer);
         setIsLoading(false);
         setLoadingMsg("");
       }
@@ -1554,6 +1571,7 @@ export default function Home() {
       }
       setErrorMsg("Failed to connect to the backend. Is it running?");
     } finally {
+      clearTimeout(reassuranceTimer);
       setIsLoading(false);
       setLoadingMsg("");
     }
@@ -2741,6 +2759,7 @@ export default function Home() {
                         <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">₹</span>
                         <input
                           type="number"
+                          inputMode="numeric"
                           min="0"
                           value={uploadPrice}
                           onChange={(e) => setUploadPrice(e.target.value)}
@@ -2765,6 +2784,7 @@ export default function Home() {
                         </button>
                         <input
                           type="number"
+                          inputMode="numeric"
                           min="0"
                           value={uploadStock}
                           onChange={(e) => setUploadStock(Math.max(0, parseInt(e.target.value, 10) || 0))}
@@ -2787,6 +2807,7 @@ export default function Home() {
                       </label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min="1"
                         placeholder="e.g. 7"
                         value={uploadWeavingDays}
@@ -2978,7 +2999,7 @@ export default function Home() {
               }`}
             >
               {isLoading ? (
-                <><Loader2 className="animate-spin" size={22} /> {loadingMsg || "Generating..."}</>
+                <><Loader2 className="animate-spin" size={22} /> {loadingMsg || t("ai_crafting_reassurance", "Crafting your catalog in multiple languages, please wait...")}</>
               ) : !artisanId ? (
                 <>{t('sign_in_to_generate')} <User size={18} /></>
               ) : !isOnline ? (

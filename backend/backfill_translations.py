@@ -51,16 +51,21 @@ async def main():
         t_title = translations.get("title", {}) if isinstance(translations, dict) and isinstance(translations.get("title"), dict) else {}
         t_desc = translations.get("description", {}) if isinstance(translations, dict) and isinstance(translations.get("description"), dict) else {}
 
+        # Check if Hindi actually contains Devanagari script (Unicode 0900-097F)
+        hi_val = t_title.get("hi") or t_title.get("hindi") or t_title.get("hin") or ""
+        has_devanagari = any('\u0900' <= char <= '\u097F' for char in hi_val)
+
         has_full_translations = (
             isinstance(translations, dict)
             and bool(t_title.get("en"))
             and bool(t_title.get("bn"))
-            and bool(t_title.get("hi") or t_title.get("hindi") or t_title.get("hin"))
+            and bool(hi_val)
+            and has_devanagari
             and bool(t_desc.get("en"))
             and bool(t_desc.get("bn"))
             and bool(t_desc.get("hi") or t_desc.get("hindi") or t_desc.get("hin"))
         )
-        if not has_full_translations:
+        if not has_full_translations or "--force" in sys.argv:
             to_backfill.append(p)
 
     print(f"[*] {len(to_backfill)} product(s) need translation backfill.")

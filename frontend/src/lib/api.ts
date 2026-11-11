@@ -206,7 +206,7 @@ export function getLocalizedProductTitle(
 
   if (lang === "en") return product.ai_title_en || product.ai_title_local || "Handloom Creation";
   if (lang === "bn") return product.ai_title_local || product.ai_title_en || "হস্তনির্মিত তাঁত সৃষ্টি";
-  if (lang === "hi") return product.ai_title_local || product.ai_title_en || "हस्तनिर्मित हथकरघा वस्त्र";
+  if (lang === "hi") return product.ai_title_en || "हस्तनिर्मित हथकरघा वस्त्र";
   return product.ai_title_en || product.ai_title_local || "Handloom Creation";
 }
 
@@ -235,6 +235,6 @@ export function getLocalizedProductDesc(
 
   if (lang === "en") return product.ai_desc_en || product.export_description || product.ai_desc_local || "";
   if (lang === "bn") return product.ai_desc_local || product.ai_desc_en || "";
-  if (lang === "hi") return product.ai_desc_local || product.ai_desc_en || "";
+  if (lang === "hi") return product.ai_desc_en || product.export_description || product.ai_desc_local || "";
   return product.ai_desc_en || product.ai_desc_local || "";
 }

@@ -262,7 +262,10 @@ export const dictionaries: Record<Language, Record<string, string>> = {
     buyer_account_title: "Buyer Account & Preferences",
     buyer_account_desc: "Sign in to personalize your profile picture, set your preferred currency, and manage saved handloom creations.",
     sign_in_to_continue: "Sign In to Continue",
-    language_desc: "Vernacular interface and AI craft story descriptions in your native language."
+    language_desc: "Vernacular interface and AI craft story descriptions in your native language.",
+    mic_permission_denied: "Microphone access denied. Please allow microphone permissions in your browser.",
+    image_too_large: "One or more images exceed the 10MB limit. Please choose smaller files.",
+    ai_crafting_reassurance: "Crafting your catalog in multiple languages, please wait..."
   },
 
   bn: {
@@ -526,7 +529,10 @@ export const dictionaries: Record<Language, Record<string, string>> = {
     buyer_account_title: "ক্রেতা অ্যাকাউন্ট ও পছন্দসমূহ",
     buyer_account_desc: "প্রোফাইল ছবি পরিবর্তন, পছন্দের মুদ্রা নির্বাচন এবং সংরক্ষিত সৃষ্টি পরিচালনা করতে সাইন ইন করুন।",
     sign_in_to_continue: "চালিয়ে যেতে সাইন ইন করুন",
-    language_desc: "আপনার মাতৃভাষায় ভার্চুয়াল ইন্টারফেস এবং এআই ক্রাফট স্টোরি বিবরণ।"
+    language_desc: "আপনার মাতৃভাষায় ভার্চুয়াল ইন্টারফেস এবং এআই ক্রাফট স্টোরি বিবরণ।",
+    mic_permission_denied: "মাইক্রোফোন অনুমতি প্রত্যাখ্যাত হয়েছে। অনুগ্রহ করে ব্রাউজারে মাইক্রোফোনের অনুমতি দিন।",
+    image_too_large: "এক বা একাধিক ছবির আকার ১০ মেগাবাইটের বেশি। অনুগ্রহ করে ছোট ফাইল নির্বাচন করুন।",
+    ai_crafting_reassurance: "একাধিক ভাষায় আপনার ক্যাটালগ তৈরি হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন..."
   },
 
   hi: {
@@ -790,6 +796,9 @@ export const dictionaries: Record<Language, Record<string, string>> = {
     buyer_account_title: "क्रेता खाता और प्राथमिकताएं",
     buyer_account_desc: "अपनी प्रोफ़ाइल फ़ोटो, पसंदीदा मुद्रा और सहेजे गए हथकरघा उत्पादों को प्रबंधित करने के लिए साइन इन करें।",
     sign_in_to_continue: "जारी रखने के लिए साइन इन करें",
-    language_desc: "अपनी मातृभाषा में सहज इंटरफ़ेस और एआई हथकरघा कहानियों का विवरण।"
+    language_desc: "अपनी मातृभाषा में सहज इंटरफ़ेस और एआई हथकरघा कहानियों का विवरण।",
+    mic_permission_denied: "माइक्रोफ़ोन एक्सेस अस्वीकृत। कृपया अपने ब्राउज़र में माइक्रोफ़ोन की अनुमति दें।",
+    image_too_large: "एक या अधिक छवियों का आकार 10MB से अधिक है। कृपया छोटी फ़ाइलें चुनें।",
+    ai_crafting_reassurance: "कई भाषाओं में आपका कैटलॉग तैयार हो रहा है, कृपया प्रतीक्षा करें..."
   }
 };
